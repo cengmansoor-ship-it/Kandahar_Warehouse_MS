@@ -1,0 +1,74 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Account",
+      "description": "System user with role-based access.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["ADMIN", "WAREHOUSE_MGR", "PROCUREMENT_OFFICER", "HOD", "STAFF"] },
+        "facultyId": { "type": "string" },
+        "deptId": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["userId", "email", "role", "name"]
+    },
+    "Item": {
+      "title": "Inventory Item",
+      "description": "Standardized item in the university catalog.",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string" },
+        "nameEn": { "type": "string" },
+        "namePs": { "type": "string" },
+        "nameDr": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "unitId": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "StockBalance": {
+      "title": "Stock Balance",
+      "description": "Current quantity of an item in a specific warehouse.",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string" },
+        "warehouseId": { "type": "string" },
+        "quantity": { "type": "number" },
+        "lowStockThreshold": { "type": "number" }
+      }
+    },
+    "Request": {
+      "title": "Item Request",
+      "description": "A proposal for items by a faculty or department.",
+      "type": "object",
+      "properties": {
+        "requestId": { "type": "string" },
+        "requesterId": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED", "PROCUREMENT", "DELIVERED"] },
+        "progress": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and roles."
+    },
+    "/items/{itemId}": {
+      "schema": "Item",
+      "description": "Master catalog of items."
+    },
+    "/inventory/{stockId}": {
+      "schema": "StockBalance",
+      "description": "Real-time stock levels."
+    },
+    "/requests/{requestId}": {
+      "schema": "Request",
+      "description": "Workflow requests for items."
+    }
+  }
+}

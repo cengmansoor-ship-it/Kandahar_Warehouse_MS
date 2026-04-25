@@ -1,0 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --radius-4xl: 2rem;
+  --color-primary-teal: #0F8F7F;
+  --color-primary-light: #26A69A;
+  --color-surface: #F1F4F8;
+}
+
+@layer base {
+  body {
+    @apply font-sans bg-[#F8F9FA] text-[#1A1D1F] antialiased;
+    font-family: var(--font-sans);
+  }
+}
+
+.fintech-card {
+  @apply bg-white rounded-4xl border border-slate-100 shadow-xl shadow-slate-200/40 transition-all hover:shadow-2xl hover:shadow-slate-200/60 overflow-hidden;
+}
+
+.glass-pill {
+  @apply bg-white/40 backdrop-blur-md border border-white/20 rounded-full;
+}
+
+/* RTL Support - ensures layout stays stable when toggling Pashto/Dari */
+[dir="rtl"] .ltr-only {
+  display: none;
+}
+
