@@ -1,20 +1,21 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   LayoutDashboard, 
   Package, 
-  ShoppingCart, 
-  FileText, 
   Truck, 
+  FileText, 
+  ShoppingCart, 
   BarChart3, 
   Settings, 
   LogOut,
   ChevronLeft,
-  ChevronRight,
-  Menu
+  Menu,
+  Trash2
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 import { cn } from '@/src/lib/utils';
 
 interface SidebarProps {
@@ -25,7 +26,44 @@ interface SidebarProps {
 
 export const Sidebar = ({ collapsed, setCollapsed, onLogout }: SidebarProps) => {
   const { t, i18n } = useTranslation();
+  const [logo, setLogo] = React.useState<string>(localStorage.getItem('system_logo') || "https://upload.wikimedia.org/wikipedia/en/2/23/Kandahar_University_Logo.png");
   const isRtl = i18n.dir() === 'rtl';
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File is too large. Maximum size is 5MB.");
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Only JPG and PNG images are allowed.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setLogo(base64String);
+      localStorage.setItem('system_logo', base64String);
+      toast.success("System logo updated successfully");
+      window.dispatchEvent(new Event('storage'));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  React.useEffect(() => {
+    const handleStorageChange = () => {
+      const storedLogo = localStorage.getItem('system_logo');
+      if (storedLogo) setLogo(storedLogo);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const menuItems = [
     { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard' },
@@ -34,69 +72,62 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout }: SidebarProps) => 
     { id: 'requests', label: t('requests'), icon: FileText, path: '/requests' },
     { id: 'procurement', label: t('procurement'), icon: ShoppingCart, path: '/procurement' },
     { id: 'reports', label: t('reports'), icon: BarChart3, path: '/reports' },
+    { id: 'trash', label: t('trash_bin'), icon: Trash2, path: '/trash' },
     { id: 'settings', label: t('settings'), icon: Settings, path: '/settings' },
   ];
 
   return (
-    <>
-      {/* Mobile Backdrop */}
-      {!collapsed && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-[60] lg:hidden backdrop-blur-sm transition-opacity duration-300"
-          onClick={() => setCollapsed(true)}
-        />
+    <motion.aside
+      initial={false}
+      animate={{ width: collapsed ? '90px' : '280px' }}
+      dir={isRtl ? 'rtl' : 'ltr'}
+      className={cn(
+        "bg-[#0F8F7F] h-screen flex flex-col transition-all duration-500 overflow-hidden z-50 fixed lg:relative sidebar",
+        collapsed ? "w-[90px]" : "w-[280px]"
       )}
-
-      <motion.div
-        initial={false}
-        animate={{ 
-          width: collapsed ? (typeof window !== 'undefined' && window.innerWidth < 1024 ? 0 : 100) : 320,
-          x: (collapsed && typeof window !== 'undefined' && window.innerWidth < 1024) 
-            ? (isRtl ? '100%' : '-100%') 
-            : 0
-        }}
-        className={cn(
-          "fixed lg:relative h-screen bg-[#0F8F7F] text-white flex flex-col transition-all duration-300 border-r border-white/5 z-[70] shadow-[20px_0_50px_rgba(0,0,0,0.1)] lg:shadow-none",
-          isRtl ? "right-0 border-l border-r-0" : "left-0"
+    >
+      <div className="p-6 flex items-center justify-between mb-8">
+        {!collapsed && (
+          <motion.div 
+            initial={{ opacity: 0, x: isRtl ? 10 : -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: isRtl ? 10 : -10 }}
+            className="flex items-center gap-4"
+          >
+            <label className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-2xl transition-all border border-slate-100 overflow-hidden cursor-pointer hover:ring-4 hover:ring-white/20 group relative">
+              <img 
+                src={logo} 
+                alt="System Logo" 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[8px] font-black text-white uppercase tracking-tighter rounded-full">
+                Change
+              </div>
+              <input type="file" className="hidden" accept="image/*" onChange={handleLogoChange} />
+            </label>
+            <div className="flex flex-col text-start pt-1">
+              <span className={cn("font-black uppercase text-white/60", isRtl ? "text-xs tracking-wider" : "text-[10px] tracking-[0.2em]")}>{t('warehouse_ms')}</span>
+            </div>
+          </motion.div>
         )}
-      >
-        <div className="p-8 pb-10 flex items-center justify-between">
-          <AnimatePresence mode="wait">
-            {!collapsed && (
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                className="flex items-center gap-4"
-              >
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-2xl rotate-3 group-hover:rotate-0 transition-transform">
-                  <span className="text-primary-teal font-black text-2xl">K</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-black text-xl tracking-tighter leading-none">KANDAHAR</span>
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 mt-1">Warehouse MS</span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          
-          <button 
-            onClick={() => setCollapsed(!collapsed)}
-            className="p-3 bg-white/10 hover:bg-white text-white hover:text-primary-teal rounded-2xl transition-all shadow-lg group hidden lg:block"
-          >
-            {collapsed ? <Menu size={20} /> : <ChevronLeft size={20} className={cn("transition-transform", isRtl ? "rotate-180" : "group-hover:-translate-x-0.5")} />}
-          </button>
+        
+        <button 
+          onClick={() => setCollapsed(!collapsed)}
+          className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all shadow-lg hidden lg:block"
+        >
+          {collapsed ? <Menu size={20} /> : <ChevronLeft size={20} className={cn("transition-transform", isRtl ? "rotate-180" : "rotate-0")} />}
+        </button>
 
-          {/* Mobile Close Button */}
-          <button 
-            onClick={() => setCollapsed(true)}
-            className="lg:hidden p-3 bg-white/10 rounded-2xl"
-          >
-            <ChevronLeft size={20} className={isRtl ? "rotate-180" : ""} />
-          </button>
-        </div>
+        {/* Mobile Close Button */}
+        <button 
+          onClick={() => setCollapsed(true)}
+          className="lg:hidden p-3 bg-white/10 text-white rounded-2xl"
+        >
+          <ChevronLeft size={20} className={cn(isRtl && "rotate-180")} />
+        </button>
+      </div>
 
-      <nav className="flex-1 px-5 space-y-3 overflow-y-auto custom-scrollbar">
+      <nav className="flex-1 px-5 space-y-4 overflow-y-auto custom-scrollbar">
         {menuItems.map((item) => (
           <NavLink
             key={item.id}
@@ -104,32 +135,26 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout }: SidebarProps) => 
             className={({ isActive }) => cn(
               "w-full flex items-center gap-5 p-4 rounded-3xl transition-all group relative",
               isActive 
-                ? "bg-white text-primary-teal shadow-2xl shadow-black/10" 
-                : "text-white/60 hover:bg-white/10 hover:text-white"
+                ? "bg-white/20 text-white shadow-lg" 
+                : "text-white/70 hover:bg-white/10 hover:text-white"
             )}
           >
             {({ isActive }) => (
               <>
-                <item.icon size={22} className="shrink-0" />
-                {!collapsed && (
-                  <span className="font-black text-xs uppercase tracking-widest">{item.label}</span>
-                )}
+                <div className="flex flex-1 items-center gap-5 text-start">
+                  <item.icon size={22} className="shrink-0" />
+                  {!collapsed && (
+                    <span className={cn("font-black uppercase tracking-widest", isRtl ? "text-sm" : "text-xs")}>{item.label}</span>
+                  )}
+                </div>
                 {!collapsed && isActive && (
                   <motion.div 
                     layoutId="nav-dot"
                     className={cn(
-                      "absolute w-1.5 h-1.5 bg-primary-teal rounded-full",
-                      isRtl ? "left-4" : "right-4"
+                      "absolute w-1.5 h-1.5 bg-white rounded-full",
+                      isRtl ? "right-4" : "left-4"
                     )}
                   />
-                )}
-                {collapsed && (
-                  <div className={cn(
-                    "absolute invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all z-50 bg-slate-900 text-white px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest whitespace-nowrap shadow-xl",
-                    isRtl ? "right-24" : "left-24"
-                  )}>
-                    {item.label}
-                  </div>
                 )}
               </>
             )}
@@ -140,13 +165,12 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout }: SidebarProps) => 
       <div className="p-6">
         <button 
           onClick={onLogout}
-          className="w-full flex items-center gap-5 p-4 rounded-3xl text-white/50 hover:bg-red-500/10 hover:text-red-400 transition-all group"
+          className="w-full flex items-center gap-5 p-4 rounded-3xl text-white/70 hover:bg-white/10 hover:text-white transition-all group text-start"
         >
           <LogOut size={22} />
-          {!collapsed && <span className="font-black text-xs uppercase tracking-widest">{t('logout')}</span>}
+          {!collapsed && <span className={cn("font-black uppercase tracking-widest", isRtl ? "text-sm" : "text-xs")}>{t('logout')}</span>}
         </button>
       </div>
-    </motion.div>
-    </>
+    </motion.aside>
   );
 };

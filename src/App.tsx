@@ -13,6 +13,7 @@ import { RequestManager } from './components/requests/RequestManager';
 import { ProcurementManager } from './components/procurement/ProcurementManager';
 import { ReportManager } from './components/reports/ReportManager';
 import { SettingsManager } from './components/settings/SettingsManager';
+import { TrashManager } from './components/inventory/TrashManager';
 import { LoginManager } from './components/auth/LoginManager';
 import { Package, TrendingUp, AlertTriangle, FileCheck } from 'lucide-react';
 import { Toaster } from 'sonner';
@@ -24,12 +25,14 @@ function Dashboard() {
     <div className="space-y-6 lg:space-y-12">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">{t('welcome')}, Admin</h1>
-          <p className="text-slate-400 font-medium mt-1 uppercase text-[10px] tracking-widest leading-none">University Logistics Intelligence Hub</p>
+          <h1 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">{t('welcome')}, {t('admin_role')}</h1>
+          <p className="text-slate-400 font-medium mt-1 uppercase text-[10px] tracking-widest leading-none text-start">
+            {t('university_logistics_hub')}
+          </p>
         </div>
         <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm w-fit">
            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.5)]" />
-           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">System Online</span>
+           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t('system_online')}</span>
         </div>
       </header>
 
@@ -37,28 +40,28 @@ function Dashboard() {
         <StatCard 
           title={t('stock_summary')} 
           value="1,284" 
-          subValue="+12 today" 
+          subValue={t('today_stat')} 
           icon={<Package size={24} />}
           color="blue"
         />
         <StatCard 
           title={t('recent_requests')} 
           value="48" 
-          subValue="12 pending" 
+          subValue={t('pending_stat')} 
           icon={<FileCheck size={24} />}
           color="emerald"
         />
         <StatCard 
           title={t('low_stock')} 
           value="14" 
-          subValue="Critical items" 
+          subValue={t('critical_items')} 
           icon={<AlertTriangle size={24} />}
           color="amber"
         />
         <StatCard 
-          title="Procurement" 
+          title={t('procurement')} 
           value="5" 
-          subValue="Active tenders" 
+          subValue={t('active_tenders')} 
           icon={<TrendingUp size={24} />}
           color="indigo"
         />
@@ -69,17 +72,17 @@ function Dashboard() {
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
                <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
-               <h3 className="font-black text-xl text-slate-900 tracking-tight">Inventory Movement</h3>
+               <h3 className="font-black text-xl text-slate-900 tracking-tight">{t('inventory_movement')}</h3>
             </div>
           </div>
           <div className="flex-1 flex items-center justify-center text-slate-400 italic bg-primary-teal/[0.02] rounded-3xl border border-dashed border-primary-teal/10 uppercase tracking-[0.3em] text-[10px] p-8 text-center leading-relaxed">
-            Real-time analytics engine initializing...
+            {t('realtime_initializing')}
           </div>
         </div>
         <div className="fintech-card bg-white p-6 lg:p-10 group">
           <div className="flex items-center gap-4 mb-8">
              <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
-             <h3 className="font-black text-xl text-slate-900 tracking-tight">Recent Activities</h3>
+             <h3 className="font-black text-xl text-slate-900 tracking-tight">{t('recent_activities')}</h3>
           </div>
           <div className="space-y-8">
             {[1, 2, 3, 4].map((i) => (
@@ -87,10 +90,10 @@ function Dashboard() {
                 <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 group-hover/item:border-primary-teal group-hover/item:bg-primary-teal/5 transition-all">
                   <Package size={20} className="text-slate-400 group-hover/item:text-primary-teal" />
                 </div>
-                <div className="flex flex-col justify-center">
-                  <div className="text-xs font-black text-slate-900 uppercase tracking-tight group-hover/item:text-primary-teal transition-colors">New items received</div>
-                  <div className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest leading-tight">Eng. Faculty - Lab B</div>
-                  <div className="text-[10px] text-primary-teal/50 mt-1 uppercase font-black tracking-widest italic">2 hours ago</div>
+                <div className="flex flex-col justify-center text-start">
+                  <div className="text-xs font-black text-slate-900 uppercase tracking-tight group-hover/item:text-primary-teal transition-colors">{t('new_items_received')}</div>
+                  <div className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest leading-tight">{t('dept_engineering_faculty')} - {t('lab_b')}</div>
+                  <div className="text-[10px] text-primary-teal/50 mt-1 uppercase font-black tracking-widest italic">2 {t('hours_ago')}</div>
                 </div>
               </div>
             ))}
@@ -105,31 +108,31 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
 
   return (
-    <>
+    <BrowserRouter>
       <Toaster position="top-center" richColors />
       {!isAuthenticated ? (
         <LoginManager onLogin={() => setIsAuthenticated(true)} />
       ) : (
-        <BrowserRouter>
-          <Layout onLogout={() => setIsAuthenticated(false)}>
-            <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/inventory" element={<InventoryManager />} />
-              <Route path="/receiving" element={<ReceivingManager />} />
-              <Route path="/requests" element={<RequestManager />} />
-              <Route path="/procurement" element={<ProcurementManager />} />
-              <Route path="/reports" element={<ReportManager />} />
-              <Route path="/settings" element={<SettingsManager />} />
-            </Routes>
-          </Layout>
-        </BrowserRouter>
+        <Layout onLogout={() => setIsAuthenticated(false)}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/inventory" element={<InventoryManager />} />
+            <Route path="/receiving" element={<ReceivingManager />} />
+            <Route path="/requests" element={<RequestManager />} />
+            <Route path="/procurement" element={<ProcurementManager />} />
+            <Route path="/reports" element={<ReportManager />} />
+            <Route path="/trash" element={<TrashManager />} />
+            <Route path="/settings" element={<SettingsManager />} />
+          </Routes>
+        </Layout>
       )}
-    </>
+    </BrowserRouter>
   );
 }
 
 const StatCard: React.FC<{ title: string, value: string, subValue: string, icon: React.ReactNode, color: string }> = ({ title, value, subValue, icon, color }) => {
+  const { t } = useTranslation();
   const colorMap: Record<string, string> = {
     blue: "bg-[#0F8F7F]/5 border-[#0F8F7F]/10 text-[#0F8F7F]",
     emerald: "bg-emerald-50 border-emerald-100 text-emerald-600",
@@ -144,7 +147,7 @@ const StatCard: React.FC<{ title: string, value: string, subValue: string, icon:
           {icon}
         </div>
         <div className="text-[10px] font-black p-1 px-2 rounded-lg bg-slate-50 border border-slate-100 text-slate-400 uppercase tracking-widest">
-          LIVE
+          {t('live')}
         </div>
       </div>
       <div className="mt-8">

@@ -32,7 +32,7 @@ export const InventoryManager = () => {
       const res = await inventoryService.getItems();
       setItems(res.data);
     } catch (error) {
-      toast.error('Failed to load inventory items');
+      toast.error(t('failed_load_inventory'));
       console.error(error);
     } finally {
       setLoading(false);
@@ -42,13 +42,13 @@ export const InventoryManager = () => {
   const handleAddItem = async (itemData: any) => {
     try {
       // Set default stock for new official items
-      const payload = { ...itemData, stock: 0, unit: 'pcs' };
+      const payload = { ...itemData, stock: 0, unit: t('unit_pcs') };
       await api.post('/items', payload);
-      toast.success(`Successfully mapped and added: ${itemData.name}`);
+      toast.success(`${t('mapped_added')}: ${itemData.name}`);
       setShowAddModal(false);
       fetchItems();
     } catch (error) {
-      toast.error('Failed to add item. Ensure codes are valid.');
+      toast.error(t('failed_add_item'));
     }
   };
 
@@ -64,7 +64,7 @@ export const InventoryManager = () => {
         <div>
           <h2 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">{t('inventory')}</h2>
           <p className="text-slate-400 font-medium mt-1 uppercase text-[10px] tracking-widest leading-none">
-            Government Standard Code-Based Registry
+            {t('inventory_description')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
@@ -76,7 +76,7 @@ export const InventoryManager = () => {
                 view === 'grid' ? "bg-white shadow-xl shadow-black/5 text-primary-teal" : "text-slate-400 hover:text-slate-600"
               )}
             >
-              Grid
+              {t('grid')}
             </button>
             <button 
               onClick={() => setView('list')}
@@ -85,7 +85,7 @@ export const InventoryManager = () => {
                 view === 'list' ? "bg-white shadow-xl shadow-black/5 text-primary-teal" : "text-slate-400 hover:text-slate-600"
               )}
             >
-              List
+              {t('list')}
             </button>
           </div>
           <button 
@@ -93,34 +93,37 @@ export const InventoryManager = () => {
             className="flex-1 sm:flex-none flex items-center justify-center gap-3 bg-primary-teal text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-xl shadow-primary-teal/20"
           >
             <Plus size={18} />
-            Map New SKU
+            {t('map_new_sku')}
           </button>
         </div>
       </div>
 
       <div className="fintech-card p-4 lg:p-6 flex flex-col md:flex-row items-center gap-4 lg:gap-6 bg-white/50 backdrop-blur-sm">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+        <div className="relative flex-1 w-full text-start">
+          <Search className={cn("absolute top-1/2 -translate-y-1/2 text-slate-300", t('lang_direction') === 'rtl' ? "right-5" : "left-5")} size={18} />
           <input 
             type="text" 
-            placeholder="Search by Code, BAB, or Nomenclature..."
-            className="w-full bg-slate-50 border-none rounded-2xl py-4.5 pl-14 pr-6 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all text-slate-700"
+            placeholder={t('search_inventory_placeholder')}
+            className={cn(
+              "w-full bg-slate-50 border-none rounded-2xl py-4.5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all text-slate-700",
+              t('lang_direction') === 'rtl' ? "pr-14 pl-6" : "pl-14 pr-6"
+            )}
           />
         </div>
         <div className="flex items-center gap-4 w-full md:w-auto">
           <button 
-            onClick={() => toast.info("Advanced Filter coming soon...")}
+            onClick={() => toast.info(t('advanced_filter_coming_soon'))}
             className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white text-slate-400 px-8 py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-primary-teal transition-all border border-slate-100 shadow-sm"
           >
             <Filter size={18} />
-            Filter
+            {t('filter')}
           </button>
           <button 
-            onClick={() => toast.success("Inventory Ledger exported to XLSX")}
+            onClick={() => toast.success(t('inventory_ledger_exported'))}
             className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white text-slate-400 px-8 py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-primary-teal transition-all border border-slate-100 shadow-sm"
           >
             <ArrowUpRight size={18} />
-            Export
+            {t('export')}
           </button>
         </div>
       </div>
@@ -144,10 +147,120 @@ export const InventoryManager = () => {
 };
 
 const InventoryCard: React.FC<{ item: any, horizontal?: boolean }> = ({ item, horizontal }) => {
+  const { t } = useTranslation();
   const statusStyles: Record<string, string> = {
     'In Stock': 'bg-emerald-50 text-emerald-600 border-emerald-100',
     'Low Stock': 'bg-amber-50 text-amber-600 border-amber-100',
     'Out of Stock': 'bg-red-50 text-red-600 border-red-100',
+  };
+
+  const translatedStatus: Record<string, string> = {
+    'In Stock': t('status_in_stock'),
+    'Low Stock': t('status_low_stock'),
+    'Out of Stock': t('status_out_of_stock'),
+  };
+
+  const handlePrintLedger = (item: any) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const html = `
+      <html>
+        <head>
+          <title>${t('inventory_ledger')} - ${item.name}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            body { font-family: 'Inter', sans-serif; padding: 40px; color: #1a1d1f; direction: ${t('lang_direction') === 'rtl' ? 'rtl' : 'ltr'}; }
+            .header { border-bottom: 3px solid #0F8F7F; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+            .university-name { font-weight: 900; text-transform: uppercase; letter-spacing: 2px; font-size: 24px; color: #0F8F7F; }
+            .document-type { font-weight: 700; border: 1px solid #e2e8f0; padding: 5px 15px; border-radius: 8px; font-size: 12px; }
+            .item-info { margin-bottom: 40px; background: #f8fafc; padding: 25px; border-radius: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+            .info-label { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+            .info-value { font-size: 16px; font-weight: 900; margin-top: 5px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { text-align: ${t('lang_direction') === 'rtl' ? 'right' : 'left'}; padding: 15px; background: #f1f5f9; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
+            td { padding: 15px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
+            .footer { margin-top: 60px; display: flex; justify-content: space-between; }
+            .signature-box { border-top: 1px solid #64748b; width: 200px; padding-top: 10px; text-align: center; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+            @media print {
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="university-name">${t('app_name')}</div>
+            <div class="document-type">${t('official_ledger')}</div>
+          </div>
+
+          <div class="item-info">
+            <div>
+              <div class="info-label">${t('item_nomenclature')}</div>
+              <div class="info-value">${item.name}</div>
+            </div>
+            <div>
+              <div class="info-label">${t('standard_id_bab')}</div>
+              <div class="info-value">${item.item_code} / ${item.bab_code}</div>
+            </div>
+            <div>
+              <div class="info-label">${t('physical_stock')}</div>
+              <div class="info-value">${item.stock} ${item.unit || t('unit_pcs')}</div>
+            </div>
+            <div>
+              <div class="info-label">${t('registry_date')}</div>
+              <div class="info-value">${new Date().toLocaleDateString()}</div>
+            </div>
+          </div>
+
+          <h3>${t('transaction_history')}</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>${t('date')}</th>
+                <th>${t('reference')}</th>
+                <th>${t('operation')}</th>
+                <th>${t('entity')}</th>
+                <th>${t('change')}</th>
+                <th>${t('balance')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${new Date().toLocaleDateString()}</td>
+                <td>REG-001</td>
+                <td>${t('initial_load')}</td>
+                <td>${t('system')}</td>
+                <td>+${item.stock}</td>
+                <td>${item.stock}</td>
+              </tr>
+              <tr>
+                <td>-</td>
+                <td>-</td>
+                <td>${t('no_prior_history')}</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <div class="signature-box">${t('warehouse_rep')}</div>
+            <div class="signature-box">${t('chancellor_office')}</div>
+          </div>
+
+          <script>
+            window.onload = () => { 
+              window.print();
+              setTimeout(() => { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
   };
 
   return (
@@ -167,7 +280,7 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean }> = ({ item, ho
                    {item.item_code}
                  </span>
                  <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">
-                   BAB {item.bab_code}
+                   {t('select_bab').split(' ')[0]} {item.bab_code}
                  </div>
                </div>
                <div className="text-xl font-black text-[#1A1D1F] tracking-tight leading-tight group-hover:text-primary-teal transition-colors">
@@ -176,16 +289,16 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean }> = ({ item, ho
              </div>
           </div>
           <div className={cn("px-3 py-1 rounded-full text-[10px] font-black border uppercase tracking-widest", statusStyles[item.status])}>
-            {item.status}
+            {translatedStatus[item.status] || item.status}
           </div>
         </div>
 
         <div className={cn("mt-2 flex gap-8", horizontal && "mt-0")}>
-           <div className="flex flex-col">
-             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Current Stock</span>
+           <div className="flex flex-col text-start">
+             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t('current_stock')}</span>
              <div className="flex items-end gap-2">
                 <span className="text-3xl font-black text-[#1A1D1F] leading-none">{item.stock}</span>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{item.unit || 'pcs'}</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{item.unit || t('unit_pcs')}</span>
              </div>
            </div>
         </div>
@@ -193,10 +306,10 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean }> = ({ item, ho
 
       <div className={cn("mt-10", horizontal && "mt-0 ml-12")}>
         <button 
-          onClick={() => toast.info(`Opening ledger for ${item.name}...`)}
+          onClick={() => handlePrintLedger(item)}
           className="w-full bg-[#1A1D1F] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all flex items-center justify-center gap-3 shadow-2xl shadow-slate-900/10"
         >
-          Inventory Ledger
+          {t('inventory_ledger')}
           <ArrowUpRight size={14} className="opacity-50" />
         </button>
       </div>

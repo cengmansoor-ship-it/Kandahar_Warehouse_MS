@@ -30,3 +30,33 @@
   display: none;
 }
 
+/* Premium Sidebar Scrollbar */
+.sidebar::-webkit-scrollbar,
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track,
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #0F8F7F;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #26A69A;
+  border-radius: 20px;
+  border: 1px solid #0F8F7F;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover,
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #34c7bb;
+}
+
+/* Firefox Support */
+.sidebar,
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #26A69A #0F8F7F;
+}
+
