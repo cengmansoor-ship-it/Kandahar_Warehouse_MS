@@ -1,7 +1,7 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { 
   LayoutDashboard, 
   Package, 
@@ -13,7 +13,8 @@ import {
   LogOut,
   ChevronLeft,
   Menu,
-  Trash2
+  Trash2,
+  Info
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/src/lib/utils';
@@ -26,6 +27,7 @@ interface SidebarProps {
 
 export const Sidebar = ({ collapsed, setCollapsed, onLogout }: SidebarProps) => {
   const { t, i18n } = useTranslation();
+  const location = useLocation();
   const [logo, setLogo] = React.useState<string>(localStorage.getItem('system_logo') || "https://upload.wikimedia.org/wikipedia/en/2/23/Kandahar_University_Logo.png");
   const isRtl = i18n.dir() === 'rtl';
 
@@ -73,6 +75,7 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout }: SidebarProps) => 
     { id: 'procurement', label: t('procurement'), icon: ShoppingCart, path: '/procurement' },
     { id: 'reports', label: t('reports'), icon: BarChart3, path: '/reports' },
     { id: 'trash', label: t('trash_bin'), icon: Trash2, path: '/trash' },
+    { id: 'about', label: t('about_us'), icon: Info, path: '/about' },
     { id: 'settings', label: t('settings'), icon: Settings, path: '/settings' },
   ];
 
@@ -128,38 +131,37 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout }: SidebarProps) => 
       </div>
 
       <nav className="flex-1 px-5 space-y-4 overflow-y-auto custom-scrollbar">
-        {menuItems.map((item) => (
-          <NavLink
-            key={item.id}
-            to={item.path}
-            className={({ isActive }) => cn(
-              "w-full flex items-center gap-5 p-4 rounded-3xl transition-all group relative",
-              isActive 
-                ? "bg-white/20 text-white shadow-lg" 
-                : "text-white/70 hover:bg-white/10 hover:text-white"
-            )}
-          >
-            {({ isActive }) => (
-              <>
-                <div className="flex flex-1 items-center gap-5 text-start">
-                  <item.icon size={22} className="shrink-0" />
-                  {!collapsed && (
-                    <span className={cn("font-black uppercase tracking-widest", isRtl ? "text-sm" : "text-xs")}>{item.label}</span>
-                  )}
-                </div>
-                {!collapsed && isActive && (
-                  <motion.div 
-                    layoutId="nav-dot"
-                    className={cn(
-                      "absolute w-1.5 h-1.5 bg-white rounded-full",
-                      isRtl ? "right-4" : "left-4"
-                    )}
-                  />
+        {menuItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <Link
+              key={item.id}
+              to={item.path}
+              className={cn(
+                "w-full flex items-center gap-5 p-4 rounded-3xl transition-all group relative",
+                isActive 
+                  ? "bg-white/20 text-white shadow-lg" 
+                  : "text-white/70 hover:bg-white/10 hover:text-white"
+              )}
+            >
+              <div className="flex flex-1 items-center gap-5 text-start">
+                <item.icon size={22} className="shrink-0" />
+                {!collapsed && (
+                  <span className={cn("font-black uppercase tracking-widest", isRtl ? "text-sm" : "text-xs")}>{item.label}</span>
                 )}
-              </>
-            )}
-          </NavLink>
-        ))}
+              </div>
+              {!collapsed && isActive && (
+                <motion.div 
+                  layoutId="nav-dot"
+                  className={cn(
+                    "absolute w-1.5 h-1.5 bg-white rounded-full",
+                    isRtl ? "right-4" : "left-4"
+                  )}
+                />
+              )}
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="p-6">

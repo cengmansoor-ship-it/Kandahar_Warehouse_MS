@@ -15,6 +15,7 @@ import { ReportManager } from './components/reports/ReportManager';
 import { SettingsManager } from './components/settings/SettingsManager';
 import { TrashManager } from './components/inventory/TrashManager';
 import { LoginManager } from './components/auth/LoginManager';
+import AboutUs from './pages/AboutUs';
 import { Package, TrendingUp, AlertTriangle, FileCheck } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { cn } from './lib/utils';
@@ -124,6 +125,7 @@ export default function App() {
             <Route path="/reports" element={<ReportManager />} />
             <Route path="/trash" element={<TrashManager />} />
             <Route path="/settings" element={<SettingsManager />} />
+            <Route path="/about" element={<AboutUs />} />
           </Routes>
         </Layout>
       )}
