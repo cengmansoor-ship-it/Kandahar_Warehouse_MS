@@ -15,9 +15,15 @@ export const LoginManager = ({ onLogin }: { onLogin: () => void }) => {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isForgotPassword) {
+      toast.success(`Reset link sent to ${email}`);
+      setIsForgotPassword(false);
+      return;
+    }
     if (isLogin) {
       if (email === adminEmail && password === adminPass) {
         onLogin();
@@ -83,27 +89,31 @@ export const LoginManager = ({ onLogin }: { onLogin: () => void }) => {
           className="w-full max-w-md text-center"
         >
           <h2 className="text-4xl font-black text-[#0F8F7F] mb-6 tracking-tight">
-            {isLogin ? "Sign In" : "Create Account"}
+            {isForgotPassword ? "Reset Password" : isLogin ? "Sign In" : "Create Account"}
           </h2>
 
-          <div className="flex justify-center gap-4 mb-8">
-            {['f', 'G+', 'in'].map((social) => (
-              <div 
-                key={social} 
-                onClick={() => toast.info(`Login with ${social} is coming soon!`)}
-                className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm cursor-pointer hover:bg-slate-50 transition-colors shadow-sm"
-              >
-                {social}
-              </div>
-            ))}
-          </div>
+          {!isForgotPassword && (
+            <div className="flex justify-center gap-4 mb-8">
+              {['f', 'G+', 'in'].map((social) => (
+                <div 
+                  key={social} 
+                  onClick={() => toast.info(`Login with ${social} is coming soon!`)}
+                  className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm cursor-pointer hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  {social}
+                </div>
+              ))}
+            </div>
+          )}
 
           <p className="text-slate-400 text-xs font-medium mb-8 italic">
-            or use your email for {isLogin ? 'login' : 'registration'}:
+            {isForgotPassword 
+              ? "Enter your email to receive a recovery link:"
+              : `or use your email for ${isLogin ? 'login' : 'registration'}:`}
           </p>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            {!isLogin && (
+            {!isLogin && !isForgotPassword && (
               <div className="relative group">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#0F8F7F] transition-colors" size={18} />
                 <input 
@@ -122,27 +132,40 @@ export const LoginManager = ({ onLogin }: { onLogin: () => void }) => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email"
                 className="w-full bg-[#f1f4f8] border-none rounded-lg py-4 pl-12 pr-4 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0F8F7F]/10"
+                required
               />
             </div>
 
-            <div className="relative group">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#0F8F7F] transition-colors" size={18} />
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full bg-[#f1f4f8] border-none rounded-lg py-4 pl-12 pr-4 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0F8F7F]/10"
-              />
-            </div>
+            {!isForgotPassword && (
+              <div className="relative group">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#0F8F7F] transition-colors" size={18} />
+                <input 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  className="w-full bg-[#f1f4f8] border-none rounded-lg py-4 pl-12 pr-4 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0F8F7F]/10"
+                />
+              </div>
+            )}
 
-            {isLogin && (
+            {isLogin && !isForgotPassword && (
               <button 
                 type="button" 
-                onClick={() => toast.info("Password recovery system is currently offline. Please contact the IT administrator.")}
+                onClick={() => setIsForgotPassword(true)}
                 className="text-slate-400 text-xs underline block mx-auto py-2"
               >
                 Forgot your password?
+              </button>
+            )}
+
+            {isForgotPassword && (
+              <button 
+                type="button" 
+                onClick={() => setIsForgotPassword(false)}
+                className="text-slate-400 text-xs underline block mx-auto py-2"
+              >
+                Back to Sign In
               </button>
             )}
 
@@ -151,7 +174,7 @@ export const LoginManager = ({ onLogin }: { onLogin: () => void }) => {
                 type="submit"
                 className="bg-[#0F8F7F] text-white px-16 py-4 rounded-full text-xs font-black uppercase tracking-widest hover:bg-[#0F8F7F]/90 transition-all shadow-xl shadow-[#0F8F7F]/10"
               >
-                {isLogin ? "SIGN IN" : "SIGN UP"}
+                {isForgotPassword ? "SEND LINK" : isLogin ? "SIGN IN" : "SIGN UP"}
               </button>
             </div>
             
