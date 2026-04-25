@@ -68,32 +68,37 @@ export const RequestManager = () => {
           onSelect={handleRequestItem}
         />
       )}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{t('requests')}</h2>
-          <p className="text-slate-500">Official Item Coding & Requirement Tracking (Bab 220 / Fasl 22300)</p>
+          <h2 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">{t('requests')}</h2>
+          <p className="text-slate-400 font-medium mt-1 uppercase text-[10px] tracking-widest leading-none">
+            Official Item Coding & Requirement Tracking (Bab 220 / Fasl 22300)
+          </p>
         </div>
         <button 
           onClick={() => setShowRequestModal(true)}
-          className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl text-sm font-semibold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10"
+          className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary-teal text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-xl shadow-primary-teal/20"
         >
           <Plus size={18} />
           Create Official Request
         </button>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-4">
-        <div className="relative flex-1 min-w-[240px]">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+      <div className="fintech-card p-4 lg:p-6 bg-white flex flex-col md:flex-row items-center gap-4 lg:gap-6">
+        <div className="relative flex-1 w-full">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
           <input 
             type="text" 
-            placeholder="Search requests by ID, title, or requester..."
-            className="w-full bg-slate-50 border-none rounded-xl py-2.5 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-600/20 transition-all font-medium"
+            placeholder="Lookup by Tracking ID, Requirement Title, or Requester Name..."
+            className="w-full bg-slate-50 border-none rounded-2xl py-4.5 pl-14 pr-6 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all text-slate-700"
           />
         </div>
-        <button className="flex items-center gap-2 bg-slate-50 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-100 transition-all border border-slate-200">
+        <button 
+          onClick={() => toast.info("Pipeline filtering panel coming soon...")}
+          className="w-full md:w-auto flex items-center justify-center gap-3 bg-slate-50 text-slate-400 px-8 py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-primary-teal transition-all border border-slate-100 shadow-sm"
+        >
           <Filter size={18} />
-          Status
+          Refine Pipeline
         </button>
       </div>
 
@@ -123,49 +128,52 @@ const RequestListItem: React.FC<{ request: any }> = ({ request }) => {
   const config = statusConfig[request.status];
 
   return (
-    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all group cursor-pointer">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div className="flex items-start gap-4">
-          <div className={cn("w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0", config.color)}>
-            <config.icon size={24} />
+    <div 
+      onClick={() => toast.info(`Viewing request detail for ${request.title}`)}
+      className="fintech-card p-8 bg-white group cursor-pointer"
+    >
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-10">
+        <div className="flex items-start gap-6">
+          <div className={cn("w-16 h-16 rounded-2xl border flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-110", config.color)}>
+            <config.icon size={28} />
           </div>
           <div>
             <div className="flex items-center gap-3">
-              <span className="font-mono text-[10px] bg-slate-900 text-white px-1.5 py-0.5 rounded font-bold">
+              <span className="font-mono text-[10px] bg-[#1A1D1F] text-white px-2 py-0.5 rounded-lg font-black tracking-widest shadow-sm">
                 {request.item_code}
               </span>
-              <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider", config.color)}>
+              <span className={cn("px-3 py-1 rounded-full text-[10px] font-black border uppercase tracking-widest", config.color)}>
                 {request.status}
               </span>
             </div>
-            <h4 className="text-lg font-bold text-slate-800 mt-1">{request.title}</h4>
-            <div className="flex items-center gap-4 text-xs text-slate-400 mt-2 font-medium uppercase tracking-wider">
+            <h4 className="text-2xl font-black text-[#1A1D1F] mt-2 group-hover:text-primary-teal transition-colors tracking-tight leading-tight">{request.title}</h4>
+            <div className="flex items-center gap-5 text-[10px] text-slate-400 mt-2.5 font-black uppercase tracking-widest">
               <span>{request.requester}</span>
-              <span>•</span>
+              <span className="w-1 h-1 bg-slate-300 rounded-full" />
               <span>{request.date}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-8 w-full lg:w-auto">
-          <div className="flex-1 lg:w-48">
-            <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-              <span>Progress</span>
-              <span>{request.progress}%</span>
+        <div className="flex items-center gap-10 w-full lg:w-auto">
+          <div className="flex-1 lg:w-56">
+            <div className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 italic">
+              <span>Pipeline Progress</span>
+              <span className="text-primary-teal">{request.progress}%</span>
             </div>
-            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: `${request.progress}%` }}
                 className={cn(
-                  "h-full rounded-full",
-                  request.status === 'Rejected' ? 'bg-red-500' : 'bg-blue-500'
+                  "h-full rounded-full transition-all",
+                  request.status === 'Rejected' ? 'bg-red-500' : 'bg-primary-teal shadow-[0_0_12px_rgba(15,143,127,0.5)]'
                 )}
               />
             </div>
           </div>
-          <button className="p-3 bg-slate-50 text-slate-400 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
-            <ChevronRight size={20} />
+          <button className="w-14 h-14 bg-slate-50 text-slate-300 rounded-2xl group-hover:bg-primary-teal group-hover:text-white transition-all shadow-sm flex items-center justify-center border border-slate-100 group-hover:border-primary-teal">
+            <ChevronRight size={24} />
           </button>
         </div>
       </div>

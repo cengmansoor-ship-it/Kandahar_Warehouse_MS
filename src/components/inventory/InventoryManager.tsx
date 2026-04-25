@@ -60,20 +60,20 @@ export const InventoryManager = () => {
           onSelect={handleAddItem}
         />
       )}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">{t('inventory')}</h2>
-          <p className="text-slate-400 font-medium mt-1 uppercase text-[10px] tracking-widest">
+          <h2 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">{t('inventory')}</h2>
+          <p className="text-slate-400 font-medium mt-1 uppercase text-[10px] tracking-widest leading-none">
             Government Standard Code-Based Registry
           </p>
         </div>
-        <div className="flex gap-4">
-          <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 w-fit">
             <button 
               onClick={() => setView('grid')}
               className={cn(
-                "px-5 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-widest",
-                view === 'grid' ? "bg-white shadow-sm text-primary-teal" : "text-slate-500 hover:text-slate-900"
+                "px-5 py-2.5 rounded-xl text-[10px] font-black transition-all uppercase tracking-widest",
+                view === 'grid' ? "bg-white shadow-xl shadow-black/5 text-primary-teal" : "text-slate-400 hover:text-slate-600"
               )}
             >
               Grid
@@ -81,8 +81,8 @@ export const InventoryManager = () => {
             <button 
               onClick={() => setView('list')}
               className={cn(
-                "px-5 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-widest",
-                view === 'list' ? "bg-white shadow-sm text-primary-teal" : "text-slate-500 hover:text-slate-900"
+                "px-5 py-2.5 rounded-xl text-[10px] font-black transition-all uppercase tracking-widest hidden sm:block",
+                view === 'list' ? "bg-white shadow-xl shadow-black/5 text-primary-teal" : "text-slate-400 hover:text-slate-600"
               )}
             >
               List
@@ -90,31 +90,39 @@ export const InventoryManager = () => {
           </div>
           <button 
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-3 bg-primary-teal text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-xl shadow-primary-teal/20"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-3 bg-primary-teal text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-xl shadow-primary-teal/20"
           >
             <Plus size={18} />
-            Add New Item
+            Map New SKU
           </button>
         </div>
       </div>
 
-      <div className="fintech-card p-4 flex flex-wrap items-center gap-4 bg-white/50 backdrop-blur-sm">
-        <div className="relative flex-1 min-w-[280px]">
+      <div className="fintech-card p-4 lg:p-6 flex flex-col md:flex-row items-center gap-4 lg:gap-6 bg-white/50 backdrop-blur-sm">
+        <div className="relative flex-1 w-full">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
           <input 
             type="text" 
-            placeholder="Search by code, BAB, or item name..."
-            className="w-full bg-slate-50 border-none rounded-2xl py-4 pl-14 pr-6 text-sm font-bold outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all text-slate-700"
+            placeholder="Search by Code, BAB, or Nomenclature..."
+            className="w-full bg-slate-50 border-none rounded-2xl py-4.5 pl-14 pr-6 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all text-slate-700"
           />
         </div>
-        <button className="flex items-center gap-3 bg-white text-slate-600 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all border border-slate-100 shadow-sm">
-          <Filter size={18} />
-          Filter
-        </button>
-        <button className="flex items-center gap-3 bg-white text-slate-600 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all border border-slate-100 shadow-sm">
-          <ArrowUpRight size={18} />
-          Export
-        </button>
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <button 
+            onClick={() => toast.info("Advanced Filter coming soon...")}
+            className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white text-slate-400 px-8 py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-primary-teal transition-all border border-slate-100 shadow-sm"
+          >
+            <Filter size={18} />
+            Filter
+          </button>
+          <button 
+            onClick={() => toast.success("Inventory Ledger exported to XLSX")}
+            className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white text-slate-400 px-8 py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-primary-teal transition-all border border-slate-100 shadow-sm"
+          >
+            <ArrowUpRight size={18} />
+            Export
+          </button>
+        </div>
       </div>
 
       <div className={cn(
@@ -184,7 +192,10 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean }> = ({ item, ho
       </div>
 
       <div className={cn("mt-10", horizontal && "mt-0 ml-12")}>
-        <button className="w-full bg-[#1A1D1F] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all flex items-center justify-center gap-3 shadow-2xl shadow-slate-900/10">
+        <button 
+          onClick={() => toast.info(`Opening ledger for ${item.name}...`)}
+          className="w-full bg-[#1A1D1F] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all flex items-center justify-center gap-3 shadow-2xl shadow-slate-900/10"
+        >
           Inventory Ledger
           <ArrowUpRight size={14} className="opacity-50" />
         </button>

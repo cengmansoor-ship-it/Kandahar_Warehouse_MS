@@ -21,62 +21,76 @@ import { cn } from './lib/utils';
 function Dashboard() {
   const { t } = useTranslation();
   return (
-    <div className="space-y-8">
-      <header>
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">{t('welcome')}, Admin</h1>
-        <p className="text-slate-500 mt-1">Here is a summary of the university warehouse today.</p>
+    <div className="space-y-6 lg:space-y-12">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">{t('welcome')}, Admin</h1>
+          <p className="text-slate-400 font-medium mt-1 uppercase text-[10px] tracking-widest leading-none">University Logistics Intelligence Hub</p>
+        </div>
+        <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm w-fit">
+           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.5)]" />
+           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">System Online</span>
+        </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8">
         <StatCard 
           title={t('stock_summary')} 
           value="1,284" 
           subValue="+12 today" 
-          icon={<Package className="text-blue-600" size={24} />}
+          icon={<Package size={24} />}
           color="blue"
         />
         <StatCard 
           title={t('recent_requests')} 
           value="48" 
           subValue="12 pending" 
-          icon={<FileCheck className="text-emerald-600" size={24} />}
+          icon={<FileCheck size={24} />}
           color="emerald"
         />
         <StatCard 
           title={t('low_stock')} 
           value="14" 
           subValue="Critical items" 
-          icon={<AlertTriangle className="text-amber-600" size={24} />}
+          icon={<AlertTriangle size={24} />}
           color="amber"
         />
         <StatCard 
           title="Procurement" 
           value="5" 
           subValue="Active tenders" 
-          icon={<TrendingUp className="text-indigo-600" size={24} />}
+          icon={<TrendingUp size={24} />}
           color="indigo"
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-3xl p-8 border border-slate-200 shadow-sm min-h-[400px] flex flex-col">
-          <h3 className="font-bold text-lg mb-6">Inventory Movement</h3>
-          <div className="flex-1 flex items-center justify-center text-slate-400 italic bg-slate-50 rounded-2xl border border-dashed border-slate-200 uppercase tracking-widest text-[10px]">
-            Chart implementation coming soon...
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 pb-10">
+        <div className="xl:col-span-2 fintech-card bg-white p-6 lg:p-10 min-h-[400px] flex flex-col group">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+               <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
+               <h3 className="font-black text-xl text-slate-900 tracking-tight">Inventory Movement</h3>
+            </div>
+          </div>
+          <div className="flex-1 flex items-center justify-center text-slate-400 italic bg-primary-teal/[0.02] rounded-3xl border border-dashed border-primary-teal/10 uppercase tracking-[0.3em] text-[10px] p-8 text-center leading-relaxed">
+            Real-time analytics engine initializing...
           </div>
         </div>
-        <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
-          <h3 className="font-bold text-lg mb-6">Recent Activities</h3>
-          <div className="space-y-6">
+        <div className="fintech-card bg-white p-6 lg:p-10 group">
+          <div className="flex items-center gap-4 mb-8">
+             <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
+             <h3 className="font-black text-xl text-slate-900 tracking-tight">Recent Activities</h3>
+          </div>
+          <div className="space-y-8">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex gap-4">
-                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                  <Package size={18} className="text-slate-600" />
+              <div key={i} className="flex gap-5 group/item cursor-pointer">
+                <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 group-hover/item:border-primary-teal group-hover/item:bg-primary-teal/5 transition-all">
+                  <Package size={20} className="text-slate-400 group-hover/item:text-primary-teal" />
                 </div>
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">New items received</div>
-                  <div className="text-xs text-slate-500">Eng. Faculty - Computer Lab supplies</div>
-                  <div className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-wider">2 hours ago</div>
+                <div className="flex flex-col justify-center">
+                  <div className="text-xs font-black text-slate-900 uppercase tracking-tight group-hover/item:text-primary-teal transition-colors">New items received</div>
+                  <div className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest leading-tight">Eng. Faculty - Lab B</div>
+                  <div className="text-[10px] text-primary-teal/50 mt-1 uppercase font-black tracking-widest italic">2 hours ago</div>
                 </div>
               </div>
             ))}
@@ -97,7 +111,7 @@ export default function App() {
         <LoginManager onLogin={() => setIsAuthenticated(true)} />
       ) : (
         <BrowserRouter>
-          <Layout>
+          <Layout onLogout={() => setIsAuthenticated(false)}>
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />

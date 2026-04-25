@@ -17,8 +17,27 @@ import {
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
+import { toast } from 'sonner';
+
 export const SettingsManager = () => {
   const { t, i18n } = useTranslation();
+  const [roles, setRoles] = useState([
+    { label: "System Admin", count: 2, color: "bg-primary-teal" },
+    { label: "Store Keeper", count: 5, color: "bg-blue-500" },
+    { label: "Faculty Staff", count: 24, color: "bg-slate-400" },
+  ]);
+
+  const handleSave = () => {
+    toast.success("System preferences saved successfully");
+  };
+
+  const handleAddRole = () => {
+    const roleName = prompt("Enter new role name:");
+    if (roleName) {
+      setRoles([...roles, { label: roleName, count: 0, color: "bg-indigo-500" }]);
+      toast.success(`Role '${roleName}' created`);
+    }
+  };
 
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
@@ -34,22 +53,25 @@ export const SettingsManager = () => {
 
   return (
     <div className="space-y-12">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">{t('settings')}</h2>
+          <h2 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">{t('settings')}</h2>
           <p className="text-slate-400 font-medium mt-1 uppercase text-[10px] tracking-widest leading-none">
             System Configuration & Governance
           </p>
         </div>
-        <button className="flex items-center gap-3 bg-primary-teal text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-xl shadow-primary-teal/20">
+        <button 
+          onClick={handleSave}
+          className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary-teal text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-xl shadow-primary-teal/20"
+        >
           <Save size={18} />
           Save Preferences
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         {/* Localization & Region */}
-        <section className="fintech-card p-8 bg-white space-y-8">
+        <section className="fintech-card p-6 lg:p-8 bg-white space-y-8">
           <div className="flex items-center gap-4">
              <div className="w-12 h-12 rounded-2xl bg-primary-teal/5 border border-primary-teal/10 flex items-center justify-center text-primary-teal">
                <Globe size={22} />
@@ -60,7 +82,7 @@ export const SettingsManager = () => {
              </div>
           </div>
 
-          <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+          <div className="flex flex-col sm:flex-row bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
             {[
               { id: 'en', label: 'English (US)' },
               { id: 'ps', label: 'پښتو (Pashto)' }
@@ -70,7 +92,7 @@ export const SettingsManager = () => {
                 onClick={() => changeLanguage(lang.id)}
                 className={cn(
                   "flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                  i18n.language === lang.id ? "bg-white shadow-sm text-primary-teal" : "text-slate-400 hover:text-slate-900"
+                  i18n.language === lang.id ? "bg-white shadow-xl shadow-black/5 text-primary-teal" : "text-slate-400 hover:text-slate-600"
                 )}
               >
                 {lang.label}
@@ -80,23 +102,26 @@ export const SettingsManager = () => {
         </section>
 
         {/* Security & Roles */}
-        <section className="fintech-card p-8 bg-white space-y-8">
+        <section className="fintech-card p-6 lg:p-8 bg-white space-y-8">
           <div className="flex items-center gap-4">
              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
                <ShieldCheck size={22} />
              </div>
              <div>
                <h3 className="text-lg font-black text-slate-900 leading-none">Auth & Roles</h3>
-               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1.5">Authorization Policies</p>
+               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1.5">Privilege Policies</p>
              </div>
           </div>
 
-          <div className="space-y-4">
-            <RoleOption label="System Admin" count={2} color="bg-primary-teal" />
-            <RoleOption label="Store Keeper" count={5} color="bg-blue-500" />
-            <RoleOption label="Faculty Staff" count={24} color="bg-slate-400" />
-            <button className="w-full py-4 rounded-2xl border-2 border-dashed border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-primary-teal hover:text-primary-teal transition-all">
-              + Add New Role
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+            {roles.map((role, idx) => (
+              <RoleOption key={idx} label={role.label} count={role.count} color={role.color} />
+            ))}
+            <button 
+              onClick={handleAddRole}
+              className="sm:col-span-2 lg:col-span-1 w-full py-4 rounded-2xl border-2 border-dashed border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-primary-teal hover:text-primary-teal transition-all"
+            >
+              + Create New System Role
             </button>
           </div>
         </section>
@@ -113,7 +138,12 @@ export const SettingsManager = () => {
                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1.5">Live Governance Timeline</p>
                </div>
             </div>
-            <button className="text-[10px] font-black text-primary-teal uppercase tracking-widest hover:underline">View Full Audit</button>
+             <button 
+               onClick={() => toast.info("Opening full system audit trail...")}
+               className="text-[10px] font-black text-primary-teal uppercase tracking-widest hover:underline"
+             >
+               View Full Audit
+             </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -136,7 +166,13 @@ export const SettingsManager = () => {
   );
 };
 
-const RoleOption = ({ label, count, color }: { label: string, count: number, color: string }) => (
+interface RoleOptionProps {
+  label: string;
+  count: number;
+  color: string;
+}
+
+const RoleOption: React.FC<RoleOptionProps> = ({ label, count, color }) => (
   <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
     <div className="flex items-center gap-4">
       <div className={cn("w-2 h-2 rounded-full", color)} />

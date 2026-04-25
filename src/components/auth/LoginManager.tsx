@@ -88,7 +88,11 @@ export const LoginManager = ({ onLogin }: { onLogin: () => void }) => {
 
           <div className="flex justify-center gap-4 mb-8">
             {['f', 'G+', 'in'].map((social) => (
-              <div key={social} className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm cursor-pointer hover:bg-slate-50 transition-colors shadow-sm">
+              <div 
+                key={social} 
+                onClick={() => toast.info(`Login with ${social} is coming soon!`)}
+                className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm cursor-pointer hover:bg-slate-50 transition-colors shadow-sm"
+              >
                 {social}
               </div>
             ))}
@@ -132,7 +136,15 @@ export const LoginManager = ({ onLogin }: { onLogin: () => void }) => {
               />
             </div>
 
-            {isLogin && <button type="button" className="text-slate-400 text-xs underline block mx-auto py-2">Forgot your password?</button>}
+            {isLogin && (
+              <button 
+                type="button" 
+                onClick={() => toast.info("Password recovery system is currently offline. Please contact the IT administrator.")}
+                className="text-slate-400 text-xs underline block mx-auto py-2"
+              >
+                Forgot your password?
+              </button>
+            )}
 
             <div className="pt-6">
               <button 

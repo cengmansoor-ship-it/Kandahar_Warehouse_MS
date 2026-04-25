@@ -20,9 +20,10 @@ import { cn } from '@/src/lib/utils';
 interface SidebarProps {
   collapsed: boolean;
   setCollapsed: (val: boolean) => void;
+  onLogout: () => void;
 }
 
-export const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
+export const Sidebar = ({ collapsed, setCollapsed, onLogout }: SidebarProps) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
 
@@ -37,37 +38,63 @@ export const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
   ];
 
   return (
-    <motion.div
-      initial={false}
-      animate={{ width: collapsed ? 100 : 300 }}
-      className={cn(
-        "h-screen bg-[#0F8F7F] text-white flex flex-col transition-all duration-300 border-r border-[#0F8F7F]/10 relative z-50",
-        isRtl ? "border-l border-r-0" : ""
+    <>
+      {/* Mobile Backdrop */}
+      {!collapsed && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-[60] lg:hidden backdrop-blur-sm transition-opacity duration-300"
+          onClick={() => setCollapsed(true)}
+        />
       )}
-    >
-      <div className="p-8 pb-12 flex items-center justify-between">
-        <AnimatePresence mode="wait">
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              className="flex items-center gap-3"
-            >
-              <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-2xl">
-                <span className="text-primary-teal font-black text-2xl">K</span>
-              </div>
-              <span className="font-black tracking-tighter">WMS</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <button 
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-2.5 bg-white/10 hover:bg-white text-white hover:text-primary-teal rounded-2xl transition-all shadow-lg"
-        >
-          {collapsed ? <Menu size={20} /> : <ChevronLeft size={20} className={isRtl ? "rotate-180" : ""} />}
-        </button>
-      </div>
+
+      <motion.div
+        initial={false}
+        animate={{ 
+          width: collapsed ? (typeof window !== 'undefined' && window.innerWidth < 1024 ? 0 : 100) : 320,
+          x: (collapsed && typeof window !== 'undefined' && window.innerWidth < 1024) 
+            ? (isRtl ? '100%' : '-100%') 
+            : 0
+        }}
+        className={cn(
+          "fixed lg:relative h-screen bg-[#0F8F7F] text-white flex flex-col transition-all duration-300 border-r border-white/5 z-[70] shadow-[20px_0_50px_rgba(0,0,0,0.1)] lg:shadow-none",
+          isRtl ? "right-0 border-l border-r-0" : "left-0"
+        )}
+      >
+        <div className="p-8 pb-10 flex items-center justify-between">
+          <AnimatePresence mode="wait">
+            {!collapsed && (
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                className="flex items-center gap-4"
+              >
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-2xl rotate-3 group-hover:rotate-0 transition-transform">
+                  <span className="text-primary-teal font-black text-2xl">K</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-black text-xl tracking-tighter leading-none">KANDAHAR</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50 mt-1">Warehouse MS</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          <button 
+            onClick={() => setCollapsed(!collapsed)}
+            className="p-3 bg-white/10 hover:bg-white text-white hover:text-primary-teal rounded-2xl transition-all shadow-lg group hidden lg:block"
+          >
+            {collapsed ? <Menu size={20} /> : <ChevronLeft size={20} className={cn("transition-transform", isRtl ? "rotate-180" : "group-hover:-translate-x-0.5")} />}
+          </button>
+
+          {/* Mobile Close Button */}
+          <button 
+            onClick={() => setCollapsed(true)}
+            className="lg:hidden p-3 bg-white/10 rounded-2xl"
+          >
+            <ChevronLeft size={20} className={isRtl ? "rotate-180" : ""} />
+          </button>
+        </div>
 
       <nav className="flex-1 px-5 space-y-3 overflow-y-auto custom-scrollbar">
         {menuItems.map((item) => (
@@ -111,11 +138,15 @@ export const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
       </nav>
 
       <div className="p-6">
-        <button className="w-full flex items-center gap-5 p-4 rounded-3xl text-white/50 hover:bg-red-500/10 hover:text-red-400 transition-all group">
+        <button 
+          onClick={onLogout}
+          className="w-full flex items-center gap-5 p-4 rounded-3xl text-white/50 hover:bg-red-500/10 hover:text-red-400 transition-all group"
+        >
           <LogOut size={22} />
           {!collapsed && <span className="font-black text-xs uppercase tracking-widest">{t('logout')}</span>}
         </button>
       </div>
     </motion.div>
+    </>
   );
 };
