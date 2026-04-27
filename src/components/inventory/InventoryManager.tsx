@@ -42,8 +42,8 @@ export const InventoryManager = () => {
 
   const handleAddItem = async (itemData: any) => {
     try {
-      // Set default stock for new official items
-      const payload = { ...itemData, stock: 0, unit: t('unit_pcs') };
+      // Set default quantity for new official items
+      const payload = { ...itemData, quantity: 0, unit: t('unit_pcs') };
       await api.post('/items', payload);
       toast.success(`${t('mapped_added')}: ${itemData.name}`);
       setShowAddModal(false);
@@ -54,10 +54,9 @@ export const InventoryManager = () => {
   };
 
   const handleMoveToTrash = async (id: string) => {
-    const reason = window.prompt("Reason for moving to trash?");
-    if (!reason) return;
+    if (!window.confirm("Are you sure you want to move this item to trash?")) return;
     try {
-      await api.post(`/items/${id}/trash`, { reason });
+      await api.post(`/items/${id}/trash`, { reason: "Manual Cleanup" });
       toast.success("Item moved to trash");
       fetchItems();
     } catch (error) {
@@ -222,7 +221,7 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean, onDelete: () =>
             </div>
             <div>
               <div class="info-label">${t('physical_stock')}</div>
-              <div class="info-value">${item.stock} ${item.unit || t('unit_pcs')}</div>
+              <div class="info-value">${item.quantity} ${item.unit || t('unit_pcs')}</div>
             </div>
             <div>
               <div class="info-label">${t('registry_date')}</div>
@@ -248,8 +247,8 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean, onDelete: () =>
                 <td>REG-001</td>
                 <td>${t('initial_load')}</td>
                 <td>${t('system')}</td>
-                <td>+${item.stock}</td>
-                <td>${item.stock}</td>
+                <td>+${item.quantity}</td>
+                <td>${item.quantity}</td>
               </tr>
               <tr>
                 <td>-</td>
@@ -298,11 +297,11 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean, onDelete: () =>
                    {item.item_code}
                  </span>
                  <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">
-                   {t('select_bab').split(' ')[0]} {item.bab_code}
+                    {t('select_bab')?.split(' ')[0]} {item.bab_code}
                  </div>
                </div>
                <div className="text-xl font-black text-[#1A1D1F] tracking-tight leading-tight group-hover:text-primary-teal transition-colors">
-                {item.name}
+                 {item.name}
                </div>
              </div>
           </div>
@@ -315,7 +314,7 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean, onDelete: () =>
            <div className="flex flex-col text-start">
              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t('current_stock')}</span>
              <div className="flex items-end gap-2">
-                <span className="text-3xl font-black text-[#1A1D1F] leading-none">{item.stock}</span>
+                <span className="text-3xl font-black text-[#1A1D1F] leading-none">{item.quantity}</span>
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{item.unit || t('unit_pcs')}</span>
              </div>
            </div>

@@ -20,14 +20,12 @@ import { cn } from '@/src/lib/utils';
 import { User, UserRole } from '@/src/types';
 import { toast } from 'sonner';
 
+import { userService } from '@/src/services/api';
+
 export const RoleManagement = () => {
   const { t } = useTranslation();
-  const [users, setUsers] = useState<User[]>([
-    { id: '1', name: 'superadmin', role: UserRole.SUPER_ADMIN, email: 'superadmin@kdru.edu.af' },
-    { id: '2', name: 'admin_user', role: UserRole.ADMIN, email: 'admin@kdru.edu.af' },
-    { id: '3', name: 'procurement_off', role: UserRole.PROCUREMENT_OFFICER, email: 'procurement@kdru.edu.af' },
-    { id: '4', name: 'dept_user', role: UserRole.DEPARTMENT_USER, email: 'dept@kdru.edu.af' },
-  ]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -35,42 +33,72 @@ export const RoleManagement = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [newUser, setNewUser] = useState({ name: '', email: '', role: UserRole.DEPARTMENT_USER });
 
-  const filteredUsers = users.filter(u => 
-    u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const res = await userService.getUsers();
+      setUsers(res.data || []);
+    } catch (error) {
+      toast.error("Failed to load users");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUser.name || !newUser.email) {
       toast.error("Please fill in all fields");
       return;
     }
     
-    if (isEditing && selectedUser) {
-      setUsers(users.map(u => u.id === selectedUser.id ? { ...u, name: newUser.name, email: newUser.email, role: newUser.role } : u));
-      toast.success("User updated successfully");
-    } else {
-      const user: User = {
-        id: Date.now().toString(),
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role
-      };
-      setUsers([...users, user]);
-      toast.success("User added successfully");
+    try {
+      if (isEditing && selectedUser) {
+        const res = await userService.updateUser(selectedUser.id, newUser);
+        setUsers(users.map(u => u.id === selectedUser.id ? res.data : u));
+        toast.success("User updated successfully");
+      } else {
+        const res = await userService.addUser(newUser);
+        setUsers([...users, res.data]);
+        toast.success("User added successfully");
+      }
+      setShowAddModal(false);
+      resetAddForm();
+    } catch (error) {
+      toast.error("Operation failed");
     }
+  };
 
-    setShowAddModal(false);
+  const resetAddForm = () => {
     setIsEditing(false);
     setSelectedUser(null);
     setNewUser({ name: '', email: '', role: UserRole.DEPARTMENT_USER });
   };
 
-  const handleRoleChange = (userId: string, newRole: UserRole) => {
-    setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
-    toast.success(`Role updated to ${newRole} for user`);
-    setShowRoleModal(false);
+  const handleRoleChange = async (userId: string, newRole: UserRole) => {
+    try {
+      const res = await userService.updateUser(userId, { role: newRole });
+      setUsers(users.map(u => u.id === userId ? res.data : u));
+      toast.success(`Role updated to ${newRole}`);
+      setShowRoleModal(false);
+    } catch (error) {
+      toast.error("Role update failed");
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this user?")) return;
+    try {
+      await userService.deleteUser(id);
+      setUsers(users.filter(u => u.id !== id));
+      toast.success("User deleted");
+    } catch (error) {
+      toast.error("Deletion failed");
+    }
   };
 
   const getRoleBadge = (role: UserRole) => {
@@ -91,6 +119,11 @@ export const RoleManagement = () => {
       </div>
     );
   };
+
+  const filteredUsers = users.filter(u => 
+    u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

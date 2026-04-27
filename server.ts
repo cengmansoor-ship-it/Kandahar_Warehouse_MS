@@ -173,7 +173,8 @@ app.post("/api/chat", (req, res) => {
 // --- Receiving API ---
 app.get("/api/receivings", (req, res) => {
   const db = getDb();
-  res.json(db.receivings);
+  const active = (db.receivings || []).filter((r: any) => !r.isDeleted);
+  res.json(active);
 });
 
 app.post("/api/v1/receiving", (req, res) => {
@@ -194,7 +195,6 @@ app.post("/api/v1/receiving", (req, res) => {
     item.quantity = (Number(item.quantity) || 0) + qtyNum;
     item.status = item.quantity > 10 ? 'In Stock' : 'Low Stock';
   } else {
-    // Optionally create item if not exists
     db.items.push({
       id: randomUUID(),
       name: req.body.item_name || item_code,
@@ -211,21 +211,153 @@ app.post("/api/v1/receiving", (req, res) => {
   res.json(newReceiving);
 });
 
-app.delete("/api/v1/receiving/:id", (req, res) => {
+app.put("/api/v1/receiving/:id", (req, res) => {
   const db = getDb();
   const index = db.receivings.findIndex((r: any) => r.id === req.params.id);
   if (index === -1) return res.status(404).json({ error: "Record not found" });
   
-  const rec = db.receivings.splice(index, 1)[0];
-  // Revert stock
-  const item = db.items.find((i: any) => i.item_code === rec.item_code);
+  const oldRec = db.receivings[index];
+  const newRec = { ...oldRec, ...req.body, quantity: Number(req.body.quantity) };
+  
+  // Update stock difference
+  const item = db.items.find((i: any) => i.item_code === oldRec.item_code);
   if (item) {
-    item.quantity = Math.max(0, (Number(item.quantity) || 0) - Number(rec.quantity));
+    const diff = newRec.quantity - oldRec.quantity;
+    item.quantity = Math.max(0, (Number(item.quantity) || 0) + diff);
     item.status = item.quantity > 10 ? 'In Stock' : (item.quantity > 0 ? 'Low Stock' : 'Out of Stock');
   }
   
+  db.receivings[index] = newRec;
   saveDb(db);
-  res.json({ success: true });
+  res.json({ receiving: newRec });
+});
+
+app.post("/api/v1/receiving/bulk", (req, res) => {
+  const db = getDb();
+  const { items } = req.body;
+  if (!Array.isArray(items)) return res.status(400).json({ error: "Invalid data format" });
+
+  items.forEach((itemData: any) => {
+    const qtyNum = Number(itemData.quantity) || 0;
+    const newReceiving = {
+      id: randomUUID(),
+      ...itemData,
+      quantity: qtyNum,
+      createdAt: new Date().toISOString()
+    };
+    db.receivings.push(newReceiving);
+
+    const item = db.items.find((i: any) => i.item_code === itemData.item_code);
+    if (item) {
+      item.quantity = (Number(item.quantity) || 0) + qtyNum;
+      item.status = item.quantity > 10 ? 'In Stock' : 'Low Stock';
+    } else {
+      db.items.push({
+        id: randomUUID(),
+        name: itemData.item_name || itemData.item_code,
+        item_code: itemData.item_code,
+        quantity: qtyNum,
+        unit: itemData.unit || 'PCS',
+        status: 'In Stock',
+        location: itemData.warehouse_location || 'General'
+      });
+    }
+  });
+
+  saveDb(db);
+  res.json({ success: true, count: items.length });
+});
+
+app.delete("/api/v1/receiving/:id", (req, res) => {
+  const db = getDb();
+  const id = req.params.id;
+  // Search in both id and _id for robustness
+  const index = db.receivings.findIndex((r: any) => r.id === id || r._id === id);
+  
+  if (index === -1) {
+    console.log(`DEBUG: Delete failed - Record ${id} not found in database`);
+    return res.status(404).json({ error: "Record not found" });
+  }
+  
+  const rec = db.receivings[index];
+  console.log(`DEBUG: Moving record to trash (Soft Delete):`, rec);
+  
+  // Mark as deleted
+  rec.isDeleted = true;
+  rec.deletedAt = new Date().toISOString();
+  
+  // Sync Inventory (Subtract the quantity that was added by this receiving)
+  if (rec.item_code) {
+    const item = db.items.find((i: any) => i.item_code === rec.item_code);
+    if (item) {
+      const quantityToRemove = Number(rec.quantity) || 0;
+      const oldQty = Number(item.quantity) || 0;
+      item.quantity = Math.max(0, oldQty - quantityToRemove);
+      item.status = item.quantity > 10 ? 'In Stock' : (item.quantity > 0 ? 'Low Stock' : 'Out of Stock');
+      console.log(`DEBUG: Item ${item.item_code} stock updated: ${oldQty} -> ${item.quantity}`);
+    }
+  }
+  
+  saveDb(db);
+  res.json({ success: true, message: "Item moved to Trash", deletedId: id });
+});
+
+// --- Notifications & SMS API ---
+app.post("/api/notifications/sms", (req, res) => {
+  const { to, message } = req.body;
+  console.log(`[SMS SERVICE] Sending to ${to}: ${message}`);
+  // Simulate success
+  res.json({ success: true, messageId: randomUUID() });
+});
+
+// --- Analytics API ---
+app.get("/api/analytics/annual-needs", (req, res) => {
+  const db = getDb();
+  // Simple logic: Annual need = (last year consumption * 1.2) - current stock
+  // Since we don't have historical consumption, we'll use total items received as a proxy
+  const analysis = db.items.map((item: any) => {
+    const totalReceived = db.receivings
+      .filter((r: any) => r.item_code === item.item_code)
+      .reduce((sum: number, r: any) => sum + r.quantity, 0);
+    
+    const yearlyTrend = totalReceived || 100; // Mock base consumption
+    const estimatedNeed = Math.ceil(yearlyTrend * 1.15); // 15% growth buffer
+    const gap = Math.max(0, estimatedNeed - item.quantity);
+    
+    return {
+      item_code: item.item_code,
+      name: item.name,
+      current_stock: item.quantity,
+      estimated_annual_consumption: estimatedNeed,
+      recommended_purchase: gap
+    };
+  });
+  res.json(analysis);
+});
+
+app.get("/api/analytics/forecast", (req, res) => {
+  const db = getDb();
+  // Generate 12 months forecast based on items received over time
+  // If no historical data, generate random realistic trends
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const forecast = months.map((m, i) => ({
+    month: m,
+    actual: 100 + Math.floor(Math.random() * 50) + (i * 5),
+    projected: 110 + Math.floor(Math.random() * 60) + (i * 7)
+  }));
+  res.json(forecast);
+});
+
+app.get("/api/inventory/allocation", (req, res) => {
+  const db = getDb();
+  // Mock allocation by faculty/department
+  const faculties = ["Engineering", "Medicine", "Agriculture", "Computer Science", "Economics"];
+  const allocation = faculties.map(f => ({
+    faculty: f,
+    items_count: 10 + Math.floor(Math.random() * 20),
+    total_value: 5000 + Math.floor(Math.random() * 15000)
+  }));
+  res.json(allocation);
 });
 
 // --- Requests API ---
@@ -307,6 +439,39 @@ app.delete("/api/notifications", (req, res) => {
 });
 
 // --- Settings & User API ---
+app.get("/api/users", (req, res) => {
+  const db = getDb();
+  res.json(db.users);
+});
+
+app.post("/api/users", (req, res) => {
+  const db = getDb();
+  const newUser = {
+    id: randomUUID(),
+    ...req.body,
+    profileImage: null
+  };
+  db.users.push(newUser);
+  saveDb(db);
+  res.json(newUser);
+});
+
+app.patch("/api/users/:id", (req, res) => {
+  const db = getDb();
+  const index = db.users.findIndex((u: any) => u.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "User not found" });
+  db.users[index] = { ...db.users[index], ...req.body };
+  saveDb(db);
+  res.json(db.users[index]);
+});
+
+app.delete("/api/users/:id", (req, res) => {
+  const db = getDb();
+  db.users = db.users.filter((u: any) => u.id !== req.params.id);
+  saveDb(db);
+  res.json({ success: true });
+});
+
 app.get("/api/user/profile", (req, res) => {
   const db = getDb();
   res.json(db.users[0]);

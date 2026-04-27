@@ -25,7 +25,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
-import { receivingService, inventoryService } from '@/src/services/api';
+import api, { receivingService, inventoryService } from '@/src/services/api';
 import { toast } from 'sonner';
 import { 
   DropdownMenu,
@@ -33,6 +33,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/src/components/ui/dropdown-menu";
+
+import * as XLSX from 'xlsx';
 
   const ConditionBadge = ({ condition }: { condition: string }) => {
     const { t } = useTranslation();
@@ -70,6 +72,8 @@ export const ReceivingManager = () => {
     return (localStorage.getItem('receivingViewMode') as 'grid' | 'list') || (window.innerWidth < 1024 ? 'grid' : 'list');
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     item_code: '',
@@ -177,21 +181,40 @@ export const ReceivingManager = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('confirm_delete_record'))) return;
-    
-    // Optimistic Update
-    const previousReceivings = [...receivings];
-    setReceivings(prev => prev.filter(rec => rec.id !== id));
+    console.log("DEBUG: Delete triggered for ID:", id);
+    if (!id) {
+      console.error("DEBUG: Delete failed - ID is null or undefined");
+      toast.error("Invalid record ID");
+      return;
+    }
+
+    const confirmed = window.confirm(t('confirm_delete_record') || "Are you sure you want to delete this record?");
+    if (!confirmed) {
+      console.log("DEBUG: Delete cancelled by user");
+      return;
+    }
     
     try {
-      await receivingService.deleteReceiving(id);
-      toast.success(t('record_deleted'));
-      // Optionally fetch to sync stock counters
+      setLoadingId(id);
+      console.log(`DEBUG: Calling DELETE /api/v1/receiving/${id}`);
+      const response = await receivingService.deleteReceiving(id);
+      console.log("DEBUG: Delete API Response:", response.data);
+      
+      setReceivings(prev => {
+        const remaining = prev.filter(r => r.id !== id && r._id !== id);
+        console.log(`DEBUG: UI Update - Remaining: ${remaining.length}, Removed: ${prev.length - remaining.length}`);
+        return remaining;
+      });
+      
+      toast.success(t('record_deleted') || "Record deleted successfully");
+      // Still fetch to sync inventory state if needed
       fetchData();
     } catch (error: any) {
-      // Revert if failed
-      setReceivings(previousReceivings);
-      toast.error(error.response?.data?.error || t('delete_failed'));
+      console.error("DEBUG: Delete API failed:", error);
+      const errorMsg = error.response?.data?.error || t('delete_failed') || "Failed to delete record";
+      toast.error(errorMsg);
+    } finally {
+      setLoadingId(null);
     }
   };
 
@@ -201,15 +224,27 @@ export const ReceivingManager = () => {
 
     try {
       setIsUploading(true);
-      const res = await receivingService.uploadReceivings(file);
-      const { total, success, failed, errors } = res.data;
       
-      toast.success(`${t('import_complete')}: ${success}/${total} succeeded`);
-      if (failed > 0) {
-        toast.error(`${failed} ${t('rows_failed')}`);
-        console.error("Import errors:", errors);
-      }
-      fetchData();
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+        
+        console.log("Importing Excel data:", data);
+        
+        try {
+          // Send to server
+          await api.post('/v1/receiving/bulk', { items: data });
+          toast.success(`${t('import_complete')} - ${data.length} records`);
+          fetchData();
+        } catch (error) {
+          toast.error("Failed to sync imported data to server");
+        }
+      };
+      reader.readAsBinaryString(file);
     } catch (error) {
       toast.error(t('failed_upload'));
     } finally {
@@ -218,16 +253,19 @@ export const ReceivingManager = () => {
     }
   };
 
-  const handleExport = async () => {
+  const handleExport = () => {
     try {
-      const res = await receivingService.exportReceivings();
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Receivings_${new Date().toISOString().split('T')[0]}.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      if (!receivings || receivings.length === 0) {
+        toast.error("No data to export");
+        return;
+      }
+      
+      const worksheet = XLSX.utils.json_to_sheet(receivings);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Receivings");
+      XLSX.writeFile(workbook, `Receivings_${new Date().toISOString().split('T')[0]}.xlsx`);
+      
+      toast.success(t('export_success') || "Data exported to Excel");
     } catch (error) {
       toast.error(t('export_failed'));
     }
@@ -406,7 +444,21 @@ export const ReceivingManager = () => {
                           <button onClick={() => handleEdit(rec)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-primary-teal transition-all">
                             <Edit size={16} />
                           </button>
-                          <button onClick={() => handleDelete(rec.id)} className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-all">
+                          <button 
+                            type="button"
+                            title="Delete"
+                            style={{ zIndex: 999, position: "relative" }}
+                            disabled={loadingId === (rec.id || rec._id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const targetId = rec.id || rec._id;
+                              handleDelete(targetId);
+                            }} 
+                            className={cn(
+                              "p-2 rounded-lg transition-all pointer-events-auto",
+                              loadingId === (rec.id || rec._id) ? "opacity-50 cursor-wait" : "hover:bg-red-50 text-slate-400 hover:text-red-500"
+                            )}
+                          >
                             <Trash2 size={16} />
                           </button>
                         </div>
@@ -462,7 +514,20 @@ export const ReceivingManager = () => {
                       <button onClick={() => handleEdit(rec)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-primary-teal transition-all">
                         <Edit size={16} />
                       </button>
-                      <button onClick={() => handleDelete(rec.id)} className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-all">
+                      <button 
+                        type="button"
+                        style={{ zIndex: 999, position: "relative" }}
+                        disabled={loadingId === (rec.id || rec._id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const targetId = rec.id || rec._id;
+                          handleDelete(targetId);
+                        }} 
+                        className={cn(
+                          "p-2 rounded-lg transition-all pointer-events-auto",
+                          loadingId === (rec.id || rec._id) ? "opacity-50 cursor-wait" : "hover:bg-red-50 text-slate-400 hover:text-red-500"
+                        )}
+                      >
                         <Trash2 size={16} />
                       </button>
                    </div>

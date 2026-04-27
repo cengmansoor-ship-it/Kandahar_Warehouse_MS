@@ -53,9 +53,20 @@ export const trashService = {
 export const notificationService = {
   getNotifications: () => api.get('/notifications'),
   clearNotifications: () => api.delete('/notifications'),
+  sendSMS: (to: string, message: string) => api.post('/notifications/sms', { to, message }),
+};
+
+export const analyticsService = {
+  getAnnualNeeds: () => api.get('/analytics/annual-needs'),
+  getForecast: () => api.get('/analytics/forecast'),
+  getAllocation: () => api.get('/inventory/allocation'),
 };
 
 export const userService = {
+  getUsers: () => api.get('/users'),
+  addUser: (data: any) => api.post('/users', data),
+  updateUser: (id: string, data: any) => api.patch(`/users/${id}`, data),
+  deleteUser: (id: string) => api.delete(`/users/${id}`),
   getProfile: () => api.get('/user/profile'),
   updateProfile: (data: any) => api.post('/user/profile', data),
 };

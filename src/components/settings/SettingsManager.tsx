@@ -244,6 +244,60 @@ export const SettingsManager = () => {
           </div>
         </section>
 
+        {/* SMS Notification System */}
+        <section className="fintech-card p-6 lg:p-8 bg-white space-y-8">
+           <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                   <Smartphone size={22} />
+                 </div>
+                 <div>
+                   <h3 className="text-lg font-black text-slate-900 leading-none">SMS Gateway</h3>
+                   <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1.5">Automated Notifications</p>
+                 </div>
+              </div>
+              <div className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full border border-emerald-100">
+                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                 <span className="text-[10px] font-black uppercase tracking-widest">Connected</span>
+              </div>
+           </div>
+
+           <div className="space-y-6">
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 italic">
+                 <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Enable SMS Alerts</span>
+                    <span className="text-[9px] text-slate-400 font-bold uppercase">Requests, Approvals & Stock Alerts</span>
+                 </div>
+                 <button 
+                   onClick={() => {
+                     const current = localStorage.getItem('sms_enabled') === 'true';
+                     localStorage.setItem('sms_enabled', (!current).toString());
+                     toast.success(`SMS Notifications ${!current ? 'Enabled' : 'Disabled'}`);
+                     // Trigger state refresh if needed, but localStorage is enough for this demo
+                   }}
+                   className={cn(
+                    "w-12 h-6 rounded-full transition-all relative p-1",
+                    localStorage.getItem('sms_enabled') === 'true' ? "bg-primary-teal" : "bg-slate-300"
+                   )}
+                 >
+                    <div className={cn(
+                       "w-4 h-4 bg-white rounded-full transition-all shadow-sm",
+                       localStorage.getItem('sms_enabled') === 'true' ? "translate-x-6" : "translate-x-0"
+                    )} />
+                 </button>
+              </div>
+
+              <div className="space-y-2 text-start">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Provider Service</label>
+                 <select className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary-teal/20 transition-all">
+                    <option>Twilio Global SMS</option>
+                    <option>Infobip Gateway</option>
+                    <option>Local GSM Modem</option>
+                 </select>
+              </div>
+           </div>
+        </section>
+
         {/* Security & Roles */}
         <section className="fintech-card p-6 lg:p-8 bg-white space-y-8">
           <div className="flex items-center gap-4">

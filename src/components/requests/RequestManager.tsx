@@ -10,7 +10,10 @@ import {
   XCircle, 
   ChevronRight,
   FileText,
-  PlusCircle
+  PlusCircle,
+  Tag,
+  Package,
+  List as ListIcon
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -217,14 +220,27 @@ export const RequestManager = () => {
   );
 };
 
+import { smsService } from '@/src/services/smsService';
+
 const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ request, onUpdate }) => {
   const { t } = useTranslation();
+  
+  const stages = [
+    { name: 'Request', threshold: 0, icon: FileText },
+    { name: 'Approval', threshold: 25, icon: CheckCircle2 },
+    { name: 'Tender', threshold: 50, icon: Tag },
+    { name: 'Comparison', threshold: 75, icon: ListIcon },
+    { name: 'PO', threshold: 100, icon: Package }
+  ];
+
   const statusConfig: Record<string, { color: string, icon: any }> = {
     'Pending': { color: 'text-amber-600 bg-amber-50 border-amber-100', icon: Clock },
     'Approved': { color: 'text-emerald-600 bg-emerald-50 border-emerald-100', icon: CheckCircle2 },
     'Delivered': { color: 'text-emerald-600 bg-emerald-50 border-emerald-100', icon: CheckCircle2 },
     'Procurement': { color: 'text-blue-600 bg-blue-50 border-blue-100', icon: FileText },
     'Rejected': { color: 'text-red-600 bg-red-50 border-red-100', icon: XCircle },
+    'TENDER_CREATED': { color: 'text-indigo-600 bg-indigo-50 border-indigo-100', icon: Tag },
+    'WINNER_SELECTED': { color: 'text-purple-600 bg-purple-50 border-purple-100', icon: Package },
   };
 
   const translatedStatus: Record<string, string> = {
@@ -233,6 +249,8 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
     'Delivered': t('status_delivered'),
     'Procurement': t('status_procurement'),
     'Rejected': t('status_rejected'),
+    'TENDER_CREATED': 'Tender Open',
+    'WINNER_SELECTED': 'Winner Selected',
   };
 
   const getProgressColor = (progress: number) => {
@@ -244,7 +262,11 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
   const handleUpdate = async (status: string, progress: number) => {
     try {
       await requestService.updateStatus(request.id, { status, progress });
-      toast.success(`${t('requests')} ${status.toLowerCase()} ${t('auth_success').toLowerCase()}`); // Approximation
+      toast.success(`Request ${status} successfully`);
+      
+      // Send SMS
+      await smsService.notifyRequestUpdate(request, status);
+      
       onUpdate();
     } catch (e) {
       toast.error(t('process_failed'));
@@ -252,10 +274,11 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
   };
 
   const config = statusConfig[request.status] || statusConfig['Pending'];
+  const currentProgress = request.progress || 0;
 
   return (
     <div className="fintech-card p-8 bg-white group hover:shadow-2xl transition-all border border-slate-100">
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-10">
+      <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-10">
         <div className="flex items-start gap-6 flex-1">
           <div className={cn("w-16 h-16 rounded-2xl border flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-110", config.color)}>
             <config.icon size={28} />
@@ -263,7 +286,7 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
           <div>
             <div className="flex items-center gap-3">
               <span className="font-mono text-[10px] bg-[#1A1D1F] text-white px-2 py-0.5 rounded-lg font-black tracking-widest shadow-sm">
-                {request.item_code}
+                {request.trackingId}
               </span>
               <span className={cn("px-3 py-1 rounded-full text-[10px] font-black border uppercase tracking-widest", config.color)}>
                 {translatedStatus[request.status] || request.status}
@@ -273,39 +296,58 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
             <div className="flex items-center gap-5 text-[10px] text-slate-400 mt-2.5 font-black uppercase tracking-widest">
               <span>{request.requester}</span>
               <span className="w-1 h-1 bg-slate-300 rounded-full" />
-              <span>{request.date}</span>
+              <span>{new Date(request.createdAt).toLocaleDateString()}</span>
+            </div>
+            
+            {/* Visual Stepper */}
+            <div className="mt-8 relative pt-2">
+              <div className="flex items-center justify-between w-full relative z-10">
+                {stages.map((stage, i) => {
+                  const isActive = currentProgress >= stage.threshold;
+                  const StageIcon = stage.icon;
+                  return (
+                    <div key={i} className="flex flex-col items-center gap-2 group/step">
+                      <div className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-500 border-2",
+                        isActive 
+                          ? "bg-primary-teal border-primary-teal text-white shadow-lg shadow-primary-teal/20" 
+                          : "bg-white border-slate-100 text-slate-300"
+                      )}>
+                        <StageIcon size={16} />
+                      </div>
+                      <span className={cn(
+                        "text-[9px] font-black uppercase tracking-tighter opacity-0 group-hover/step:opacity-100 transition-opacity",
+                        isActive ? "text-primary-teal" : "text-slate-300"
+                      )}>{stage.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="absolute top-[21px] left-5 right-5 h-0.5 bg-slate-100 -z-0">
+                <div 
+                  className="h-full bg-primary-teal shadow-[0_0_8px_rgba(13,148,136,0.3)] transition-all duration-700" 
+                  style={{ width: `${Math.min(100, currentProgress)}%` }} 
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row items-center gap-10 w-full xl:w-auto">
-          <div className="flex-1 w-full lg:w-56 text-start">
+        <div className="flex flex-col md:flex-row items-center gap-10 w-full xl:w-auto self-center">
+          <div className="flex-1 w-full lg:w-48 text-start">
             <div className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 italic">
               <span>{t('pipeline_progress')}</span>
-              <span className="text-primary-teal">{request.progress}%</span>
+              <span className="text-primary-teal">{currentProgress}%</span>
             </div>
             <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
               <motion.div 
                 initial={{ width: 0 }}
-                animate={{ width: `${request.progress}%` }}
+                animate={{ width: `${currentProgress}%` }}
                 className={cn(
                   "h-full rounded-full transition-all",
-                  request.status === 'Rejected' ? 'bg-red-500' : getProgressColor(request.progress)
+                  request.status === 'Rejected' ? 'bg-red-500' : getProgressColor(currentProgress)
                 )}
               />
-            </div>
-            {/* Approval Chain Trail */}
-            <div className="mt-3 flex gap-1 flex-wrap">
-               {(request.approvalChain || []).map((step: any, i: number) => (
-                 <div 
-                   key={i} 
-                   title={`${step.name} (${step.role})`}
-                   className={cn(
-                     "w-4 h-1.5 rounded-full transition-all duration-500",
-                     step.approved ? "bg-emerald-400" : "bg-slate-200"
-                   )} 
-                 />
-               ))}
             </div>
           </div>
           
@@ -313,7 +355,7 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
              {request.status === 'Pending' && (
                <>
                  <button 
-                   onClick={() => handleUpdate('Approved', 100)}
+                   onClick={() => handleUpdate('Approved', 25)}
                    className="px-6 py-3 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 whitespace-nowrap"
                  >
                    {t('approve_issue')}
@@ -326,7 +368,7 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
                  </button>
                </>
              )}
-             <button className={cn("w-14 h-14 bg-slate-50 text-slate-300 rounded-2xl group-hover:bg-primary-teal group-hover:text-white transition-all shadow-sm flex items-center justify-center border border-slate-100 group-hover:border-primary-teal", t('lang_direction') === 'rtl' && "rotate-180")}>
+             <button className={cn("w-14 h-14 bg-slate-50 text-slate-300 rounded-2xl hover:bg-primary-teal hover:text-white transition-all shadow-sm flex items-center justify-center border border-slate-100 group-hover:border-primary-teal", t('lang_direction') === 'rtl' && "rotate-180")}>
                <ChevronRight size={24} />
              </button>
           </div>
