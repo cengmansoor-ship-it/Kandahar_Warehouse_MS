@@ -231,14 +231,35 @@ export const ReceivingManager = () => {
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
+        const data: any[] = XLSX.utils.sheet_to_json(ws);
         
         console.log("Importing Excel data:", data);
         
+        // FRONTEND DUPLICATE CHECK
+        const uniqueData = data.filter(newItem => {
+           const isDuplicate = receivings.some(existing => 
+             existing.item_code === newItem.item_code && 
+             existing.supplier === newItem.supplier && 
+             existing.date === newItem.date &&
+             existing.invoice_number === newItem.invoice_number
+           );
+           return !isDuplicate;
+        });
+
+        if (uniqueData.length === 0) {
+          toast.error("No new unique records found in file");
+          setIsUploading(false);
+          return;
+        }
+
+        if (uniqueData.length < data.length) {
+          toast.info(`Skipped ${data.length - uniqueData.length} duplicate records`);
+        }
+        
         try {
           // Send to server
-          await api.post('/v1/receiving/bulk', { items: data });
-          toast.success(`${t('import_complete')} - ${data.length} records`);
+          const res = await api.post('/v1/receiving/bulk', { items: uniqueData });
+          toast.success(`${t('import_complete')} - ${res.data.count} new records added`);
           fetchData();
         } catch (error) {
           toast.error("Failed to sync imported data to server");
@@ -447,11 +468,13 @@ export const ReceivingManager = () => {
                           <button 
                             type="button"
                             title="Delete"
-                            style={{ zIndex: 999, position: "relative" }}
+                            style={{ zIndex: 9999, position: "relative" }}
                             disabled={loadingId === (rec.id || rec._id)}
                             onClick={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
                               const targetId = rec.id || rec._id;
+                              console.log("DEBUG: Delete Click Triggered", targetId);
                               handleDelete(targetId);
                             }} 
                             className={cn(
@@ -459,7 +482,7 @@ export const ReceivingManager = () => {
                               loadingId === (rec.id || rec._id) ? "opacity-50 cursor-wait" : "hover:bg-red-50 text-slate-400 hover:text-red-500"
                             )}
                           >
-                            <Trash2 size={16} />
+                            {loadingId === (rec.id || rec._id) ? <span>...</span> : <Trash2 size={16} />}
                           </button>
                         </div>
                       </td>
@@ -510,17 +533,19 @@ export const ReceivingManager = () => {
                       <Calendar size={14} />
                       {rec.date}
                    </div>
-                   <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1">
                       <button onClick={() => handleEdit(rec)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-primary-teal transition-all">
                         <Edit size={16} />
                       </button>
                       <button 
                         type="button"
-                        style={{ zIndex: 999, position: "relative" }}
+                        style={{ zIndex: 9999, position: "relative" }}
                         disabled={loadingId === (rec.id || rec._id)}
                         onClick={(e) => {
+                          e.preventDefault();
                           e.stopPropagation();
                           const targetId = rec.id || rec._id;
+                          console.log("DEBUG: Delete Click Triggered (Grid)", targetId);
                           handleDelete(targetId);
                         }} 
                         className={cn(
@@ -528,7 +553,7 @@ export const ReceivingManager = () => {
                           loadingId === (rec.id || rec._id) ? "opacity-50 cursor-wait" : "hover:bg-red-50 text-slate-400 hover:text-red-500"
                         )}
                       >
-                        <Trash2 size={16} />
+                        {loadingId === (rec.id || rec._id) ? <span>...</span> : <Trash2 size={16} />}
                       </button>
                    </div>
                 </div>

@@ -179,14 +179,28 @@ app.get("/api/receivings", (req, res) => {
 
 app.post("/api/v1/receiving", (req, res) => {
   const db = getDb();
-  const { item_code, quantity } = req.body;
+  const { item_code, quantity, item_name, supplier, date, invoice_number } = req.body;
   const qtyNum = Number(quantity);
   
+  // DUPLICATE CHECK: item_name + supplier + date + invoice
+  const exists = db.receivings.some((r: any) => 
+    !r.isDeleted &&
+    r.item_code === item_code && 
+    r.supplier === supplier && 
+    r.date === date && 
+    r.invoice_number === invoice_number
+  );
+  
+  if (exists) {
+    return res.status(409).json({ error: "Duplicate record already exists in ledger" });
+  }
+
   const newReceiving = {
     id: randomUUID(),
     ...req.body,
     quantity: qtyNum,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    isDeleted: false
   };
   
   // Update Inventory Stock
@@ -237,15 +251,35 @@ app.post("/api/v1/receiving/bulk", (req, res) => {
   const { items } = req.body;
   if (!Array.isArray(items)) return res.status(400).json({ error: "Invalid data format" });
 
+  let skippedCount = 0;
+  let addedCount = 0;
+
   items.forEach((itemData: any) => {
     const qtyNum = Number(itemData.quantity) || 0;
+    
+    // DUPLICATE CHECK
+    const exists = db.receivings.some((r: any) => 
+      !r.isDeleted &&
+      r.item_code === itemData.item_code && 
+      r.supplier === itemData.supplier && 
+      r.date === itemData.date && 
+      r.invoice_number === itemData.invoice_number
+    );
+
+    if (exists) {
+      skippedCount++;
+      return; 
+    }
+
     const newReceiving = {
       id: randomUUID(),
       ...itemData,
       quantity: qtyNum,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      isDeleted: false
     };
     db.receivings.push(newReceiving);
+    addedCount++;
 
     const item = db.items.find((i: any) => i.item_code === itemData.item_code);
     if (item) {
@@ -265,7 +299,7 @@ app.post("/api/v1/receiving/bulk", (req, res) => {
   });
 
   saveDb(db);
-  res.json({ success: true, count: items.length });
+  res.json({ success: true, count: addedCount, skipped: skippedCount });
 });
 
 app.delete("/api/v1/receiving/:id", (req, res) => {
