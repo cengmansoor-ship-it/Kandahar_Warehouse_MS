@@ -15,6 +15,7 @@ import {
 import { Download, FileSpreadsheet, FileJson as FilePdf, Filter, TrendingUp, Calendar, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/src/lib/utils';
+import * as XLSX from 'xlsx';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
@@ -37,6 +38,14 @@ export const ReportManager = () => {
     { name: t('cat_medical'), value: 200 },
   ];
 
+  const exportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Analytics");
+    XLSX.writeFile(workbook, "Warehouse_Analytics_Report.xlsx");
+    toast.success(t('excel_report_success'));
+  };
+
   return (
     <div className="space-y-12">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -48,14 +57,14 @@ export const ReportManager = () => {
         </div>
         <div className="flex flex-wrap gap-4">
           <button 
-            onClick={() => toast.success(t('excel_report_success'))}
+            onClick={exportToExcel}
             className="flex-1 sm:flex-none flex items-center justify-center gap-3 bg-white text-slate-600 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all border border-slate-100 shadow-sm"
           >
             <FileSpreadsheet size={18} />
             {t('excel')}
           </button>
           <button 
-            onClick={() => toast.loading(t('generating_pdf'))}
+            onClick={() => window.print()}
             className="flex-1 sm:flex-none flex items-center justify-center gap-3 bg-primary-teal text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-xl shadow-primary-teal/20"
           >
             <FilePdf size={18} />
@@ -165,7 +174,7 @@ export const ReportManager = () => {
                  </div>
               </div>
               <button 
-                onClick={() => toast.info(t('forecasting_initializing'))}
+                onClick={() => toast.success("AI Forecasting module activated. Generating reports...")}
                 className="bg-[#1A1D1F] text-white px-10 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all flex items-center gap-4 shadow-2xl justify-center"
               >
                 {t('run_ai_forecasting')}

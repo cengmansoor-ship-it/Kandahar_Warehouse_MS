@@ -33,14 +33,31 @@ export const receivingService = {
   exportReceivings: () => api.get('/v1/receiving/export', { responseType: 'blob' }),
 };
 
+export const procurementService = {
+  getRequests: () => api.get('/procurement/requests'),
+  getTenders: () => api.get('/procurement/tenders'),
+  createTender: (data: any) => api.post('/procurement/tenders', data),
+  getQuotations: () => api.get('/procurement/quotations'),
+  submitQuotation: (data: any) => api.post('/procurement/quotations', data),
+  selectWinner: (data: any) => api.post('/procurement/select-winner', data),
+  getOrders: () => api.get('/procurement/orders'),
+  getCodes: () => api.get('/procurement/codes'),
+};
+
 export const trashService = {
   getTrash: () => api.get('/trash'),
   moveToTrash: (id: string, reason: string) => api.post(`/items/${id}/trash`, { reason }),
+  restoreFromTrash: (trashId: string) => api.post(`/trash/restore/${trashId}`),
 };
 
 export const notificationService = {
   getNotifications: () => api.get('/notifications'),
   clearNotifications: () => api.delete('/notifications'),
+};
+
+export const userService = {
+  getProfile: () => api.get('/user/profile'),
+  updateProfile: (data: any) => api.post('/user/profile', data),
 };
 
 export default api;

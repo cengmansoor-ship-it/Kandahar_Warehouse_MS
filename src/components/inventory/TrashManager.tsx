@@ -80,7 +80,7 @@ export const TrashManager = () => {
                     </td>
                  </tr>
                ) : (
-                 items.map((item) => (
+                 Array.isArray(items) && items.map((item) => (
                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                      <td className="px-8 py-6 text-start">
                        <div className="font-black text-slate-900">{item.name}</div>

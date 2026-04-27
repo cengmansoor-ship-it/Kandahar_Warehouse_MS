@@ -14,6 +14,7 @@ import { ProcurementManager } from './components/procurement/ProcurementManager'
 import { ReportManager } from './components/reports/ReportManager';
 import { SettingsManager } from './components/settings/SettingsManager';
 import { TrashManager } from './components/inventory/TrashManager';
+import { ExitClearanceManager } from './components/inventory/ExitClearanceManager';
 import { LoginManager } from './components/auth/LoginManager';
 import AboutUs from './pages/AboutUs';
 import { Package, TrendingUp, AlertTriangle, FileCheck } from 'lucide-react';
@@ -105,31 +106,66 @@ function Dashboard() {
   );
 }
 
+import { AIAssistant } from './components/AIAssistant';
+
+import { User, UserRole } from './types';
+import { RoleManagement } from './pages/RoleManagement';
+
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const [user, setUser] = React.useState<User | null>(null);
+
+  const handleLogin = (userData?: any) => {
+    // Default to admin for demo if no data provided
+    const defaultUser: User = {
+      id: '1',
+      name: 'Admin User',
+      email: 'admin@kandahar.edu.af',
+      role: UserRole.SUPER_ADMIN,
+    };
+    setUser(userData || defaultUser);
+  };
 
   return (
     <BrowserRouter>
       <Toaster position="top-center" richColors />
-      {!isAuthenticated ? (
-        <LoginManager onLogin={() => setIsAuthenticated(true)} />
+      {!user ? (
+        <LoginManager onLogin={handleLogin} />
       ) : (
-        <Layout onLogout={() => setIsAuthenticated(false)}>
+        <Layout onLogout={() => setUser(null)} user={user}>
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/inventory" element={<InventoryManager />} />
             <Route path="/receiving" element={<ReceivingManager />} />
+            <Route path="/exit-clearance" element={<ExitClearanceManager />} />
             <Route path="/requests" element={<RequestManager />} />
             <Route path="/procurement" element={<ProcurementManager />} />
             <Route path="/reports" element={<ReportManager />} />
             <Route path="/trash" element={<TrashManager />} />
             <Route path="/settings" element={<SettingsManager />} />
             <Route path="/about" element={<AboutUs />} />
+            <Route path="/chatbot" element={<ChatbotPage />} />
+            <Route path="/roles" element={<RoleManagement />} />
           </Routes>
         </Layout>
       )}
     </BrowserRouter>
+  );
+}
+
+function ChatbotPage() {
+  return (
+    <div className="h-[calc(100vh-140px)] flex flex-col">
+       <div className="mb-6">
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">AI Chatbot</h1>
+          <p className="text-slate-400 font-medium mt-1 uppercase text-[10px] tracking-widest leading-none text-start">
+            Intelligent Warehouse Assistant
+          </p>
+       </div>
+       <div className="flex-1 bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden relative">
+          <AIAssistant isFullPage />
+       </div>
+    </div>
   );
 }
 

@@ -19,10 +19,14 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
 
   const fetchQuotations = async () => {
     try {
-      const res = await axios.get('/api/procurement/quotations');
-      setQuotations(res.data.filter((q: any) => q.tenderId === tender.id));
-    } catch (error) {
-      console.error(error);
+      setLoading(true);
+      const res = await axios.get('/api/procurement/quotations', { timeout: 5000 });
+      if (res.data) {
+        setQuotations(res.data.filter((q: any) => q.tenderId === tender.id));
+      }
+    } catch (error: any) {
+      console.error("Fetch Quotations Error:", error);
+      // No toast here to avoid annoying the user on background fetch, but we log the error
     } finally {
       setLoading(false);
     }

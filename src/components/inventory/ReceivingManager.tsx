@@ -301,6 +301,38 @@ export const ReceivingManager = () => {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="fintech-card p-8 bg-white border border-slate-100 group hover:border-primary-teal transition-all cursor-pointer" onClick={() => setShowModal(true)}>
+          <div className="w-14 h-14 rounded-2xl bg-primary-teal/10 text-primary-teal flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <Truck size={24} />
+          </div>
+          <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm mb-2">{t('manual_data_entry') || 'Manual Data Entry'}</h3>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+            Record new arrivals manually into the ledger system with full detail tracking.
+          </p>
+        </div>
+
+        <div className="fintech-card p-8 bg-white border border-slate-100 group hover:border-emerald-500 transition-all cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+          <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <Upload size={24} />
+          </div>
+          <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm mb-2">{t('import_from_excel') || 'Import from Excel'}</h3>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+            Upload multiple records at once using standardized Excel templates.
+          </p>
+        </div>
+
+        <div className="fintech-card p-8 bg-white border border-slate-100 group hover:border-amber-500 transition-all cursor-pointer" onClick={handleExport}>
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <Download size={24} />
+          </div>
+          <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm mb-2">{t('export_to_excel') || 'Export to Excel'}</h3>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+            Generate comprehensive reports and export receiving history to Excel.
+          </p>
+        </div>
+      </div>
+
       <div className="space-y-6">
         <div className="fintech-card p-6 bg-white flex items-center gap-6">
           <div className="relative flex-1 w-full text-start">
@@ -341,7 +373,7 @@ export const ReceivingManager = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-[10px] font-bold uppercase tracking-wide">
-                  {filteredReceivings.slice().reverse().map((rec) => (
+                  {Array.isArray(filteredReceivings) && filteredReceivings.slice().reverse().map((rec) => (
                     <tr key={rec.id} className="hover:bg-slate-50/80 transition-colors group">
                       <td className="px-8 py-6">
                         <div className="font-black text-slate-900 text-xs leading-none mb-1 uppercase tracking-tight">{rec.item_name}</div>
@@ -387,7 +419,7 @@ export const ReceivingManager = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredReceivings.slice().reverse().map((rec) => (
+            {Array.isArray(filteredReceivings) && filteredReceivings.slice().reverse().map((rec) => (
               <div key={rec.id} className="fintech-card p-6 bg-white hover:border-primary-teal/30 transition-all group flex flex-col justify-between border border-slate-100 text-start">
                 <div>
                    <div className="flex items-center justify-between mb-4">
@@ -442,9 +474,9 @@ export const ReceivingManager = () => {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-xl rounded-[40px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-10">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-10 overflow-y-auto">
+          <div className="bg-white w-full max-w-xl rounded-[40px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 my-auto lg:my-10">
+            <div className="p-8 lg:p-12 max-h-[90vh] overflow-y-auto custom-scrollbar">
               <div className="flex items-center justify-between mb-10">
                 <div className="text-start">
                    <h3 className="text-3xl font-black text-slate-900 tracking-tight italic">
@@ -465,14 +497,22 @@ export const ReceivingManager = () => {
                       <select 
                         required
                         value={formData.item_code}
-                        onChange={(e) => setFormData({...formData, item_code: e.target.value})}
+                        onChange={(e) => {
+                          const code = e.target.value;
+                          const selectedItem = items.find(i => i.item_code === code);
+                          setFormData({
+                            ...formData, 
+                            item_code: code,
+                            item_name: selectedItem?.name || ''
+                          });
+                        }}
                         className={cn(
                           "w-full bg-slate-50 border-none rounded-2xl py-4.5 pr-6 text-xs font-bold outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all appearance-none text-slate-700",
                           t('lang_direction') === 'rtl' ? "pr-12 pl-6" : "pl-12 pr-6"
                         )}
                       >
-                         <option value="">{t('select_sku')}</option>
-                         {items.map(item => (
+                         <option key="default" value="">{t('select_sku')}</option>
+                         {Array.isArray(items) && items.map(item => (
                            <option key={item.id} value={item.item_code}>{item.name} ({item.item_code})</option>
                          ))}
                       </select>

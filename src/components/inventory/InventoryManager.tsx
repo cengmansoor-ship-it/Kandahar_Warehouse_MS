@@ -8,7 +8,8 @@ import {
   MoreHorizontal, 
   ArrowUpRight, 
   ArrowDownLeft,
-  Package
+  Package,
+  Trash2
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { toast } from 'sonner';
@@ -49,6 +50,18 @@ export const InventoryManager = () => {
       fetchItems();
     } catch (error) {
       toast.error(t('failed_add_item'));
+    }
+  };
+
+  const handleMoveToTrash = async (id: string) => {
+    const reason = window.prompt("Reason for moving to trash?");
+    if (!reason) return;
+    try {
+      await api.post(`/items/${id}/trash`, { reason });
+      toast.success("Item moved to trash");
+      fetchItems();
+    } catch (error) {
+      toast.error("Failed to move item to trash");
     }
   };
 
@@ -137,8 +150,13 @@ export const InventoryManager = () => {
             <div key={i} className="h-72 fintech-card animate-pulse" />
           ))
         ) : (
-          items.map((item) => (
-            <InventoryCard key={item.id} item={item} horizontal={view === 'list'} />
+          Array.isArray(items) && items.map((item) => (
+            <InventoryCard 
+              key={item.id} 
+              item={item} 
+              horizontal={view === 'list'} 
+              onDelete={() => handleMoveToTrash(item.id)}
+            />
           ))
         )}
       </div>
@@ -146,7 +164,7 @@ export const InventoryManager = () => {
   );
 };
 
-const InventoryCard: React.FC<{ item: any, horizontal?: boolean }> = ({ item, horizontal }) => {
+const InventoryCard: React.FC<{ item: any, horizontal?: boolean, onDelete: () => void }> = ({ item, horizontal, onDelete }) => {
   const { t } = useTranslation();
   const statusStyles: Record<string, string> = {
     'In Stock': 'bg-emerald-50 text-emerald-600 border-emerald-100',
@@ -304,13 +322,19 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean }> = ({ item, ho
         </div>
       </div>
 
-      <div className={cn("mt-10", horizontal && "mt-0 ml-12")}>
+      <div className={cn("mt-10 flex gap-3", horizontal && "mt-0 ml-12")}>
         <button 
           onClick={() => handlePrintLedger(item)}
-          className="w-full bg-[#1A1D1F] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all flex items-center justify-center gap-3 shadow-2xl shadow-slate-900/10"
+          className="flex-1 bg-[#1A1D1F] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all flex items-center justify-center gap-3 shadow-2xl shadow-slate-900/10"
         >
           {t('inventory_ledger')}
           <ArrowUpRight size={14} className="opacity-50" />
+        </button>
+        <button 
+          onClick={onDelete}
+          className="w-14 h-14 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center hover:bg-red-100 transition-all border border-red-100"
+        >
+          <Trash2 size={24} />
         </button>
       </div>
     </div>

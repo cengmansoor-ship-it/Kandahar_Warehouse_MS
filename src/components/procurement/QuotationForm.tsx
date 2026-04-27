@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { X, Save, Building2, MapPin } from 'lucide-react';
 import axios from 'axios';
+import { toast } from 'sonner';
 
 interface QuotationFormProps {
   tender: any;
@@ -13,7 +14,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({ tender, onClose, onSucces
   const [supplierName, setSupplierName] = useState('');
   const [supplierAddress, setSupplierAddress] = useState('');
   const [itemPrices, setItemPrices] = useState<any>(
-    tender.items.map((item: any) => ({ ...item, unitPrice: 0 }))
+    Array.isArray(tender.items) ? tender.items.map((item: any) => ({ ...item, unitPrice: 0 })) : []
   );
   const [loading, setLoading] = useState(false);
 
@@ -25,18 +26,31 @@ const QuotationForm: React.FC<QuotationFormProps> = ({ tender, onClose, onSucces
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!supplierName || !supplierAddress) return toast.error("Please fill all details");
+    
     setLoading(true);
     try {
-      await axios.post('/api/procurement/quotations', {
+      // Robust submission with explicit timeout and cleanup
+      const response = await axios.post('/api/procurement/quotations', {
         tenderId: tender.id,
         supplierName,
         supplierAddress,
         items: itemPrices
+      }, {
+        timeout: 10000,
+        headers: { 'Content-Type': 'application/json' }
       });
-      onSuccess();
-    } catch (error) {
-      console.error(error);
-      alert("Error submitting quotation");
+      
+      if (response.status === 200) {
+        toast.success(`Bid from ${supplierName} registered successfully`);
+        setTimeout(() => {
+          onSuccess();
+        }, 1500);
+      }
+    } catch (error: any) {
+      console.error("Quotation Submission Error:", error);
+      const msg = error.response?.data?.error || "Network connection error. Please try again.";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -111,7 +125,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({ tender, onClose, onSucces
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {itemPrices.map((item: any, index: number) => (
+                    {Array.isArray(itemPrices) && itemPrices.map((item: any, index: number) => (
                       <tr key={index}>
                         <td className="px-6 py-4 font-black text-slate-900 text-sm">{item.name}</td>
                         <td className="px-6 py-4 text-xs font-medium text-slate-500">{item.spec}</td>

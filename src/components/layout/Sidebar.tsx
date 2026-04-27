@@ -14,18 +14,23 @@ import {
   ChevronLeft,
   Menu,
   Trash2,
-  Info
+  Info,
+  Sparkles,
+  Shield
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/src/lib/utils';
+
+import { User, UserRole, RolePermissions } from '@/src/types';
 
 interface SidebarProps {
   collapsed: boolean;
   setCollapsed: (val: boolean) => void;
   onLogout: () => void;
+  user: User;
 }
 
-export const Sidebar = ({ collapsed, setCollapsed, onLogout }: SidebarProps) => {
+export const Sidebar = ({ collapsed, setCollapsed, onLogout, user }: SidebarProps) => {
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const [logo, setLogo] = React.useState<string>(localStorage.getItem('system_logo') || "https://upload.wikimedia.org/wikipedia/en/2/23/Kandahar_University_Logo.png");
@@ -68,16 +73,26 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout }: SidebarProps) => 
   }, []);
 
   const menuItems = [
-    { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard' },
-    { id: 'inventory', label: t('inventory'), icon: Package, path: '/inventory' },
-    { id: 'receiving', label: t('receiving'), icon: Truck, path: '/receiving' },
-    { id: 'requests', label: t('requests'), icon: FileText, path: '/requests' },
-    { id: 'procurement', label: t('procurement'), icon: ShoppingCart, path: '/procurement' },
-    { id: 'reports', label: t('reports'), icon: BarChart3, path: '/reports' },
-    { id: 'trash', label: t('trash_bin'), icon: Trash2, path: '/trash' },
-    { id: 'about', label: t('about_us'), icon: Info, path: '/about' },
-    { id: 'settings', label: t('settings'), icon: Settings, path: '/settings' },
+    { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard', permission: 'view_dashboard' },
+    { id: 'inventory', label: t('inventory'), icon: Package, path: '/inventory', permission: 'manage_inventory' },
+    { id: 'receiving', label: t('receiving'), icon: Truck, path: '/receiving', permission: 'manage_receiving' },
+    { id: 'exit-clearance', label: t('exit_clearance') || 'Exit Clearance', icon: Truck, path: '/exit-clearance', permission: 'manage_inventory' },
+    { id: 'requests', label: t('requests'), icon: FileText, path: '/requests', permission: 'manage_requests' },
+    { id: 'procurement', label: t('procurement'), icon: ShoppingCart, path: '/procurement', permission: 'manage_procurement' },
+    { id: 'reports', label: t('reports'), icon: BarChart3, path: '/reports', permission: 'view_reports' },
+    { id: 'trash', label: t('trash_bin'), icon: Trash2, path: '/trash', permission: 'manage_inventory' },
+    { id: 'about', label: t('about_us'), icon: Info, path: '/about', permission: 'public' },
+    { id: 'settings', label: t('settings'), icon: Settings, path: '/settings', permission: 'manage_settings' },
+    { id: 'roles', label: 'Role Management', icon: Shield, path: '/roles', permission: 'all' },
+    { id: 'chatbot', label: 'Chatbot', icon: Sparkles, path: '/chatbot', permission: 'view_dashboard' },
   ];
+
+  const filteredItems = menuItems.filter(item => {
+    if (item.permission === 'public') return true;
+    const permissions = RolePermissions[user.role];
+    if (permissions.includes('all')) return true;
+    return permissions.includes(item.permission);
+  });
 
   return (
     <motion.aside
@@ -130,24 +145,24 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout }: SidebarProps) => 
         </button>
       </div>
 
-      <nav className="flex-1 px-5 space-y-4 overflow-y-auto custom-scrollbar">
-        {menuItems.map((item) => {
+      <nav className="flex-1 px-5 space-y-2 overflow-y-auto custom-scrollbar">
+        {filteredItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <Link
               key={item.id}
               to={item.path}
               className={cn(
-                "w-full flex items-center gap-5 p-4 rounded-3xl transition-all group relative",
+                "w-full flex items-center gap-4 p-3.5 rounded-2xl transition-all group relative border border-transparent",
                 isActive 
-                  ? "bg-white/20 text-white shadow-lg" 
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
+                  ? "bg-white/20 text-white shadow-lg border-white/10" 
+                  : "text-white/70 hover:bg-white/5 hover:text-white"
               )}
             >
-              <div className="flex flex-1 items-center gap-5 text-start">
-                <item.icon size={22} className="shrink-0" />
+              <div className={cn("flex flex-1 items-center gap-4", isRtl ? "text-right" : "text-left")}>
+                <item.icon size={20} className="shrink-0" />
                 {!collapsed && (
-                  <span className={cn("font-black uppercase tracking-widest", isRtl ? "text-sm" : "text-xs")}>{item.label}</span>
+                  <span className={cn("font-bold uppercase tracking-widest", isRtl ? "text-xs" : "text-[11px]")}>{item.label}</span>
                 )}
               </div>
               {!collapsed && isActive && (
@@ -155,7 +170,7 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout }: SidebarProps) => 
                   layoutId="nav-dot"
                   className={cn(
                     "absolute w-1.5 h-1.5 bg-white rounded-full",
-                    isRtl ? "right-4" : "left-4"
+                    isRtl ? "right-2" : "left-2"
                   )}
                 />
               )}

@@ -9,16 +9,19 @@ import { Menu, Bell, LogOut, Camera } from 'lucide-react';
 import { notificationService } from '@/src/services/api';
 import { toast } from 'sonner';
 
+import { User } from '@/src/types';
+
 interface LayoutProps {
   children: React.ReactNode;
   onLogout: () => void;
+  user: User;
 }
 
-export const Layout = ({ children, onLogout }: LayoutProps) => {
+export const Layout = ({ children, onLogout, user }: LayoutProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(localStorage.getItem('profile_image'));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
   const { t, i18n } = useTranslation();
@@ -27,6 +30,13 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
   useEffect(() => {
     notificationService.getNotifications().then(res => setNotifications(res.data || []));
   }, []);
+
+  useEffect(() => {
+    // If user has an image in profile image state, use it
+    if (user.image && !profileImage) {
+      setProfileImage(user.image);
+    }
+  }, [user]);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -51,8 +61,11 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
       }
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfileImage(reader.result as string);
+        const base64 = reader.result as string;
+        setProfileImage(base64);
+        localStorage.setItem('profile_image', base64);
         toast.success(t('profile_updated'));
+        window.dispatchEvent(new Event('storage'));
       };
       reader.readAsDataURL(file);
     }
@@ -75,6 +88,7 @@ export const Layout = ({ children, onLogout }: LayoutProps) => {
         collapsed={collapsed} 
         setCollapsed={setCollapsed} 
         onLogout={onLogout}
+        user={user}
       />
       
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
