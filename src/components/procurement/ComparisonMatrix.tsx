@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { X, Trophy, AlertCircle, CheckCircle2, ShoppingCart } from 'lucide-react';
-import axios from 'axios';
+import api from '../../services/api';
+import { procurementService } from '../../services/api';
 
 interface ComparisonMatrixProps {
   tender: any;
@@ -20,13 +21,12 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
   const fetchQuotations = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/api/procurement/quotations', { timeout: 5000 });
+      const res = await procurementService.getQuotations();
       if (res.data) {
         setQuotations(res.data.filter((q: any) => q.tenderId === tender.id));
       }
     } catch (error: any) {
       console.error("Fetch Quotations Error:", error);
-      // No toast here to avoid annoying the user on background fetch, but we log the error
     } finally {
       setLoading(false);
     }
@@ -34,7 +34,7 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
 
   const selectWinner = async (quotationId: string) => {
     try {
-      await axios.post('/api/procurement/select-winner', { tenderId: tender.id, quotationId });
+      await procurementService.selectWinner({ tenderId: tender.id, quotationId });
       onSuccess();
     } catch (error: any) {
       alert(error.response?.data?.error || "Error awarding tender");

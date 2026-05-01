@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { X, Save, Building2, MapPin } from 'lucide-react';
-import axios from 'axios';
+import api, { procurementService } from '../../services/api';
 import { toast } from 'sonner';
 
 interface QuotationFormProps {
@@ -30,23 +30,18 @@ const QuotationForm: React.FC<QuotationFormProps> = ({ tender, onClose, onSucces
     
     setLoading(true);
     try {
-      // Robust submission with explicit timeout and cleanup
-      const response = await axios.post('/api/procurement/quotations', {
+      // Use standard service
+      const response = await procurementService.submitQuotation({
         tenderId: tender.id,
         supplierName,
         supplierAddress,
         items: itemPrices
-      }, {
-        timeout: 10000,
-        headers: { 'Content-Type': 'application/json' }
       });
       
-      if (response.status === 200) {
-        toast.success(`Bid from ${supplierName} registered successfully`);
-        setTimeout(() => {
-          onSuccess();
-        }, 1500);
-      }
+      toast.success(`Bid from ${supplierName} registered successfully`);
+      setTimeout(() => {
+        onSuccess();
+      }, 1500);
     } catch (error: any) {
       console.error("Quotation Submission Error:", error);
       const msg = error.response?.data?.error || "Network connection error. Please try again.";

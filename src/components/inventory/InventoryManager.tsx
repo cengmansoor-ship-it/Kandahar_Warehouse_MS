@@ -9,23 +9,57 @@ import {
   ArrowUpRight, 
   ArrowDownLeft,
   Package,
-  Trash2
+  Trash2,
+  Edit,
+  X
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { toast } from 'sonner';
 import { ItemHierarchyModal } from './ItemHierarchyModal';
 import api from '@/src/services/api';
+import { useLocation } from 'react-router-dom';
 
 export const InventoryManager = () => {
   const { t } = useTranslation();
+  const location = useLocation();
   const [view, setView] = useState<'list' | 'grid'>('grid');
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   useEffect(() => {
     fetchItems();
-  }, []);
+    if (location.state) {
+      if (location.state.filter === 'low_stock') {
+        setActiveFilter('low_stock');
+        toast.info(t('filtering_low_stock') || "Filtering items with low stock");
+      } else if (location.state.faculty) {
+        setSearchTerm(location.state.faculty);
+        toast.info(`${t('filtering_by') || 'Filtering by'}: ${location.state.faculty}`);
+      }
+    }
+  }, [location.state]);
+
+  const filteredItems = items.filter(item => {
+    const searchStr = searchTerm.toLowerCase();
+    const matchesSearch = (
+      item.name?.toLowerCase().includes(searchStr) ||
+      item.item_code?.toLowerCase().includes(searchStr) ||
+      item.category?.toLowerCase().includes(searchStr) ||
+      item.department?.toLowerCase().includes(searchStr) ||
+      item.location?.toLowerCase().includes(searchStr)
+    );
+
+    if (activeFilter === 'low_stock') {
+      return matchesSearch && item.status === 'Low Stock';
+    }
+
+    return matchesSearch;
+  });
 
   const fetchItems = async () => {
     try {
@@ -61,6 +95,18 @@ export const InventoryManager = () => {
       fetchItems();
     } catch (error) {
       toast.error("Failed to move item to trash");
+    }
+  };
+
+  const handleUpdateItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.patch(`/items/${editingItem.id}`, editingItem);
+      toast.success(t('item_updated') || "Item updated successfully");
+      setShowEditModal(false);
+      fetchItems();
+    } catch (error) {
+      toast.error(t('failed_update_item') || "Failed to update item");
     }
   };
 
@@ -116,13 +162,24 @@ export const InventoryManager = () => {
           <input 
             type="text" 
             placeholder={t('search_inventory_placeholder')}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className={cn(
-              "w-full bg-slate-50 border-none rounded-2xl py-4.5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all text-slate-700",
+              "w-full bg-slate-50 border-none rounded-2xl py-4.5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all text-slate-700 shadow-inner",
               t('lang_direction') === 'rtl' ? "pr-14 pl-6" : "pl-14 pr-6"
             )}
           />
         </div>
         <div className="flex items-center gap-4 w-full md:w-auto">
+          {(activeFilter || searchTerm) && (
+            <button 
+              onClick={() => { setActiveFilter(null); setSearchTerm(''); }}
+              className="flex items-center gap-2 px-6 py-4.5 bg-slate-100 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+            >
+              <X size={14} />
+              {t('clear_filters')}
+            </button>
+          )}
           <button 
             onClick={() => toast.info(t('advanced_filter_coming_soon'))}
             className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white text-slate-400 px-8 py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-primary-teal transition-all border border-slate-100 shadow-sm"
@@ -140,6 +197,24 @@ export const InventoryManager = () => {
         </div>
       </div>
 
+      {(activeFilter || (location.state && location.state.faculty)) && (
+        <div className="flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-300">
+           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Filters:</div>
+           {activeFilter === 'low_stock' && (
+             <div className="bg-amber-50 text-amber-600 border border-amber-100 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
+               {t('status_low_stock')}
+               <X size={12} className="cursor-pointer" onClick={() => setActiveFilter(null)} />
+             </div>
+           )}
+           {searchTerm && (
+             <div className="bg-primary-teal/5 text-primary-teal border border-primary-teal/10 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
+               {searchTerm}
+               <X size={12} className="cursor-pointer" onClick={() => setSearchTerm('')} />
+             </div>
+           )}
+        </div>
+      )}
+
       <div className={cn(
         "grid gap-8",
         view === 'grid' ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4" : "grid-cols-1"
@@ -149,21 +224,87 @@ export const InventoryManager = () => {
             <div key={i} className="h-72 fintech-card animate-pulse" />
           ))
         ) : (
-          Array.isArray(items) && items.map((item) => (
+          Array.isArray(filteredItems) && filteredItems.map((item) => (
             <InventoryCard 
               key={item.id} 
               item={item} 
               horizontal={view === 'list'} 
               onDelete={() => handleMoveToTrash(item.id)}
+              onEdit={() => { setEditingItem(item); setShowEditModal(true); }}
             />
           ))
         )}
       </div>
+
+      {showEditModal && editingItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+           <div className="bg-white w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden p-10 animate-in zoom-in duration-200">
+              <div className="flex items-center justify-between mb-8">
+                 <div className="text-start">
+                   <h3 className="text-2xl font-black text-slate-900 tracking-tight italic uppercase">{t('edit_item') || 'Edit Item'}</h3>
+                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">{t('update_item_metadata') || 'Update Item Metadata'}</p>
+                 </div>
+                 <button onClick={() => setShowEditModal(false)} className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors">
+                    <Trash2 size={20} className="rotate-45" />
+                 </button>
+              </div>
+
+              <form onSubmit={handleUpdateItem} className="space-y-6">
+                 <div className="space-y-4 text-start">
+                    <div className="space-y-1.5">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('item_name')}</label>
+                       <input 
+                         required
+                         value={editingItem.name}
+                         onChange={(e) => setEditingItem({...editingItem, name: e.target.value})}
+                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 text-xs font-bold outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all"
+                       />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('item_code')}</label>
+                          <input 
+                            required
+                            value={editingItem.item_code}
+                            onChange={(e) => setEditingItem({...editingItem, item_code: e.target.value})}
+                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 text-xs font-bold outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all font-mono"
+                          />
+                       </div>
+                       <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('unit')}</label>
+                          <input 
+                            required
+                            value={editingItem.unit}
+                            onChange={(e) => setEditingItem({...editingItem, unit: e.target.value})}
+                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 text-xs font-bold outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all"
+                          />
+                       </div>
+                    </div>
+                    <div className="space-y-1.5">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('location')}</label>
+                       <input 
+                         value={editingItem.location}
+                         onChange={(e) => setEditingItem({...editingItem, location: e.target.value})}
+                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 text-xs font-bold outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all"
+                       />
+                    </div>
+                 </div>
+
+                 <button 
+                   type="submit"
+                   className="w-full bg-slate-900 text-white py-5 rounded-[24px] text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all shadow-2xl shadow-slate-900/20"
+                 >
+                    {t('save_changes')}
+                 </button>
+              </form>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
 
-const InventoryCard: React.FC<{ item: any, horizontal?: boolean, onDelete: () => void }> = ({ item, horizontal, onDelete }) => {
+const InventoryCard: React.FC<{ item: any, horizontal?: boolean, onDelete: () => void, onEdit: () => void }> = ({ item, horizontal, onDelete, onEdit }) => {
   const { t } = useTranslation();
   const statusStyles: Record<string, string> = {
     'In Stock': 'bg-emerald-50 text-emerald-600 border-emerald-100',
@@ -322,6 +463,12 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean, onDelete: () =>
       </div>
 
       <div className={cn("mt-10 flex gap-3", horizontal && "mt-0 ml-12")}>
+        <button 
+          onClick={onEdit}
+          className="w-14 h-14 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center hover:bg-slate-100 hover:text-primary-teal transition-all border border-slate-100 shadow-sm"
+        >
+          <Edit size={24} />
+        </button>
         <button 
           onClick={() => handlePrintLedger(item)}
           className="flex-1 bg-[#1A1D1F] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all flex items-center justify-center gap-3 shadow-2xl shadow-slate-900/10"

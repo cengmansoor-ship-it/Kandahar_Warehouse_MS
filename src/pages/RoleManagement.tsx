@@ -13,7 +13,8 @@ import {
   X,
   User as UserIcon,
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -169,7 +170,7 @@ export const RoleManagement = () => {
               <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
                 <UserIcon size={24} />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-1">
                 <button 
                   onClick={() => { 
                     setSelectedUser(user); 
@@ -177,15 +178,24 @@ export const RoleManagement = () => {
                     setIsEditing(true);
                     setShowAddModal(true);
                   }}
-                  className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-slate-900 transition-all"
+                  className="p-2 hover:bg-blue-50 rounded-lg text-slate-400 hover:text-blue-600 transition-all"
+                  title="Edit Profile"
                 >
-                  <Edit2 size={20} />
+                  <Edit2 size={18} />
                 </button>
                 <button 
                   onClick={() => { setSelectedUser(user); setShowRoleModal(true); }}
-                  className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-slate-900 transition-all"
+                  className="p-2 hover:bg-amber-50 rounded-lg text-slate-400 hover:text-amber-600 transition-all"
+                  title="Manage Roles"
                 >
-                  <Settings size={20} />
+                  <Shield size={18} />
+                </button>
+                <button 
+                  onClick={() => handleDeleteUser(user.id)}
+                  className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-all"
+                  title="Delete User"
+                >
+                  <Trash2 size={18} />
                 </button>
               </div>
             </div>

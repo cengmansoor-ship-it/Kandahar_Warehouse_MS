@@ -12,8 +12,28 @@
 
 @layer base {
   body {
-    @apply font-sans bg-[#F8F9FA] text-[#1A1D1F] antialiased;
+    @apply font-sans bg-[#F8F9FA] text-[#1A1D1F] antialiased overflow-x-hidden;
     font-family: var(--font-sans);
+    min-height: 100vh;
+    min-width: 320px;
+    /* Zoom Support: prevent layout breakage on high zoom */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    overflow-y: overlay;
+  }
+
+  button, .btn-animate {
+    @apply transition-all duration-200 active:scale-95 hover:brightness-95;
+  }
+
+  /* Stabilize layout during high zoom */
+  .main-content {
+    min-width: 320px;
+    width: 100%;
+  }
+
+  input, select, textarea {
+    @apply transition-all duration-200;
   }
 }
 

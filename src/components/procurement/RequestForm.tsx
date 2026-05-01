@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { X, Plus, Trash2, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
+import { procurementService } from '../../services/api';
 
 interface RequestFormProps {
   onClose: () => void;
@@ -37,7 +37,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ onClose, onSuccess }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await axios.post('/api/procurement/requests', { projectName, items });
+      await procurementService.submitRequest({ projectName, items });
       onSuccess();
     } catch (error) {
       console.error(error);

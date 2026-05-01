@@ -17,6 +17,7 @@ import {
   Database
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import ProfileCard from '../components/about/ProfileCard';
 import SupervisorCard from '../components/about/SupervisorCard';
 
@@ -291,12 +292,12 @@ const AboutUs: React.FC = () => {
               </div>
             </div>
             
-            <motion.button 
-              whileHover={{ x: 5 }}
-              className="group flex items-center gap-4 text-xs font-black uppercase tracking-widest text-white/80"
+            <Link 
+              to="/guide"
+              className="group flex items-center gap-4 text-xs font-black uppercase tracking-widest text-white/80 hover:text-white transition-colors"
             >
-              Learn More <ArrowRight size={16} className="text-white group-hover:translate-x-2 transition-transform" />
-            </motion.button>
+              System Workflow Guide <ArrowRight size={16} className="text-white group-hover:translate-x-2 transition-transform" />
+            </Link>
           </div>
         </div>
 

@@ -16,18 +16,30 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import { Download, FileSpreadsheet, FileJson as FilePdf, Filter, TrendingUp, Calendar, ArrowRight, Package, Users, Activity, Target } from 'lucide-react';
+import { Download, FileSpreadsheet, FileJson as FilePdf, Filter, TrendingUp, Calendar, ArrowRight, Package, Users, Activity, Target, AlertTriangle, List as ListIcon, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/src/lib/utils';
 import * as XLSX from 'xlsx';
 import { analyticsService } from '@/src/services/api';
+import { useNavigate } from 'react-router-dom';
+import { LabelList } from 'recharts';
 
 const COLORS = ['#0F8F7F', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export const ReportManager = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('analytics');
   const [loading, setLoading] = useState(true);
+
+  const handleChartClick = (data: any) => {
+    if (data && data.activeLabel) {
+      navigate('/inventory', { state: { faculty: data.activeLabel } });
+    } else if (data && data.name) {
+      navigate('/inventory', { state: { faculty: data.name } });
+    }
+  };
+
   const [annualNeeds, setAnnualNeeds] = useState<any[]>([]);
   const [forecast, setForecast] = useState<any[]>([]);
   const [allocation, setAllocation] = useState<any[]>([]);
@@ -54,19 +66,33 @@ export const ReportManager = () => {
     }
   };
 
+  const handlePrint = () => {
+    toast.info("Preparing document for printing...");
+    setTimeout(() => {
+      window.print();
+    }, 500);
+  };
+
   const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(annualNeeds);
+    // Standardize headers for Pashto if needed, or just export existing
+    const worksheet = XLSX.utils.json_to_sheet(annualNeeds.map(item => ({
+      [t('item_nomenclature')]: item.name,
+      [t('standard_id_bab')]: item.item_code,
+      [t('current_stock')]: item.current_stock,
+      [t('needs_analysis_note').slice(0, 20)]: item.estimated_annual_consumption,
+      [t('status')]: item.recommended_purchase > 0 ? t('status_low_stock') : t('status_in_stock')
+    })));
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Annual Needs");
-    XLSX.writeFile(workbook, "Warehouse_Annual_Needs_Report.xlsx");
+    XLSX.writeFile(workbook, `Warehouse_Report_${new Date().toLocaleDateString()}.xlsx`);
     toast.success(t('excel_report_success'));
   };
 
-  const chartData = allocation.map(a => ({
+  const chartData = Array.isArray(allocation) ? allocation.map(a => ({
     name: a.faculty,
     value: a.total_value,
     items: a.items_count
-  }));
+  })) : [];
 
   return (
     <div className="space-y-12">
@@ -77,16 +103,23 @@ export const ReportManager = () => {
             {t('reports_description')}
           </p>
         </div>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-4 no-print">
           <button 
             onClick={exportToExcel}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-3 bg-white text-slate-600 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all border border-slate-100 shadow-sm"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-3 bg-white text-slate-900 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all border border-slate-100 shadow-sm"
           >
             <FileSpreadsheet size={18} />
             {t('excel')}
           </button>
           <button 
-            onClick={() => window.print()}
+            onClick={handlePrint}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-3 bg-white text-slate-900 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all border border-slate-100 shadow-sm"
+          >
+            <Printer size={18} />
+            {t('print')}
+          </button>
+          <button 
+            onClick={handlePrint}
             className="flex-1 sm:flex-none flex items-center justify-center gap-3 bg-primary-teal text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-xl shadow-primary-teal/20"
           >
             <FilePdf size={18} />
@@ -112,17 +145,42 @@ export const ReportManager = () => {
 
       {activeTab === 'analytics' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="fintech-card p-8 bg-white border border-slate-100 shadow-xl overflow-hidden">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
+              <h3 className="font-black text-xl tracking-tight uppercase text-slate-900">Faculties & Departments</h3>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {["Engineering", "Medicine", "Agriculture", "Computer Science", "Economics"].map((faculty) => (
+                <button 
+                  key={faculty}
+                  onClick={() => navigate('/inventory', { state: { faculty } })}
+                  className="p-6 rounded-[24px] bg-slate-50 border border-slate-100 hover:bg-white hover:border-primary-teal hover:shadow-xl transition-all group text-start"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center mb-4 group-hover:bg-primary-teal transition-all shadow-sm">
+                    <Users size={20} className="text-primary-teal group-hover:text-white" />
+                  </div>
+                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary-teal/60 mb-1">Explore</div>
+                  <div className="text-sm font-black tracking-tight text-slate-900">{t(`dept_${faculty.toLowerCase().replace(' ', '_')}`) || faculty}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="fintech-card p-8 bg-white">
+            <div className="fintech-card p-8 bg-white overflow-hidden">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
                    <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
                    <h3 className="font-black text-xl text-slate-900 tracking-tight">{t('allocation_by_faculty')}</h3>
                 </div>
               </div>
-              <div className="h-80 w-full" dir="ltr">
+              <div className="h-80 w-full cursor-pointer" dir="ltr">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
+                  <BarChart 
+                    data={chartData}
+                    onClick={handleChartClick}
+                  >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
                     <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
@@ -130,7 +188,12 @@ export const ReportManager = () => {
                       cursor={{fill: '#f1f5f9'}}
                       contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '10px'}}
                     />
-                    <Bar dataKey="value" fill="#0F8F7F" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="value" fill="#0F8F7F" radius={[6, 6, 0, 0]}>
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                      <LabelList dataKey="value" position="top" fill="#94a3b8" fontSize={10} fontWeight={800} offset={10} />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -141,7 +204,7 @@ export const ReportManager = () => {
                  <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
                  <h3 className="font-black text-xl text-slate-900 tracking-tight">{t('inventory_distribution')}</h3>
               </div>
-              <div className="h-80 w-full flex items-center justify-center" dir="ltr">
+              <div className="h-80 w-full flex items-center justify-center cursor-pointer" dir="ltr">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -152,6 +215,7 @@ export const ReportManager = () => {
                       outerRadius={90}
                       paddingAngle={5}
                       dataKey="items"
+                      onClick={(data) => navigate('/inventory', { state: { faculty: data.name } })}
                     >
                       {chartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -163,7 +227,11 @@ export const ReportManager = () => {
               </div>
               <div className="grid grid-cols-2 gap-3 mt-8">
                 {chartData.slice(0, 4).map((entry, index) => (
-                  <div key={entry.name} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div 
+                    key={entry.name} 
+                    className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100 cursor-pointer hover:border-primary-teal transition-all"
+                    onClick={() => navigate('/inventory', { state: { faculty: entry.name } })}
+                  >
                     <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: COLORS[index % COLORS.length]}}></div>
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest truncate">{entry.name}</span>
                   </div>
@@ -174,25 +242,28 @@ export const ReportManager = () => {
         </div>
       )}
 
-      {activeTab === 'needs' && (
+       {activeTab === 'needs' && (
         <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-           <div className="fintech-card p-10 bg-[#1A1D1F] text-white">
+           <div className="fintech-card p-10 bg-white border border-slate-100 shadow-xl overflow-hidden">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-10">
-                <div className="flex items-center gap-6">
-                   <div className="w-20 h-20 rounded-3xl bg-primary-teal flex items-center justify-center shadow-2xl shadow-primary-teal/30">
-                      <Target size={32} />
+                <div className="flex items-center gap-6 cursor-pointer group" onClick={() => {
+                   fetchData();
+                   toast.success("Intelligence data synchronized");
+                }}>
+                   <div className="w-20 h-20 rounded-3xl bg-primary-teal flex items-center justify-center shadow-2xl shadow-primary-teal/30 group-hover:scale-110 group-hover:rotate-3 transition-all">
+                      <Target size={32} className="text-white" />
                    </div>
                    <div className="text-start">
-                      <h3 className="text-3xl font-black tracking-tighter italic">{t('annual_needs_analysis')}</h3>
-                      <p className="text-[10px] text-white/40 font-black uppercase tracking-widest mt-2">Optimization System Powered by Gemini AI</p>
+                      <h3 className="text-3xl font-black tracking-tighter italic text-slate-900 group-hover:text-primary-teal transition-colors">{t('annual_needs_analysis')}</h3>
+                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-2 px-2 py-1 bg-slate-50 rounded border border-slate-100">Optimization System Powered by Gemini AI</p>
                    </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-end hidden sm:block">
                     <div className="text-[10px] font-black uppercase tracking-widest text-primary-teal">AI Accuracy</div>
-                    <div className="text-xl font-black">94.8%</div>
+                    <div className="text-xl font-black text-slate-900">94.8%</div>
                   </div>
-                  <div className="w-px h-10 bg-white/10 mx-4 hidden sm:block" />
+                  <div className="w-px h-10 bg-slate-200 mx-4 hidden sm:block" />
                   <Activity className="text-primary-teal animate-pulse" size={24} />
                 </div>
               </div>
@@ -211,7 +282,7 @@ export const ReportManager = () => {
                    </tr>
                  </thead>
                  <tbody>
-                   {annualNeeds.map((item, idx) => (
+                   {Array.isArray(annualNeeds) && annualNeeds.map((item, idx) => (
                      <tr key={idx} className="group hover:bg-slate-50/50 transition-colors">
                        <td className="px-8 py-6 border-b border-slate-50">
                          <div className="flex items-center gap-4">
@@ -235,7 +306,13 @@ export const ReportManager = () => {
                          </span>
                        </td>
                        <td className="px-8 py-6 border-b border-slate-50 text-center">
-                         <button className="text-[9px] font-black text-primary-teal hover:underline uppercase tracking-widest">
+                         <button 
+                           onClick={() => {
+                             toast.success("Procurement Plan Generated Successfully");
+                             navigate('/procurement/tenders');
+                           }}
+                           className="text-[9px] font-black text-primary-teal hover:underline uppercase tracking-widest p-2 rounded-lg hover:bg-primary-teal/5 transition-all"
+                         >
                            Create Procurement Plan
                          </button>
                        </td>
@@ -270,7 +347,16 @@ export const ReportManager = () => {
                 </div>
                 <div className="h-96 w-full" dir="ltr">
                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={forecast}>
+                      <AreaChart 
+                        data={forecast}
+                        onClick={(data: any) => {
+                          if (data && data.activeLabel) {
+                            const units = data.activePayload?.[0]?.value || 0;
+                            toast.info(`Forecasting ${data.activeLabel}: ${units} units projected`);
+                            navigate('/inventory', { state: { searchTerm: data.activeLabel } });
+                          }
+                        }}
+                      >
                         <defs>
                           <linearGradient id="colorProjected" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#0F8F7F" stopOpacity={0.1}/>
@@ -280,9 +366,16 @@ export const ReportManager = () => {
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
                         <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
-                        <Tooltip />
+                        <Tooltip 
+                            contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '10px'}}
+                            itemStyle={{fontWeight: 900, textTransform: 'uppercase'}}
+                            formatter={(value: any, name: string) => [
+                              <span style={{ color: name === 'actual' ? '#1a1d1f' : '#0f8f7f' }}>{value} Units</span>,
+                              name.toUpperCase()
+                            ]}
+                        />
                         <Area type="monotone" dataKey="projected" stroke="#0F8F7F" strokeWidth={3} fillOpacity={1} fill="url(#colorProjected)" />
-                        <Area type="monotone" dataKey="actual" stroke="#E2E8F0" strokeWidth={2} fillOpacity={0} />
+                        <Area type="monotone" dataKey="actual" stroke="#1A1D1F" strokeWidth={2} fillOpacity={0} />
                       </AreaChart>
                    </ResponsiveContainer>
                 </div>
@@ -290,12 +383,14 @@ export const ReportManager = () => {
               
               <div className="space-y-8">
                  <PredictiveCard 
+                   onClick={() => toast.info("Details: High demand expected in Medicine Faculty due to new lab enrollments.")}
                    icon={<TrendingUp size={24} />} 
                    title="Growth Rate" 
                    value="+15.2%" 
                    desc="Predicted increase in laboratory materials procurement for next semester." 
                  />
                  <PredictiveCard 
+                   onClick={() => navigate('/inventory', { state: { statusFilter: 'Low Stock' } })}
                    icon={<AlertTriangle size={24} />} 
                    title="Low Stock Risk" 
                    value="Critical" 
@@ -303,6 +398,7 @@ export const ReportManager = () => {
                    color="amber"
                  />
                  <PredictiveCard 
+                   onClick={() => toast.success("Optimization request sent to logistics department.")}
                    icon={<Users size={24} />} 
                    title="User Allocation" 
                    value="Optimizing" 
@@ -317,14 +413,17 @@ export const ReportManager = () => {
   );
 };
 
-const PredictiveCard = ({ icon, title, value, desc, color = "teal" }: any) => {
+const PredictiveCard = ({ icon, title, value, desc, color = "teal", onClick }: any) => {
   const colors: any = {
     teal: "bg-primary-teal/5 text-primary-teal border-primary-teal/10",
     amber: "bg-amber-50 text-amber-600 border-amber-100",
     indigo: "bg-indigo-50 text-indigo-600 border-indigo-100",
   };
   return (
-    <div className="fintech-card p-8 bg-white group hover:shadow-2xl transition-all">
+    <div 
+      onClick={onClick}
+      className="fintech-card p-8 bg-white group hover:shadow-2xl transition-all cursor-pointer"
+    >
        <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center border transition-transform group-hover:scale-110", colors[color])}>
          {icon}
        </div>
@@ -347,4 +446,4 @@ const AnalysisMetric: React.FC<{ title: string, value: string, sub: string }> = 
   </div>
 );
 
-import { AlertTriangle, List as ListIcon } from 'lucide-react';
+

@@ -1,5 +1,4 @@
 import React from 'react';
-import { useReactToPrint } from 'react-to-print';
 import { Printer, Download, CheckCircle, Plus, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { DocumentHeader } from './DocumentHeader';
@@ -74,9 +73,48 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
   const [formData, setFormData] = React.useState(initialData);
   const componentRef = React.useRef<HTMLDivElement>(null);
 
-  const handlePrint = useReactToPrint({
-    contentRef: componentRef,
-  });
+  const handlePrint = async () => {
+    if (!componentRef.current) return;
+    toast.info("Opening print dialog...");
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
+    doc.open();
+    doc.write(`
+      <html dir="rtl">
+        <head>
+          <title>${formData.poNumber || 'Purchase Order'}</title>
+          ${styles}
+          <style>
+             @page { size: A4; margin: 0; }
+             @media print { 
+               .no-print { display: none !important; } 
+               body { padding: 0; margin: 0; } 
+               .a4-page { border: none !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; padding: 40px !important; } 
+             }
+             body { margin: 0; padding: 0; }
+          </style>
+        </head>
+        <body>
+          ${componentRef.current.innerHTML}
+          <script>
+            window.onload=()=>{
+              setTimeout(()=>{
+                window.print();
+                setTimeout(() => {
+                  window.parent.document.body.removeChild(window.frameElement);
+                }, 100);
+              }, 1000);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    doc.close();
+  };
 
   const updateItem = (index: number, field: keyof Item, value: any) => {
     const newItems = [...(formData.items || [])];
@@ -219,43 +257,53 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
 
   return (
     <div className="flex flex-col items-center gap-6 p-4">
-      <div className="flex gap-4 no-print">
-        <button 
-          onClick={() => handlePrint()}
-          className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg"
-        >
-          <Printer size={18} />
-          Print PO
-        </button>
-        <button 
-          onClick={() => handlePrint()}
-          className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg"
-        >
-          <Download size={18} />
-          Export PDF
-        </button>
-        <button 
-          onClick={addItem}
-          className="flex items-center gap-2 bg-white text-slate-900 border border-slate-200 px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all shadow-md"
-        >
-          <Plus size={18} />
-          Add Item
-        </button>
-        <button 
-          onClick={handleSavePO}
-          disabled={saving}
-          className="flex items-center gap-2 bg-[#0F8F7F] text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[#26A69A] transition-all shadow-lg disabled:opacity-50"
-        >
-          <CheckCircle size={18} />
-          {saving ? 'Saving...' : 'Finalize & Save PO'}
-        </button>
-      </div>
-
       <div 
         ref={componentRef}
         dir="rtl"
-        className="a4-page font-sans text-slate-900 border border-slate-200"
+        className="relative a4-page font-sans text-slate-900 border border-slate-200"
       >
+        {/* Float Controls - Left & Right sides of the page area */}
+        <div className="absolute -left-20 top-0 hidden xl:flex flex-col gap-4 no-print">
+          <button 
+            onClick={handlePrint}
+            title="Print PO"
+            className="p-4 bg-white border border-slate-200 text-slate-900 rounded-2xl hover:bg-slate-50 transition-all shadow-xl hover:scale-110 active:scale-95"
+          >
+            <Printer size={24} />
+          </button>
+          <button 
+            onClick={handlePrint}
+            title="Download PDF"
+            className="p-4 bg-white border border-slate-200 text-emerald-600 rounded-2xl hover:bg-emerald-50 transition-all shadow-xl hover:scale-110 active:scale-95"
+          >
+            <Download size={24} />
+          </button>
+        </div>
+
+        <div className="absolute -right-20 top-0 hidden xl:flex flex-col gap-4 no-print">
+          <button 
+            onClick={handleSavePO}
+            disabled={saving}
+            title="Save PO"
+            className="p-4 bg-white border border-slate-200 text-[#0F8F7F] rounded-2xl hover:bg-emerald-50 transition-all shadow-xl hover:scale-110 active:scale-95 disabled:opacity-50"
+          >
+            <CheckCircle size={24} />
+          </button>
+          <button 
+            onClick={addItem}
+            title="Add Item"
+            className="p-4 bg-white border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all shadow-xl hover:scale-110 active:scale-95"
+          >
+            <Plus size={24} />
+          </button>
+        </div>
+
+        {/* Mobile/Small Screen Controls */}
+        <div className="flex xl:hidden gap-4 mb-6 no-print w-full justify-center">
+          <button onClick={handlePrint} className="flex-1 bg-slate-900 text-white p-4 rounded-2xl flex items-center justify-center gap-2 font-black text-xs uppercase"><Printer size={16}/> Print PO</button>
+          <button onClick={handlePrint} className="flex-1 bg-emerald-600 text-white p-4 rounded-2xl flex items-center justify-center gap-2 font-black text-xs uppercase"><Download size={16}/> PDF</button>
+        </div>
+
         <DocumentHeader 
           title="امر خریداری پاڼه" 
           projectTitle={formData.procurementDescription?.split('برای')[0] || ''} 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import { 
   Plus, 
   Search, 
@@ -61,6 +62,7 @@ import * as XLSX from 'xlsx';
 
 export const ReceivingManager = () => {
   const { t } = useTranslation();
+  const location = useLocation();
   const [receivings, setReceivings] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,8 +74,8 @@ export const ReceivingManager = () => {
     return (localStorage.getItem('receivingViewMode') as 'grid' | 'list') || (window.innerWidth < 1024 ? 'grid' : 'list');
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     item_code: '',
@@ -93,7 +95,17 @@ export const ReceivingManager = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    if (location.state?.highlightId) {
+      setHighlightedId(location.state.highlightId);
+      setTimeout(() => {
+        const el = document.getElementById(`receiving-${location.state.highlightId}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
+
+      const timer = setTimeout(() => setHighlightedId(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [location.state]);
 
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -129,18 +141,19 @@ export const ReceivingManager = () => {
     try {
       if (editMode && editingId) {
         const res = await receivingService.updateReceiving(editingId, formData);
-        const updatedRec = res.data.receiving;
-        setReceivings(prev => prev.map(rec => rec.id === editingId ? updatedRec : rec));
+        const updatedRec = res.data.receiving || res.data;
+        setReceivings(prev => prev.map(rec => (rec.id === editingId || rec._id === editingId) ? updatedRec : rec));
         toast.success(t('reception_updated_success'));
       } else {
         const res = await receivingService.addReceiving(formData);
         const newRec = res.data;
+        // Optimization: Immediately show it
         setReceivings(prev => [newRec, ...prev]);
         toast.success(t('reception_logged_success'));
       }
       setShowModal(false);
       resetForm();
-      // Still fetch to ensure everything is in sync (e.g. stock updates elsewhere)
+      // Still fetch to ensure everything is in sync
       fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.error || "Operation failed");
@@ -197,14 +210,10 @@ export const ReceivingManager = () => {
     try {
       setLoadingId(id);
       console.log(`DEBUG: Calling DELETE /api/v1/receiving/${id}`);
-      const response = await receivingService.deleteReceiving(id);
+      const response = await api.delete(`/v1/receiving/${id}`);
       console.log("DEBUG: Delete API Response:", response.data);
       
-      setReceivings(prev => {
-        const remaining = prev.filter(r => r.id !== id && r._id !== id);
-        console.log(`DEBUG: UI Update - Remaining: ${remaining.length}, Removed: ${prev.length - remaining.length}`);
-        return remaining;
-      });
+      setReceivings(prev => prev.filter(r => r.id !== id && r._id !== id));
       
       toast.success(t('record_deleted') || "Record deleted successfully");
       // Still fetch to sync inventory state if needed
@@ -233,6 +242,18 @@ export const ReceivingManager = () => {
         const ws = wb.Sheets[wsname];
         const data: any[] = XLSX.utils.sheet_to_json(ws);
         
+        // VALIDATION
+        const requiredFields = ['item_code', 'quantity', 'supplier', 'date'];
+        const missingFieldsData = data.filter(row => {
+          return !requiredFields.every(f => row[f] !== undefined && row[f] !== null && row[f] !== '');
+        });
+
+        if (missingFieldsData.length > 0) {
+          toast.error(`${t('import_error') || 'Import Error'}: Some rows are missing mandatory fields (* item_code, quantity, supplier, date)`);
+          setIsUploading(false);
+          return;
+        }
+
         console.log("Importing Excel data:", data);
         
         // FRONTEND DUPLICATE CHECK
@@ -281,7 +302,21 @@ export const ReceivingManager = () => {
         return;
       }
       
-      const worksheet = XLSX.utils.json_to_sheet(receivings);
+      // Map data to include '*' for mandatory fields in headers
+      const exportData = receivings.map(rec => ({
+        '*Item Code': rec.item_code,
+        'Item Name': rec.item_name,
+        '*Quantity': rec.quantity,
+        'Unit': rec.unit,
+        '*Supplier': rec.supplier,
+        '*Date': rec.date,
+        'Invoice Number': rec.invoice_number,
+        'Warehouse Location': rec.warehouse_location,
+        'Condition': rec.condition,
+        'Notes': rec.notes
+      }));
+      
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Receivings");
       XLSX.writeFile(workbook, `Receivings_${new Date().toISOString().split('T')[0]}.xlsx`);
@@ -433,7 +468,14 @@ export const ReceivingManager = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-[10px] font-bold uppercase tracking-wide">
                   {Array.isArray(filteredReceivings) && filteredReceivings.slice().reverse().map((rec) => (
-                    <tr key={rec.id} className="hover:bg-slate-50/80 transition-colors group">
+                    <tr 
+                      key={rec.id || rec._id} 
+                      id={`receiving-${rec.id || rec._id}`}
+                      className={cn(
+                        "hover:bg-slate-50/80 transition-all group",
+                        highlightedId === (rec.id || rec._id) && "bg-primary-teal/5 ring-1 ring-primary-teal/20"
+                      )}
+                    >
                       <td className="px-8 py-6">
                         <div className="font-black text-slate-900 text-xs leading-none mb-1 uppercase tracking-tight">{rec.item_name}</div>
                         <div className="text-slate-400 flex items-center gap-2 font-bold tracking-widest">
@@ -468,21 +510,19 @@ export const ReceivingManager = () => {
                           <button 
                             type="button"
                             title="Delete"
-                            style={{ zIndex: 9999, position: "relative" }}
                             disabled={loadingId === (rec.id || rec._id)}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
                               const targetId = rec.id || rec._id;
-                              console.log("DEBUG: Delete Click Triggered", targetId);
                               handleDelete(targetId);
                             }} 
                             className={cn(
-                              "p-2 rounded-lg transition-all pointer-events-auto",
-                              loadingId === (rec.id || rec._id) ? "opacity-50 cursor-wait" : "hover:bg-red-50 text-slate-400 hover:text-red-500"
+                              "p-3 rounded-xl transition-all pointer-events-auto shadow-sm relative z-10",
+                              loadingId === (rec.id || rec._id) ? "opacity-50 cursor-wait bg-slate-100" : "hover:bg-red-50 text-slate-400 hover:text-red-500 bg-white border border-slate-100"
                             )}
                           >
-                            {loadingId === (rec.id || rec._id) ? <span>...</span> : <Trash2 size={16} />}
+                            {loadingId === (rec.id || rec._id) ? <div className="w-4 h-4 border-2 border-red-500 border-t-transparent animate-spin rounded-full" /> : <Trash2 size={16} />}
                           </button>
                         </div>
                       </td>
@@ -495,14 +535,21 @@ export const ReceivingManager = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {Array.isArray(filteredReceivings) && filteredReceivings.slice().reverse().map((rec) => (
-              <div key={rec.id} className="fintech-card p-6 bg-white hover:border-primary-teal/30 transition-all group flex flex-col justify-between border border-slate-100 text-start">
+              <div 
+                key={rec.id || rec._id} 
+                id={`receiving-${rec.id || rec._id}`}
+                className={cn(
+                  "fintech-card p-6 bg-white hover:border-primary-teal/30 transition-all group flex flex-col justify-between border border-slate-100 text-start",
+                  highlightedId === (rec.id || rec._id) && "ring-2 ring-primary-teal shadow-xl scale-[1.02]"
+                )}
+              >
                 <div>
                    <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
                          <div className="w-8 h-8 rounded-lg bg-primary-teal/10 text-primary-teal flex items-center justify-center">
                             <Package size={16} />
                          </div>
-                         <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{rec.id.slice(0, 8)}</div>
+                         <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{(rec.id || "").slice(0, 8)}</div>
                       </div>
                       <ConditionBadge condition={rec.condition} />
                    </div>
@@ -539,21 +586,21 @@ export const ReceivingManager = () => {
                       </button>
                       <button 
                         type="button"
-                        style={{ zIndex: 9999, position: "relative" }}
+                        style={{ position: "relative", zIndex: 9999 }}
                         disabled={loadingId === (rec.id || rec._id)}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           const targetId = rec.id || rec._id;
-                          console.log("DEBUG: Delete Click Triggered (Grid)", targetId);
+                          console.log("CRITICAL DELETE CLICK (Grid):", targetId);
                           handleDelete(targetId);
                         }} 
                         className={cn(
-                          "p-2 rounded-lg transition-all pointer-events-auto",
-                          loadingId === (rec.id || rec._id) ? "opacity-50 cursor-wait" : "hover:bg-red-50 text-slate-400 hover:text-red-500"
+                          "p-3 rounded-xl transition-all pointer-events-auto border border-slate-100 shadow-sm relative z-50",
+                          loadingId === (rec.id || rec._id) ? "opacity-50 cursor-wait bg-slate-50" : "hover:bg-red-50 text-slate-400 hover:text-red-500 bg-white"
                         )}
                       >
-                        {loadingId === (rec.id || rec._id) ? <span>...</span> : <Trash2 size={16} />}
+                        {loadingId === (rec.id || rec._id) ? <div className="w-4 h-4 border-2 border-red-500 border-t-transparent animate-spin rounded-full" /> : <Trash2 size={16} />}
                       </button>
                    </div>
                 </div>

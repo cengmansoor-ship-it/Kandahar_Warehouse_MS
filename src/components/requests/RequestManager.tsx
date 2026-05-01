@@ -45,6 +45,13 @@ export const RequestManager = () => {
     }
   };
 
+  const [requesterInfo, setRequesterInfo] = useState({
+    name: '',
+    email: '',
+    faculty: '',
+    role: ''
+  });
+
   const [approvers, setApprovers] = useState<{name: string, role: string, approved: boolean}[]>([
     { name: '', role: 'Supervisor', approved: false },
     { name: '', role: 'Finance', approved: false },
@@ -55,6 +62,10 @@ export const RequestManager = () => {
     setApprovers([...approvers, { name: '', role: 'Member', approved: false }]);
   };
 
+  const removeApproverSlot = (idx: number) => {
+    setApprovers(approvers.filter((_, i) => i !== idx));
+  };
+
   const updateApprover = (idx: number, field: string, value: any) => {
     const newApprovers = [...approvers];
     // @ts-ignore
@@ -63,11 +74,19 @@ export const RequestManager = () => {
   };
 
   const handleRequestItem = async (itemData: any) => {
+    if (!requesterInfo.name || !requesterInfo.email || !requesterInfo.faculty) {
+      toast.error("Please fill in all requester information");
+      return;
+    }
+
     try {
       setLoading(true);
       const payload = { 
         title: `Requirement: ${itemData.name}`,
-        requester: 'Faculty Admin',
+        requester: requesterInfo.name,
+        requesterEmail: requesterInfo.email,
+        requesterFaculty: requesterInfo.faculty,
+        requesterRole: requesterInfo.role,
         status: 'Pending',
         progress: 0,
         item_code: itemData.item_code,
@@ -101,11 +120,11 @@ export const RequestManager = () => {
 
       {selectedItemForRequest && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[40px] p-10 max-w-md w-full shadow-2xl space-y-8">
+          <div className="bg-white rounded-[40px] p-8 lg:p-10 max-w-2xl w-full shadow-2xl space-y-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between text-start">
               <div>
                 <h3 className="text-3xl font-black text-slate-900 italic">Finalize Request</h3>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Configure approval chain</p>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Configure requester details & approval chain</p>
               </div>
               <button 
                 onClick={() => setSelectedItemForRequest(null)} 
@@ -115,44 +134,98 @@ export const RequestManager = () => {
               </button>
             </div>
             
-            <div className="space-y-6 pt-6 border-t border-slate-100 text-start">
-              <div className="flex items-center justify-between">
-                <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Approval Chain</h4>
-                <button 
-                  type="button"
-                  onClick={addApproverSlot}
-                  className="w-10 h-10 bg-primary-teal/5 text-primary-teal rounded-xl flex items-center justify-center hover:scale-110 transition-transform"
-                >
-                  <PlusCircle size={20} />
-                </button>
-              </div>
-              
-              <div className="space-y-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                {approvers.map((approver, idx) => (
-                  <div key={idx} className="flex gap-4">
-                    <div className="flex-1">
-                      <input 
-                        placeholder="Person Name"
-                        value={approver.name}
-                        onChange={(e) => updateApprover(idx, 'name', e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all"
-                      />
-                    </div>
-                    <div className="w-1/3">
-                      <select 
-                        value={approver.role}
-                        onChange={(e) => updateApprover(idx, 'role', e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all"
-                      >
-                        <option>Supervisor</option>
-                        <option>Finance</option>
-                        <option>Director</option>
-                        <option>Member</option>
-                      </select>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-start">
+               <div className="space-y-4">
+                  <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] mb-4">Requester Information</h4>
+                  <div className="space-y-3">
+                     <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Name</label>
+                        <input 
+                          placeholder="e.g. Ahmad Shah"
+                          value={requesterInfo.name}
+                          onChange={(e) => setRequesterInfo({...requesterInfo, name: e.target.value})}
+                          className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
+                        />
+                     </div>
+                     <div className="space-y-1">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Official Email</label>
+                        <input 
+                          placeholder="ahmad@kdru.edu.af"
+                          value={requesterInfo.email}
+                          onChange={(e) => setRequesterInfo({...requesterInfo, email: e.target.value})}
+                          className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
+                        />
+                     </div>
+                     <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Faculty</label>
+                           <input 
+                             placeholder="Education"
+                             value={requesterInfo.faculty}
+                             onChange={(e) => setRequesterInfo({...requesterInfo, faculty: e.target.value})}
+                             className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
+                           />
+                        </div>
+                        <div className="space-y-1">
+                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Position / Role</label>
+                           <input 
+                             placeholder="Lecturer"
+                             value={requesterInfo.role}
+                             onChange={(e) => setRequesterInfo({...requesterInfo, role: e.target.value})}
+                             className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
+                           />
+                        </div>
+                     </div>
                   </div>
-                ))}
-              </div>
+               </div>
+
+               <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Approval Chain</h4>
+                    <button 
+                      type="button"
+                      onClick={addApproverSlot}
+                      className="w-8 h-8 bg-primary-teal/5 text-primary-teal rounded-lg flex items-center justify-center hover:scale-110 transition-transform"
+                    >
+                      <PlusCircle size={18} />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                    {approvers.map((approver, idx) => (
+                      <div key={idx} className="flex flex-col p-3 bg-slate-50 rounded-2xl border border-slate-100 relative group">
+                        <button 
+                          onClick={() => removeApproverSlot(idx)}
+                          className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-slate-100 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:scale-110"
+                        >
+                          <XCircle size={14} />
+                        </button>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <input 
+                              placeholder="Name"
+                              value={approver.name}
+                              onChange={(e) => updateApprover(idx, 'name', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-[9px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary-teal/20 transition-all font-mono"
+                            />
+                          </div>
+                          <div className="w-1/3">
+                            <select 
+                              value={approver.role}
+                              onChange={(e) => updateApprover(idx, 'role', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-[9px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary-teal/20 transition-all appearance-none"
+                            >
+                              <option>Supervisor</option>
+                              <option>Finance</option>
+                              <option>Director</option>
+                              <option>Member</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+               </div>
             </div>
 
             <button 
@@ -293,11 +366,69 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
               </span>
             </div>
             <h4 className="text-2xl font-black text-[#1A1D1F] mt-2 group-hover:text-primary-teal transition-colors tracking-tight leading-tight text-start">{request.title}</h4>
-            <div className="flex items-center gap-5 text-[10px] text-slate-400 mt-2.5 font-black uppercase tracking-widest">
-              <span>{request.requester}</span>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] text-slate-400 mt-2.5 font-black uppercase tracking-widest">
+              <span className="text-slate-900">{request.requester}</span>
+              {request.requesterEmail && (
+                <>
+                  <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                  <span className="lowercase font-bold tracking-tight">{request.requesterEmail}</span>
+                </>
+              )}
+              {request.requesterFaculty && (
+                <>
+                  <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                  <span className="text-primary-teal">{request.requesterFaculty}</span>
+                </>
+              )}
               <span className="w-1 h-1 bg-slate-300 rounded-full" />
               <span>{new Date(request.createdAt).toLocaleDateString()}</span>
             </div>
+
+            {request.approvalChain && request.approvalChain.length > 0 && (
+              <div className="mt-6 p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+                <div className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 ml-1 text-start">Member Approval Flow</div>
+                <div className="flex flex-wrap gap-4">
+                  {request.approvalChain.map((approver: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 group/appr">
+                      <button 
+                        onClick={async () => {
+                          const newChain = [...request.approvalChain];
+                          newChain[i].approved = !newChain[i].approved;
+                          
+                          // Calculate new progress based on approvals
+                          const approvedCount = newChain.filter(a => a.approved).length;
+                          const baseProgress = 0; // Request created
+                          const approvalMax = 25;
+                          const newProgress = Math.min(approvalMax, Math.round((approvedCount / newChain.length) * approvalMax));
+                          
+                          const finalStatus = approvedCount === newChain.length ? 'Approved' : 'Pending';
+                          
+                          try {
+                            await api.patch(`/requests/${request.id}`, { 
+                              approvalChain: newChain,
+                              progress: finalStatus === 'Approved' ? 25 : newProgress,
+                              status: finalStatus
+                            });
+                            toast.success(`Approval sync: ${approver.name}`);
+                            onUpdate();
+                          } catch (e) {
+                            toast.error("Sync failed");
+                          }
+                        }}
+                        className={cn(
+                          "w-3 h-3 rounded-full border transition-all",
+                          approver.approved ? "bg-emerald-500 border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" : "bg-white border-slate-300 group-hover/appr:border-primary-teal"
+                        )} 
+                      />
+                      <div className="flex flex-col text-start">
+                        <span className={cn("text-[10px] font-black uppercase leading-none", approver.approved ? "text-slate-900" : "text-slate-400")}>{approver.name}</span>
+                        <span className="text-[8px] font-bold text-slate-300 uppercase tracking-tighter">{approver.role}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {/* Visual Stepper */}
             <div className="mt-8 relative pt-2">

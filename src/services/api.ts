@@ -7,6 +7,18 @@ const api = axios.create({
   },
 });
 
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export const authService = {
+  login: (credentials: any) => api.post('/auth/login', credentials),
+};
+
 export const inventoryService = {
   getItems: () => api.get('/items'),
   addItem: (item: any) => api.post('/items', item),
@@ -41,7 +53,9 @@ export const procurementService = {
   submitQuotation: (data: any) => api.post('/procurement/quotations', data),
   selectWinner: (data: any) => api.post('/procurement/select-winner', data),
   getOrders: () => api.get('/procurement/orders'),
+  createOrder: (data: any) => api.post('/procurement/orders', data),
   getCodes: () => api.get('/procurement/codes'),
+  submitRequest: (data: any) => api.post('/procurement/requests', data),
 };
 
 export const trashService = {

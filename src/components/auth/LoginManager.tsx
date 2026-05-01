@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User, Mail, Lock } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { toast } from 'sonner';
+import { authService } from '@/src/services/api';
 
-export const LoginManager = ({ onLogin }: { onLogin: () => void }) => {
+export const LoginManager = ({ onLogin }: { onLogin: (userData?: any) => void }) => {
   const { t, i18n } = useTranslation();
   const [logo, setLogo] = useState<string>(localStorage.getItem('system_logo') || "https://upload.wikimedia.org/wikipedia/en/2/23/Kandahar_University_Logo.png");
   const [isLogin, setIsLogin] = useState(true);
@@ -25,9 +26,10 @@ export const LoginManager = ({ onLogin }: { onLogin: () => void }) => {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (isForgotPassword) {
@@ -39,19 +41,23 @@ export const LoginManager = ({ onLogin }: { onLogin: () => void }) => {
       toast.error(t('missing_fields'));
       return;
     }
+
     if (isLogin) {
-      if (email === adminEmail && password === adminPass) {
-        toast.success(t('auth_success'));
-        onLogin();
-      } else if (password.length >= 3) {
-        toast.success(`${t('access_granted')} ${email}`);
-        onLogin();
-      } else {
-        toast.error(t('invalid_credentials'));
+      try {
+        setIsLoading(true);
+        const res = await authService.login({ email, password });
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+        toast.success(t('auth_success') || "Authentication successful");
+        onLogin(res.data.user);
+      } catch (error: any) {
+        toast.error(error.response?.data?.error || t('invalid_credentials') || "Login failed");
+      } finally {
+        setIsLoading(false);
       }
     } else {
-      toast.success(t('registry_success'));
-      setTimeout(() => onLogin(), 500);
+      // For demo, just simulate registration
+      toast.info("Registration is handled by Administrator");
     }
   };
 
@@ -184,8 +190,12 @@ export const LoginManager = ({ onLogin }: { onLogin: () => void }) => {
             <div className="pt-6">
               <button 
                 type="submit"
-                className="bg-[#0F8F7F] text-white px-16 py-4 rounded-full text-xs font-black uppercase tracking-widest hover:bg-[#0F8F7F]/90 transition-all shadow-xl shadow-[#0F8F7F]/10"
+                disabled={isLoading}
+                className="bg-[#0F8F7F] text-white px-16 py-4 rounded-full text-xs font-black uppercase tracking-widest hover:bg-[#0F8F7F]/90 transition-all shadow-xl shadow-[#0F8F7F]/10 disabled:opacity-50 flex items-center justify-center gap-2 mx-auto"
               >
+                {isLoading && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent animate-spin rounded-full" />
+                )}
                 {isForgotPassword ? t('send_link') : isLogin ? t('sign_in') : t('sign_up')}
               </button>
             </div>

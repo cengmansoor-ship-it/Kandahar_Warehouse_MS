@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import api from '@/src/services/api';
+import { toast } from 'sonner';
 
 interface Message {
   id: string;
@@ -22,11 +23,18 @@ interface Message {
   timestamp: Date;
 }
 
-export const AIAssistant = ({ isFullPage = false }: { isFullPage?: boolean }) => {
+export const AIAssistant = ({ isFullPage = false, forceOpen = false }: { isFullPage?: boolean, forceOpen?: boolean }) => {
   const { t, i18n } = useTranslation();
-  const [isOpen, setIsOpen] = useState(isFullPage);
+  const [isOpen, setIsOpen] = useState(isFullPage || forceOpen);
+  const isPashto = i18n.language === 'ps';
+
   const [messages, setMessages] = useState<Message[]>([
-    { id: '1', text: i18n.language === 'ps' ? "سلام! زه ستاسو هوښیار مرستندوی یم. زه څنګه کولی شم تاسو سره د ګودام مدیریت کې مرسته وکړم؟" : "Hello! I'm your Intelligent Warehouse Assistant. How can I help you manage inventory today?", sender: 'bot', timestamp: new Date() }
+    { 
+      id: '1', 
+      text: isPashto ? "سلام! زه ستاسو هوښیار مرستندوی یم. زه څنګه کولی شم تاسو سره د ګودام مدیریت کې مرسته وکړم؟" : "Hello! I'm your Intelligent Warehouse Assistant. How can I help you manage inventory today?", 
+      sender: 'bot', 
+      timestamp: new Date() 
+    }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -48,34 +56,32 @@ export const AIAssistant = ({ isFullPage = false }: { isFullPage?: boolean }) =>
     setIsTyping(true);
 
     try {
-      const res = await api.post('/chat', { message: input, lang: i18n.language });
-      console.log("Chatbot response:", res.data);
+      const res = await api.post('/chat', { 
+        message: input, 
+        lang: i18n.language 
+      });
+      
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
-        text: res.data.response,
+        text: res.data.reply || res.data.response || t('noResponse'),
         sender: 'bot',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, botMsg]);
       
       if (isSpeaking) {
-        speak(res.data.response);
+        speak(res.data.reply || res.data.response || t('noResponse'));
       }
     } catch (e) {
       console.error("Chatbot API Error:", e);
-      const errorMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        text: i18n.language === 'ps' ? "زه له ستونزې سره مخ شوم." : "I encountered a connection issue. Please check the backend.",
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMsg]);
+      toast.error("Assistant connection lost");
     } finally {
       setIsTyping(false);
     }
   };
 
   const speak = (text: string) => {
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = i18n.language === 'ps' ? 'ps-AF' : 'en-US';
     window.speechSynthesis.speak(utterance);
@@ -84,135 +90,132 @@ export const AIAssistant = ({ isFullPage = false }: { isFullPage?: boolean }) =>
   const toggleSpeechRec = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Speech recognition not supported in this browser.");
+      alert(t('voiceNotSupported'));
       return;
     }
     const recognition = new SpeechRecognition();
-    recognition.lang = i18n.language === 'ps' ? 'ps-AF' : 'en-US';
+    recognition.lang = isPashto ? 'ps-AF' : 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    
     recognition.onstart = () => {
-      console.log("Voice recognition started");
+      toast.info(isPashto ? "غوږ نیسم..." : "Assistant is listening...");
     };
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
       console.log("Voice recognized:", transcript);
       setInput(transcript);
+      // We don't auto-send anymore to let user confirm, or we can auto-send with a small delay
+    };
+    recognition.onspeechend = () => {
+      recognition.stop();
     };
     recognition.onerror = (e: any) => {
       console.error("Voice recognition error:", e);
+      alert(t('voiceError'));
     };
     recognition.start();
   };
 
   if (isFullPage) {
     return (
-      <div className="flex flex-col h-full bg-white">
-          <div className="bg-slate-900 p-8 text-white flex items-center justify-between">
+      <div className={cn("flex flex-col h-full bg-slate-50", isPashto ? "rtl" : "ltr")} dir={isPashto ? "rtl" : "ltr"}>
+          <div className="bg-slate-900 px-8 py-6 text-white flex items-center justify-between shadow-2xl">
               <div className="flex items-center gap-6">
-                <div className="w-16 h-16 rounded-2xl bg-primary-teal flex items-center justify-center shadow-2xl shadow-primary-teal/20">
-                  <Sparkles size={32} className="text-white" />
+                <div className="w-14 h-14 rounded-2xl bg-primary-teal flex items-center justify-center shadow-lg shadow-primary-teal/20">
+                   <Sparkles size={28} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-black text-2xl uppercase tracking-tighter">System Intelligence Chatbot</h3>
-                  <div className="flex items-center gap-2 mt-1">
+                  <h3 className="font-black text-2xl uppercase tracking-tighter">{t('chatbotTitle')}</h3>
+                  <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Neural Network Ready & Synchronized</span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                      {isPashto ? "سیسټم فعال دی" : "System Intelligence Synchronized"}
+                    </span>
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <button 
-                  onClick={() => setIsSpeaking(!isSpeaking)}
-                  className={cn("w-12 h-12 flex items-center justify-center rounded-2xl hover:bg-slate-800 transition-all border border-slate-800", isSpeaking ? "text-primary-teal border-primary-teal/50" : "text-slate-500")}
-                >
-                  {isSpeaking ? <Volume2 size={22} /> : <VolumeX size={22} />}
-                </button>
+                 <button 
+                   onClick={() => setIsSpeaking(!isSpeaking)}
+                   className={cn("p-4 rounded-2xl transition-all border", isSpeaking ? "bg-primary-teal/20 border-primary-teal text-primary-teal shadow-lg shadow-primary-teal/20" : "bg-white/5 border-white/10 text-slate-500 hover:text-white")}
+                 >
+                   {isSpeaking ? <Volume2 size={24} /> : <VolumeX size={24} />}
+                 </button>
               </div>
           </div>
 
-          <div 
-            ref={scrollRef}
-            className="flex-1 overflow-y-auto p-10 space-y-10 bg-slate-50/30 custom-scrollbar"
-          >
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-12 space-y-10 custom-scrollbar">
             {messages.map((msg) => (
-              <motion.div 
-                key={msg.id} 
-                initial={{ opacity: 0, x: msg.sender === 'user' ? 20 : -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className={cn(
-                  "flex gap-6 max-w-[70%]",
-                  msg.sender === 'user' ? "ml-auto flex-row-reverse" : "mr-auto"
-                )}
-              >
+              <div key={msg.id} className={cn("flex flex-col max-w-[80%]", msg.sender === 'user' ? (isPashto ? "mr-auto" : "ml-auto") : (isPashto ? "ml-auto" : "mr-auto"))}>
                 <div className={cn(
-                  "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-xl",
-                  msg.sender === 'user' ? "bg-slate-900" : "bg-primary-teal"
-                )}>
-                  {msg.sender === 'user' ? <User size={22} className="text-white" /> : <Bot size={22} className="text-white" />}
-                </div>
-                <div className={cn(
-                  "p-6 rounded-[32px] text-sm font-bold leading-relaxed shadow-lg",
+                  "p-8 rounded-[40px] text-base font-bold leading-relaxed shadow-xl",
                   msg.sender === 'user' 
-                    ? "bg-white text-slate-900 rounded-tr-none" 
-                    : "bg-slate-900 text-white rounded-tl-none"
+                    ? "bg-primary-teal text-white" 
+                    : "bg-white text-slate-900 border border-slate-100",
+                  msg.sender === 'user'
+                    ? (isPashto ? "rounded-tl-none" : "rounded-tr-none")
+                    : (isPashto ? "rounded-tr-none" : "rounded-tl-none")
                 )}>
                   {msg.text}
                 </div>
-              </motion.div>
+                <div className={cn("text-[10px] font-black text-slate-400 mt-4 uppercase tracking-[0.3em]", msg.sender === 'user' ? (isPashto ? "text-left" : "text-right") : (isPashto ? "text-right" : "text-left"))}>
+                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
             ))}
             {isTyping && (
-                <div className="flex gap-6 max-w-[70%] mr-auto">
-                   <div className="w-12 h-12 rounded-2xl bg-primary-teal flex items-center justify-center shadow-xl">
-                    <Bot size={22} className="text-white" />
-                   </div>
-                   <div className="p-6 bg-slate-900 rounded-[32px] rounded-tl-none flex gap-2 items-center">
-                      <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                      <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                      <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" />
-                   </div>
+              <div className={cn("flex flex-col max-w-[80%]", isPashto ? "ml-auto" : "mr-auto")}>
+                <div className="bg-white p-8 rounded-[40px] rounded-tl-none shadow-sm flex items-center gap-2 border border-slate-100">
+                  <div className="w-2 h-2 bg-primary-teal rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-primary-teal rounded-full animate-bounce [animation-delay:0.2s]" />
+                  <div className="w-2 h-2 bg-primary-teal rounded-full animate-bounce [animation-delay:0.4s]" />
                 </div>
-              )}
+              </div>
+            )}
           </div>
 
-          <div className="p-10 bg-white border-t border-slate-100">
-              <div className="relative max-w-4xl mx-auto">
-                 <input 
+          <div className="p-12 bg-white border-t border-slate-100">
+            <div className="max-w-5xl mx-auto flex items-center gap-6">
+              <button 
+                onClick={toggleSpeechRec}
+                className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-center text-slate-400 hover:text-primary-teal hover:border-primary-teal/20 hover:scale-105 active:scale-95 transition-all shadow-sm"
+              >
+                <Mic size={28} />
+              </button>
+              <div className="flex-1 relative">
+                <input 
                   type="text"
-                  placeholder={t('ask_ai_placeholder') || "Ask about inventory, requests, or stock levels..."}
                   value={input}
+                  placeholder={t('ask_ai_placeholder') || "How can I help you with inventory management?"}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-3xl py-6 pl-8 pr-32 text-xs font-black uppercase tracking-widest outline-none focus:ring-8 focus:ring-primary-teal/5 focus:border-primary-teal/20 transition-all shadow-inner"
-                 />
-                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                   <button 
-                    onClick={toggleSpeechRec}
-                    className="w-12 h-12 flex items-center justify-center text-slate-400 hover:text-primary-teal hover:bg-primary-teal/5 rounded-2xl transition-all"
-                   >
-                     <Mic size={24} />
-                   </button>
-                   <button 
-                    onClick={handleSend}
-                    className="w-14 h-14 bg-primary-teal text-white rounded-2xl shadow-xl shadow-primary-teal/30 hover:scale-105 active:scale-95 transition-all flex items-center justify-center shrink-0"
-                   >
-                     <Send size={24} />
-                   </button>
-                 </div>
+                  className="w-full h-16 bg-slate-50 border border-slate-100 rounded-3xl px-8 text-sm font-bold outline-none ring-primary-teal/5 focus:ring-8 focus:border-primary-teal/20 transition-all shadow-inner"
+                />
               </div>
-              <div className="mt-8 flex justify-center gap-4 flex-wrap">
-                 {[t('check_stock') || 'Check Stock', t('create_request') || 'Create Request', t('low_stock_items') || 'Low Stock Items'].map(s => (
-                   <button 
-                    key={s}
-                    onClick={() => { setInput(s); handleSend(); }}
-                    className="bg-slate-50 border border-slate-100 hover:border-primary-teal/30 hover:bg-white text-slate-400 hover:text-primary-teal py-3 px-8 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-sm"
-                   >
-                     {s}
-                   </button>
-                 ))}
-              </div>
+              <button 
+                onClick={handleSend}
+                className="w-16 h-16 bg-slate-900 text-white rounded-3xl flex items-center justify-center hover:bg-primary-teal hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-slate-900/20"
+              >
+                <Send size={28} className={cn(isPashto && "rotate-180")} />
+              </button>
+            </div>
+            <div className="mt-8 flex justify-center gap-4 flex-wrap">
+               {[t('check_stock') || 'Check Stock', t('create_request') || 'Create Request', t('low_stock_items') || 'Low Stock Items'].map(s => (
+                 <button 
+                  key={s}
+                  onClick={() => { setInput(s); handleSend(); }}
+                  className="bg-slate-50 border border-slate-100 hover:border-primary-teal/30 hover:bg-white text-slate-400 hover:text-primary-teal py-3 px-8 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
+                 >
+                   {s}
+                 </button>
+               ))}
+            </div>
           </div>
       </div>
     );
   }
+
 
   useEffect(() => {
     const handleToggle = () => setIsOpen(prev => !prev);
@@ -227,14 +230,18 @@ export const AIAssistant = ({ isFullPage = false }: { isFullPage?: boolean }) =>
   }, [messages, isTyping]);
 
   return (
-    <div className="fixed bottom-8 right-8 z-50">
+    <div className="fixed bottom-8 right-8 z-[9999]">
       <AnimatePresence>
         {isOpen && (
           <motion.div 
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="mb-6 w-[400px] h-[600px] bg-white rounded-3xl shadow-2xl border border-slate-100 flex flex-col overflow-hidden"
+            className={cn(
+              "mb-6 w-[400px] h-[600px] bg-white rounded-3xl shadow-2xl border border-slate-100 flex flex-col overflow-hidden",
+              isPashto ? "rtl" : "ltr"
+            )}
+            dir={isPashto ? "rtl" : "ltr"}
           >
             {/* Header */}
             <div className="bg-slate-900 p-6 text-white flex items-center justify-between">
@@ -243,10 +250,10 @@ export const AIAssistant = ({ isFullPage = false }: { isFullPage?: boolean }) =>
                   <Sparkles size={20} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-black text-sm uppercase tracking-widest">{t('ai_assistant') || 'AI Assistant'}</h3>
+                  <h3 className="font-black text-sm uppercase tracking-widest">{t('chatbotTitle')}</h3>
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('online_processing') || 'Online & Processing'}</span>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{isPashto ? "آنلاین" : "Online & Processing"}</span>
                   </div>
                 </div>
               </div>
@@ -288,8 +295,11 @@ export const AIAssistant = ({ isFullPage = false }: { isFullPage?: boolean }) =>
                   <div className={cn(
                     "p-4 rounded-2xl text-[11px] font-bold leading-relaxed",
                     msg.sender === 'user' 
-                      ? "bg-white text-slate-900 rounded-tr-none shadow-sm" 
-                      : "bg-slate-900 text-white rounded-tl-none shadow-xl"
+                      ? "bg-white text-slate-900 shadow-sm" 
+                      : "bg-slate-900 text-white shadow-xl",
+                    msg.sender === 'user'
+                      ? (isPashto ? "rounded-tl-none" : "rounded-tr-none")
+                      : (isPashto ? "rounded-tr-none" : "rounded-tl-none")
                   )}>
                     {msg.text}
                   </div>
@@ -351,19 +361,21 @@ export const AIAssistant = ({ isFullPage = false }: { isFullPage?: boolean }) =>
         )}
       </AnimatePresence>
 
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "w-16 h-16 rounded-2xl flex items-center justify-center shadow-2xl transition-all hover:scale-110 active:scale-95 group relative overflow-hidden",
-          isOpen ? "bg-slate-900 border border-slate-800" : "bg-primary-teal"
-        )}
-      >
-        <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-        {isOpen ? <X className="text-white" size={28} /> : <MessageSquare className="text-white" size={28} />}
-        {!isOpen && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-black text-white">1</span>
-        )}
-      </button>
+      {!forceOpen && (
+        <button 
+          onClick={() => setIsOpen(!isOpen)}
+          className={cn(
+            "w-16 h-16 rounded-2xl flex items-center justify-center shadow-2xl transition-all hover:scale-110 active:scale-95 group relative overflow-hidden",
+            isOpen ? "bg-slate-900 border border-slate-800" : "bg-primary-teal"
+          )}
+        >
+          <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          {isOpen ? <X className="text-white" size={28} /> : <MessageSquare className="text-white" size={28} />}
+          {!isOpen && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-black text-white">1</span>
+          )}
+        </button>
+      )}
     </div>
   );
 };

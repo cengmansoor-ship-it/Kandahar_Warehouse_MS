@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   LayoutDashboard, 
   Package, 
@@ -16,7 +16,8 @@ import {
   Trash2,
   Info,
   Sparkles,
-  Shield
+  Shield,
+  ArrowRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/src/lib/utils';
@@ -29,6 +30,21 @@ interface SidebarProps {
   onLogout: () => void;
   user: User;
 }
+
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05
+    }
+  }
+};
+
+const itemAnim = {
+  hidden: { opacity: 0, x: -10 },
+  show: { opacity: 1, x: 0 }
+};
 
 export const Sidebar = ({ collapsed, setCollapsed, onLogout, user }: SidebarProps) => {
   const { t, i18n } = useTranslation();
@@ -76,15 +92,13 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout, user }: SidebarProp
     { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard', permission: 'view_dashboard' },
     { id: 'inventory', label: t('inventory'), icon: Package, path: '/inventory', permission: 'manage_inventory' },
     { id: 'receiving', label: t('receiving'), icon: Truck, path: '/receiving', permission: 'manage_receiving' },
-    { id: 'exit-clearance', label: t('exit_clearance') || 'Exit Clearance', icon: Truck, path: '/exit-clearance', permission: 'manage_inventory' },
     { id: 'requests', label: t('requests'), icon: FileText, path: '/requests', permission: 'manage_requests' },
     { id: 'procurement', label: t('procurement'), icon: ShoppingCart, path: '/procurement', permission: 'manage_procurement' },
     { id: 'reports', label: t('reports'), icon: BarChart3, path: '/reports', permission: 'view_reports' },
     { id: 'trash', label: t('trash_bin'), icon: Trash2, path: '/trash', permission: 'manage_inventory' },
-    { id: 'about', label: t('about_us'), icon: Info, path: '/about', permission: 'public' },
     { id: 'settings', label: t('settings'), icon: Settings, path: '/settings', permission: 'manage_settings' },
+    { id: 'about', label: t('about_us'), icon: Info, path: '/about', permission: 'public' },
     { id: 'roles', label: 'Role Management', icon: Shield, path: '/roles', permission: 'all' },
-    { id: 'chatbot', label: 'Chatbot', icon: Sparkles, path: '/chatbot', permission: 'view_dashboard' },
   ];
 
   const filteredItems = menuItems.filter(item => {
@@ -145,39 +159,48 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout, user }: SidebarProp
         </button>
       </div>
 
-      <nav className="flex-1 px-5 space-y-2 overflow-y-auto custom-scrollbar">
+      <motion.nav 
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="flex-1 px-5 space-y-2 overflow-y-auto custom-scrollbar"
+      >
         {filteredItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
-            <Link
-              key={item.id}
-              to={item.path}
-              className={cn(
-                "w-full flex items-center gap-4 p-3.5 rounded-2xl transition-all group relative border border-transparent",
-                isActive 
-                  ? "bg-white/20 text-white shadow-lg border-white/10" 
-                  : "text-white/70 hover:bg-white/5 hover:text-white"
-              )}
-            >
-              <div className={cn("flex flex-1 items-center gap-4", isRtl ? "text-right" : "text-left")}>
-                <item.icon size={20} className="shrink-0" />
-                {!collapsed && (
-                  <span className={cn("font-bold uppercase tracking-widest", isRtl ? "text-xs" : "text-[11px]")}>{item.label}</span>
+            <motion.div variants={itemAnim} key={item.id}>
+              <Link
+                to={item.path}
+                className={cn(
+                  "w-full flex items-center gap-4 p-3.5 rounded-2xl transition-all duration-400 group relative border border-transparent overflow-hidden",
+                  isActive 
+                    ? "bg-white/20 text-white shadow-xl border-white/20 scale-[1.02]" 
+                    : "text-white/70 hover:bg-white/10 hover:text-white"
                 )}
-              </div>
-              {!collapsed && isActive && (
-                <motion.div 
-                  layoutId="nav-dot"
-                  className={cn(
-                    "absolute w-1.5 h-1.5 bg-white rounded-full",
-                    isRtl ? "right-2" : "left-2"
+              >
+                {/* Glossy hover effect */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                
+                <div className={cn("flex flex-1 items-center gap-4 relative z-10", isRtl ? "text-right" : "text-left")}>
+                  <item.icon size={20} className={cn("shrink-0 transition-transform duration-500", isActive ? "rotate-[5deg]" : "group-hover:scale-110 group-hover:rotate-12")} />
+                  {!collapsed && (
+                    <span className={cn("font-black uppercase tracking-[0.1em] transition-all", isRtl ? "text-xs" : "text-[10px]", !isActive && "group-hover:translate-x-1")}>{item.label}</span>
                   )}
-                />
-              )}
-            </Link>
+                </div>
+                {!collapsed && isActive && (
+                  <motion.div 
+                    layoutId="nav-dot"
+                    className={cn(
+                      "absolute w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_12px_rgba(255,255,255,1)] z-10",
+                      isRtl ? "right-2" : "left-2"
+                    )}
+                  />
+                )}
+              </Link>
+            </motion.div>
           );
         })}
-      </nav>
+      </motion.nav>
 
       <div className="p-6">
         <button 

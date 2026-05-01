@@ -2,12 +2,16 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
+import nodemailer from "nodemailer";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { randomUUID } from "crypto";
 import { createServer as createViteServer } from "vite";
 
 const app = express();
 const PORT = 3000;
 const DB_FILE = path.join(process.cwd(), "db.json");
+const SECRET_KEY = process.env.JWT_SECRET || "kandahar_procurement_safe_key_2024";
 
 app.use(cors());
 app.use(express.json());
@@ -18,23 +22,65 @@ function getDb() {
     if (!fs.existsSync(DB_FILE)) {
       const initial = { 
         items: [
-          { id: '1', name: 'Printing Paper A4', item_code: '22301', category: 'Stationery', quantity: 500, unit: 'BOX', location: 'Zone A-01', status: 'In Stock' },
-          { id: '2', name: 'Engine Oil 10W40', item_code: '22601', category: 'Fuel', quantity: 50, unit: 'LTR', location: 'Cold Storage', status: 'In Stock' }
+          { id: '1', name: 'Printing Paper A4', item_code: '22301', category: 'Stationery', quantity: 500, unit: 'BOX', location: 'Zone A-01', status: 'In Stock', department: 'Engineering' },
+          { id: '2', name: 'Engine Oil 10W40', item_code: '22601', category: 'Fuel', quantity: 50, unit: 'LTR', location: 'Cold Storage', status: 'In Stock', department: 'Engineering' },
+          { id: '3', name: 'Microscope Slides', item_code: '22700', category: 'Laboratory', quantity: 200, unit: 'PKT', location: 'Lab A', status: 'In Stock', department: 'Medicine' },
+          { id: '4', name: 'Lab Coats', item_code: '22704', category: 'Clothing', quantity: 5, unit: 'PCS', location: 'Lab B', status: 'Low Stock', department: 'Medicine' },
+          { id: '5', name: 'Calculatory Devices', item_code: '22701', category: 'Electronics', quantity: 150, unit: 'UNIT', location: 'Zone C', status: 'In Stock', department: 'Engineering' },
+          { id: '6', name: 'Server Rack', item_code: '22701', category: 'Electronics', quantity: 2, unit: 'UNIT', location: 'Data Center', status: 'Low Stock', department: 'Computer Science' },
+          { id: '7', name: 'Fertilizer Samples', item_code: '22700', category: 'Agricultural', quantity: 80, unit: 'KG', location: 'Silo 1', status: 'In Stock', department: 'Agriculture' },
+          { id: '8', name: 'Keyboard Mechanical', item_code: '22701', category: 'Electronics', quantity: 120, unit: 'PCS', location: 'Lab IT', status: 'In Stock', department: 'Computer Science' }
         ], 
-        receivings: [], 
+        receivings: [
+          { id: 'R1', date: new Date(Date.now() - 3600000).toISOString(), item_code: '22301', item_name: 'Printing Paper A4', quantity: 100, supplier: 'Kabul Stationers', received_by: 'Ahmed', status: 'COMPLETED' },
+          { id: 'R2', date: new Date(Date.now() - 7200000).toISOString(), item_code: '22601', item_name: 'Engine Oil 10W40', quantity: 200, supplier: 'Petro Supply', received_by: 'Jan', status: 'COMPLETED' },
+          { id: 'R3', date: new Date(Date.now() - 86400000).toISOString(), item_code: '22700', item_name: 'Microscope Slides', quantity: 50, supplier: 'MediLab Co', received_by: 'Karim', status: 'COMPLETED' },
+          { id: 'R4', date: new Date(Date.now() - 172800000).toISOString(), item_code: '22701', item_name: 'Server Rack', quantity: 1, supplier: 'IT Solutions', received_by: 'Nadir', status: 'COMPLETED' }
+        ], 
         requests: [], 
         tenders: [], 
         quotations: [], 
         orders: [],
         trash: [],
         notifications: [],
-        users: [{ id: 'admin', email: 'admin@kandahar.edu.af', profileImage: null }]
+        users: [{ 
+          id: 'admin', 
+          name: 'System Admin',
+          email: 'admin@kandahar.edu.af', 
+          password: bcrypt.hashSync("admin123", 10),
+          role: 'Admin',
+          profileImage: null 
+        }]
       };
       fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
       return initial;
     }
     const content = fs.readFileSync(DB_FILE, "utf-8");
-    return JSON.parse(content || '{"items":[], "receivings":[], "requests":[], "tenders":[], "quotations":[], "orders":[], "trash":[], "notifications":[], "users":[]}');
+    const db = JSON.parse(content || '{"items":[], "receivings":[], "requests":[], "tenders":[], "quotations":[], "orders":[], "trash":[], "notifications":[], "users":[]}');
+    
+    // Repair/Sync Admin User (Self-healing)
+    const adminIndex = db.users.findIndex((u: any) => u.email === 'admin@kandahar.edu.af');
+    if (adminIndex === -1) {
+      db.users.push({
+        id: 'admin',
+        name: 'System Admin',
+        email: 'admin@kandahar.edu.af',
+        password: bcrypt.hashSync("admin123", 10),
+        role: 'Admin',
+        profileImage: null
+      });
+      saveDb(db);
+    } else {
+      // Force update password for the admin user to ensure "admin123" works
+      const admin = db.users[adminIndex];
+      if (!admin.password || admin.password.length < 20) {
+        admin.password = bcrypt.hashSync("admin123", 10);
+        admin.role = 'Admin';
+        saveDb(db);
+      }
+    }
+    
+    return db;
   } catch (error) {
     console.error("Database read error:", error);
     return { items: [], receivings: [], requests: [], tenders: [], quotations: [], orders: [], trash: [], notifications: [], users: [] };
@@ -49,7 +95,51 @@ function saveDb(data: any) {
   }
 }
 
+// --- Auth Middleware ---
+const auth = (req: any, res: any, next: any) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Access denied. No token provided." });
+
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+    req.user = decoded;
+    next();
+  } catch (ex) {
+    res.status(400).json({ error: "Invalid token." });
+  }
+};
+
+const checkRole = (roles: string[]) => (req: any, res: any, next: any) => {
+  if (!req.user || !roles.includes(req.user.role)) {
+    return res.status(403).json({ error: "Access denied. Insufficient permissions." });
+  }
+  next();
+};
+
 // --- API Routes ---
+
+app.post("/api/auth/login", async (req, res) => {
+  const { email, password } = req.body;
+  const db = getDb();
+  
+  const user = db.users.find((u: any) => u.email === email);
+  if (!user) {
+    return res.status(401).json({ error: "Invalid email or password." });
+  }
+
+  const validPassword = await bcrypt.compare(password, user.password || "");
+  if (!validPassword) {
+    return res.status(401).json({ error: "Invalid email or password." });
+  }
+
+  const token = jwt.sign(
+    { id: user.id, email: user.email, role: user.role || "User" },
+    SECRET_KEY,
+    { expiresIn: "8h" }
+  );
+
+  res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+});
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
@@ -123,51 +213,80 @@ app.get("/api/reports/inventory", (req, res) => {
 app.post("/api/chat", (req, res) => {
   const { message, lang } = req.body;
   const db = getDb();
-  let response = "";
+  let reply = "";
   const msg = message.toLowerCase();
 
-  const isPs = lang === 'ps';
+  const isPashto = lang === 'ps' || /[\u0600-\u06FF]/.test(message);
 
-  if (msg.includes("inventory") || msg.includes("stock") || msg.includes("جنس") || msg.includes("ګودام")) {
+  if (msg.includes("stock") || msg.includes("inventory") || msg.includes("ګودام") || msg.includes("جنس")) {
     const totalItems = db.items.length;
-    const lowStock = db.items.filter((i: any) => i.status === 'Low Stock').length;
-    if (isPs) {
-      response = `موږ په ګودام کې ${totalItems} ډوله ځانګړي توکي لرو. ${lowStock} توکي په لږ مقدار (Low Stock) کې دي.`;
+    const lowStockItems = db.items.filter((i: any) => i.status === 'Low Stock' || i.quantity < 10);
+    const totalQty = db.items.reduce((sum: number, i: any) => sum + (Number(i.quantity) || 0), 0);
+    
+    if (msg.includes("low") || msg.includes("کم")) {
+      const names = lowStockItems.map((i: any) => i.name).slice(0, 3).join(", ");
+      reply = isPashto
+        ? `موږ ${lowStockItems.length} توکي لرو چې مقدار یې کم دی، لکه: ${names}.`
+        : `Currently, ${lowStockItems.length} items are low on stock, including: ${names}. You should restock these soon.`;
     } else {
-      response = `We have ${totalItems} unique items in the inventory. ${lowStock} items are currently in low stock status.`;
+      reply = isPashto
+        ? `زموږ په ګودام کې ${totalItems} ډوله توکي شته. مجموعي شمېر یې ${totalQty} دی، او ${lowStockItems.length} توکي په لږ مقدار کې دي. زه کولی شم لیست درته وښیم؟`
+        : `Inventory Status: Total unique SKUs: ${totalItems}. Gross quantity: ${totalQty}. Alert: ${lowStockItems.length} items require attention due to low stock levels.`;
     }
-  } else if (msg.includes("request") || msg.includes("status") || msg.includes("غوښتنه") || msg.includes("حالت")) {
-    const pending = db.requests.filter((r: any) => r.status === 'Pending').length;
-    const approved = db.requests.filter((r: any) => r.status === 'Approved').length;
-    if (isPs) {
-      response = `په سیسټم کې ${db.requests.length} غوښتنې ثبت شوي دي. له دې جملې څخه ${pending} غوښتنې پاتې (Pending) دي او ${approved} تایید شوي دي.`;
-    } else {
-      response = `There are ${db.requests.length} total requests. ${pending} are pending and ${approved} have been approved.`;
-    }
-  } else if (msg.includes("tender") || msg.includes("procurement") || msg.includes("نرخ") || msg.includes("تدارکات")) {
-    const tenders = db.tenders.length;
-    const active = db.tenders.filter((t: any) => t.status === 'Active').length;
-    if (isPs) {
-      response = `په سیسټم کې ${tenders} تدارکاتي پاڼې ثبت شوي دي. ${active} یې اوس مهال فعالې دي.`;
-    } else {
-      response = `We have ${tenders} procurement tenders registered. ${active} of them are currently active.`;
-    }
+  } else if (msg.includes("request") || msg.includes("غوښتنه")) {
+    const pending = db.requests.filter((r: any) => r.status === 'PENDING' || r.status === 'Pending').length;
+    const approved = db.requests.filter((r: any) => r.status === 'APPROVED' || r.status === 'Approved').length;
+    reply = isPashto
+      ? `په سیسټم کې ${db.requests.length} غوښتنې ثبت دي. ${pending} غوښتنې په انتظار کې دي او ${approved} تایید شوي دي. ایا غواړئ نوې غوښتنه تایید کړئ؟`
+      : `Request Pipeline: ${db.requests.length} total entries. ${pending} are pending approval and ${approved} have been cleared for procurement.`;
+  } else if (msg.includes("tender") || msg.includes("procurement") || msg.includes("تدارکات")) {
+    const onlineTenders = db.tenders.length;
+    reply = isPashto
+      ? `اوس مهال په سیسټم کې ${onlineTenders} فعال تدارکاتي اعلانونه شتون لري. تدارکاتي رخصتۍ پای ته رسیدلي.`
+      : `Procurement Intelligence: ${onlineTenders} active tenders identified. The system is monitoring all vendor submissions in real-time.`;
   } else if (msg.includes("hello") || msg.includes("hi") || msg.includes("سلام")) {
-    if (isPs) {
-      response = "سلام! زه ستاسو هوښیار مرستندوی یم. څنګه کولی شم تاسو سره د ګودام په مدیریت کې مرسته وکړم؟";
-    } else {
-      response = "Hello! I'm your AI Warehouse Assistant. How can I help you manage the warehouse today?";
-    }
+    reply = isPashto
+      ? "سلام! زه ستاسو هوښیار مرستندوی یم. زه د ګودام مدیریت، تدارکاتو او راپورونو په اړه بشپړ معلومات لرم. زه څنګه مرسته کولی شم؟"
+      : "Salutations! I am your Intelligent WMS Copilot. I have real-time access to stock levels, procurement pipelines, and system audits. How may I assist your operations today?";
   } else {
-    if (isPs) {
-      response = "بښنه غواړم، په دې اړه معلومات نلرم. مهرباني وکړئ د موجودۍ، غوښتنو یا تدارکاتو په اړه وپوښتئ.";
-    } else {
-      response = "I'm sorry, I don't have information on that topic. Please ask about inventory, requests, or procurement.";
-    }
+    reply = isPashto
+      ? "بښنه غواړو، زه په دې اړه دقیق معلومات نه لرم. خو زه کولی شم ستاسو لپاره سټاک یا غوښتنه وګورم."
+      : "I'm processing your request, but I couldn't find a direct correlation in the current ledger. Would you like me to analyze the stock levels or pending approvals instead?";
   }
-  
-  console.log(`Chatbot [${lang}]: ${message} -> ${response}`);
-  res.json({ response });
+
+  res.json({ reply, response: reply }); // Supporting both keys for compatibility
+});
+
+// --- Email API ---
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.MAIL_USER || "your_email@gmail.com",
+    pass: process.env.MAIL_PASS || "your_app_password"
+  }
+});
+
+app.post("/api/send-email", async (req, res) => {
+  const { to, subject, text, html } = req.body;
+
+  if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
+    console.warn("Email credentials not configured in environment variables.");
+  }
+
+  try {
+    await transporter.sendMail({
+      from: process.env.MAIL_USER || "your_email@gmail.com",
+      to,
+      subject,
+      text,
+      html: html || text
+    });
+
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error("Email sending failed:", err);
+    res.status(500).json({ error: err.message || "Failed to send email" });
+  }
 });
 
 // --- Receiving API ---
@@ -175,6 +294,23 @@ app.get("/api/receivings", (req, res) => {
   const db = getDb();
   const active = (db.receivings || []).filter((r: any) => !r.isDeleted);
   res.json(active);
+});
+
+app.get("/api/v1/receiving/export", (req, res) => {
+  // Simple JSON to CSV/Text export mock
+  const db = getDb();
+  const data = db.receivings.filter((r: any) => !r.isDeleted);
+  res.header('Content-Type', 'text/csv');
+  res.attachment('inventory_receivings.csv');
+  const header = "ID,Item Code,Project,Supplier,Quantity,Date,Invoice\n";
+  const rows = data.map((r: any) => `${r.id},${r.item_code},${r.project_name},${r.supplier},${r.quantity},${r.date},${r.invoice_number}`).join("\n");
+  res.send(header + rows);
+});
+
+app.post("/api/v1/receiving/upload", (req, res) => {
+  // In a real app with formidable/multer we would parse the file
+  // For now we simulate success
+  res.json({ success: true, message: "File processing triggered" });
 });
 
 app.post("/api/v1/receiving", (req, res) => {
@@ -195,16 +331,18 @@ app.post("/api/v1/receiving", (req, res) => {
     return res.status(409).json({ error: "Duplicate record already exists in ledger" });
   }
 
+  // Update Inventory Stock
+  const item = db.items.find((i: any) => i.item_code === item_code);
+  
   const newReceiving = {
     id: randomUUID(),
     ...req.body,
+    item_name: req.body.item_name || (item ? item.name : item_code),
     quantity: qtyNum,
     createdAt: new Date().toISOString(),
     isDeleted: false
   };
   
-  // Update Inventory Stock
-  const item = db.items.find((i: any) => i.item_code === item_code);
   if (item) {
     item.quantity = (Number(item.quantity) || 0) + qtyNum;
     item.status = item.quantity > 10 ? 'In Stock' : 'Low Stock';
@@ -225,7 +363,29 @@ app.post("/api/v1/receiving", (req, res) => {
   res.json(newReceiving);
 });
 
-app.put("/api/v1/receiving/:id", (req, res) => {
+app.patch("/api/v1/receiving/:id", auth, checkRole(["Admin", "SuperAdmin"]), (req: any, res) => {
+  const db = getDb();
+  const index = db.receivings.findIndex((r: any) => r.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Record not found" });
+  
+  const oldRec = db.receivings[index];
+  const newRec = { ...oldRec, ...req.body };
+  if (req.body.quantity !== undefined) newRec.quantity = Number(req.body.quantity);
+  
+  // Update stock difference
+  const item = db.items.find((i: any) => i.item_code === oldRec.item_code);
+  if (item && req.body.quantity !== undefined) {
+    const diff = newRec.quantity - oldRec.quantity;
+    item.quantity = Math.max(0, (Number(item.quantity) || 0) + diff);
+    item.status = item.quantity > 10 ? 'In Stock' : (item.quantity > 0 ? 'Low Stock' : 'Out of Stock');
+  }
+  
+  db.receivings[index] = newRec;
+  saveDb(db);
+  res.json({ receiving: newRec });
+});
+
+app.put("/api/v1/receiving/:id", auth, checkRole(["Admin", "SuperAdmin"]), (req: any, res) => {
   const db = getDb();
   const index = db.receivings.findIndex((r: any) => r.id === req.params.id);
   if (index === -1) return res.status(404).json({ error: "Record not found" });
@@ -271,9 +431,12 @@ app.post("/api/v1/receiving/bulk", (req, res) => {
       return; 
     }
 
+    const item = db.items.find((i: any) => i.item_code === itemData.item_code);
+
     const newReceiving = {
       id: randomUUID(),
       ...itemData,
+      item_name: itemData.item_name || (item ? item.name : itemData.item_code),
       quantity: qtyNum,
       createdAt: new Date().toISOString(),
       isDeleted: false
@@ -281,7 +444,6 @@ app.post("/api/v1/receiving/bulk", (req, res) => {
     db.receivings.push(newReceiving);
     addedCount++;
 
-    const item = db.items.find((i: any) => i.item_code === itemData.item_code);
     if (item) {
       item.quantity = (Number(item.quantity) || 0) + qtyNum;
       item.status = item.quantity > 10 ? 'In Stock' : 'Low Stock';
@@ -302,44 +464,76 @@ app.post("/api/v1/receiving/bulk", (req, res) => {
   res.json({ success: true, count: addedCount, skipped: skippedCount });
 });
 
-app.delete("/api/v1/receiving/:id", (req, res) => {
+app.delete("/api/v1/receiving/:id", auth, checkRole(["Admin", "SuperAdmin"]), (req: any, res) => {
   const db = getDb();
   const id = req.params.id;
-  // Search in both id and _id for robustness
+  
+  // Search for the record in receivings
   const index = db.receivings.findIndex((r: any) => r.id === id || r._id === id);
   
   if (index === -1) {
-    console.log(`DEBUG: Delete failed - Record ${id} not found in database`);
-    return res.status(404).json({ error: "Record not found" });
+    return res.status(404).json({ error: "Record not found in the Database ledger." });
   }
   
-  const rec = db.receivings[index];
-  console.log(`DEBUG: Moving record to trash (Soft Delete):`, rec);
+  // Remove from active records
+  const rec = db.receivings.splice(index, 1)[0];
   
-  // Mark as deleted
-  rec.isDeleted = true;
-  rec.deletedAt = new Date().toISOString();
-  
-  // Sync Inventory (Subtract the quantity that was added by this receiving)
+  // Adjust inventory (Reverse the receiving effect)
   if (rec.item_code) {
     const item = db.items.find((i: any) => i.item_code === rec.item_code);
     if (item) {
-      const quantityToRemove = Number(rec.quantity) || 0;
-      const oldQty = Number(item.quantity) || 0;
-      item.quantity = Math.max(0, oldQty - quantityToRemove);
+      item.quantity = Math.max(0, (Number(item.quantity) || 0) - (Number(rec.quantity) || 0));
       item.status = item.quantity > 10 ? 'In Stock' : (item.quantity > 0 ? 'Low Stock' : 'Out of Stock');
-      console.log(`DEBUG: Item ${item.item_code} stock updated: ${oldQty} -> ${item.quantity}`);
     }
   }
+
+  // Move to TRASH for audit history
+  db.trash.push({
+    ...rec,
+    trashId: randomUUID(),
+    name: rec.item_name || rec.item_code,
+    trashDate: new Date().toISOString(),
+    originalModule: 'receiving',
+    reason: `System Delete by ${req.user.email}`
+  });
   
   saveDb(db);
-  res.json({ success: true, message: "Item moved to Trash", deletedId: id });
+  res.json({ success: true, message: "Record successfully moved to trash and inventory adjusted." });
 });
 
 // --- Notifications & SMS API ---
-app.post("/api/notifications/sms", (req, res) => {
+app.post("/api/notifications/sms", async (req, res) => {
   const { to, message } = req.body;
   console.log(`[SMS SERVICE] Sending to ${to}: ${message}`);
+  
+  // Forward to Email (Enable SMS via Email)
+  if (process.env.MAIL_USER && process.env.MAIL_PASS) {
+    try {
+      const isLikelyEmail = to && to.includes('@');
+      await transporter.sendMail({
+        from: `"KDRU WMS" <${process.env.MAIL_USER}>`,
+        to: isLikelyEmail ? to : process.env.MAIL_USER, 
+        subject: isLikelyEmail ? `WMS Notification` : `SMS Notification Forward: ${to}`,
+        text: `The following message was sent to ${to}:\n\n${message}`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
+            <h2 style="color: #0F8F7F;">SMS Notification Forward</h2>
+            <p><strong>To:</strong> ${to}</p>
+            <div style="background: #f9f9f9; padding: 15px; border-radius: 8px;">
+              ${message}
+            </div>
+            <p style="font-size: 12px; color: #666; margin-top: 20px;">
+              Self-forwarded by Kandahar University Warehouse Management System via email.
+            </p>
+          </div>
+        `
+      });
+      console.log(`[SMS SERVICE] Forwarded to email: ${process.env.MAIL_USER}`);
+    } catch (err) {
+      console.error("[SMS SERVICE] Email forwarding failed:", err);
+    }
+  }
+  
   // Simulate success
   res.json({ success: true, messageId: randomUUID() });
 });
@@ -351,7 +545,7 @@ app.get("/api/analytics/annual-needs", (req, res) => {
   // Since we don't have historical consumption, we'll use total items received as a proxy
   const analysis = db.items.map((item: any) => {
     const totalReceived = db.receivings
-      .filter((r: any) => r.item_code === item.item_code)
+      .filter((r: any) => r.item_code === item.item_code && !r.isDeleted)
       .reduce((sum: number, r: any) => sum + r.quantity, 0);
     
     const yearlyTrend = totalReceived || 100; // Mock base consumption
@@ -519,6 +713,10 @@ app.post("/api/user/profile", (req, res) => {
 });
 
 // --- Procurement API ---
+app.get("/api/procurement/codes", (req, res) => {
+  res.json(BUDGET_TREE);
+});
+
 app.get("/api/procurement/requests", (req, res) => {
   const db = getDb();
   res.json(db.requests);
@@ -598,6 +796,19 @@ app.post("/api/procurement/select-winner", (req, res) => {
 app.get("/api/procurement/orders", (req, res) => {
   const db = getDb();
   res.json(db.orders);
+});
+
+app.post("/api/procurement/orders", auth, checkRole(["Admin", "SuperAdmin"]), (req: any, res) => {
+  const db = getDb();
+  const newOrder = {
+    id: randomUUID(),
+    ...req.body,
+    createdAt: new Date().toISOString()
+  };
+  if (!db.orders) db.orders = [];
+  db.orders.push(newOrder);
+  saveDb(db);
+  res.status(201).json(newOrder);
 });
 
 // --- Budget Tree Data (Full Hierarchy from PDF) ---

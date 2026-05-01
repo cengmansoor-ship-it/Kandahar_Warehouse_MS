@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
+import { AIAssistant } from '../AIAssistant';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
-import { Menu, Bell, LogOut, Camera } from 'lucide-react';
+import { Menu, Bell, LogOut, Camera, Sparkles, X } from 'lucide-react';
 import { notificationService } from '@/src/services/api';
 import { toast } from 'sonner';
 
@@ -21,6 +22,7 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(localStorage.getItem('profile_image'));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
@@ -181,8 +183,49 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
         </header>
         
         <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 custom-scrollbar">
-          {children}
+          <div className="max-w-7xl mx-auto w-full">
+             {children}
+          </div>
         </main>
+
+        {/* Floating Chatbot Button */}
+        <div className="fixed bottom-8 right-8 z-[100] flex flex-col items-end gap-4 scale-75 sm:scale-100">
+          <AnimatePresence>
+            {showChatbot && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.8, y: 50, transformOrigin: 'bottom right' }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.8, y: 50 }}
+                className="w-[380px] h-[550px] bg-white rounded-[32px] shadow-2xl border border-slate-100 overflow-hidden mb-4 flex flex-col"
+              >
+                <div className="p-6 bg-primary-teal text-white flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Sparkles size={20} />
+                    <span className="font-black uppercase tracking-widest text-sm">AI Assistant</span>
+                  </div>
+                  <button onClick={() => setShowChatbot(false)} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-hidden relative">
+                  <AIAssistant forceOpen />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowChatbot(!showChatbot)}
+            className={cn(
+              "w-16 h-16 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-primary-teal/40 transition-all",
+              showChatbot ? "bg-slate-900" : "bg-primary-teal"
+            )}
+          >
+            {showChatbot ? <X size={28} /> : <Sparkles size={28} />}
+          </motion.button>
+        </div>
       </div>
     </div>
   );

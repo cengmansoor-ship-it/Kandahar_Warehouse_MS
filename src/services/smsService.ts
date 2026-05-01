@@ -14,8 +14,18 @@ export const smsService = {
   },
 
   notifyRequestUpdate: async (request: any, status: string) => {
-    const phone = "+93700000000"; // Mock target or from user profile
+    const phone = request.phone || "+93700000000"; 
     const message = `KDRU WMS: Request ${request.trackingId} status updated to ${status}.`;
+    
+    // Also send email if requester email exists
+    if (request.requesterEmail) {
+      try {
+        await notificationService.sendSMS(request.requesterEmail, message); // The backend /sms endpoint actually handles email forwarding too
+      } catch (e) {
+        console.error("Email notify failed", e);
+      }
+    }
+
     return smsService.sendSMS(phone, message);
   }
 };
