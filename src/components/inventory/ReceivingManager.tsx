@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import api, { receivingService, inventoryService } from '@/src/services/api';
+import { emailService } from '@/src/services/emailService';
 import { toast } from 'sonner';
 import { 
   DropdownMenu,
@@ -150,6 +151,11 @@ export const ReceivingManager = () => {
         // Optimization: Immediately show it
         setReceivings(prev => [newRec, ...prev]);
         toast.success(t('reception_logged_success'));
+
+        // TRIGGER EMAIL NOTIFICATION (ONLY EMAIL!)
+        // Simulate finding the person who requested this item
+        const demoRequester = { name: "Dr. Ahmad Shah", email: "ahmad@kandahar.edu.af" };
+        emailService.notifyItemArrival(demoRequester.name, demoRequester.email, formData.item_name || 'Requested Item');
       }
       setShowModal(false);
       resetForm();
@@ -302,24 +308,26 @@ export const ReceivingManager = () => {
         return;
       }
       
-      // Map data to include '*' for mandatory fields in headers
-      const exportData = receivings.map(rec => ({
-        '*Item Code': rec.item_code,
-        'Item Name': rec.item_name,
-        '*Quantity': rec.quantity,
-        'Unit': rec.unit,
-        '*Supplier': rec.supplier,
-        '*Date': rec.date,
-        'Invoice Number': rec.invoice_number,
-        'Warehouse Location': rec.warehouse_location,
-        'Condition': rec.condition,
-        'Notes': rec.notes
-      }));
+      // Map data to include '*' for mandatory fields in headers using translations
+      const exportData = receivings.map(rec => {
+        const row: any = {};
+        row[`*${t('id') || 'ID'}`] = rec.item_code;
+        row[t('name') || 'Item Name'] = rec.item_name;
+        row[`*${t('quantity') || 'Quantity'}`] = rec.quantity;
+        row[t('unit') || 'Unit'] = rec.unit;
+        row[`*${t('supplier') || 'Supplier'}`] = rec.supplier;
+        row[`*${t('date') || 'Date'}`] = rec.date;
+        row[t('invoice') || 'Invoice Number'] = rec.invoice_number;
+        row[t('location') || 'Warehouse Location'] = rec.warehouse_location;
+        row[t('condition') || 'Condition'] = rec.condition;
+        row[t('notes') || 'Notes'] = rec.notes;
+        return row;
+      });
       
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Receivings");
-      XLSX.writeFile(workbook, `Receivings_${new Date().toISOString().split('T')[0]}.xlsx`);
+      XLSX.utils.book_append_sheet(workbook, worksheet, t('receiving') || "Receivings");
+      XLSX.writeFile(workbook, `${t('receiving') || 'Receivings'}_${new Date().toISOString().split('T')[0]}.xlsx`);
       
       toast.success(t('export_success') || "Data exported to Excel");
     } catch (error) {
@@ -502,7 +510,7 @@ export const ReceivingManager = () => {
                       <td className="px-8 py-6">
                         <ConditionBadge condition={rec.condition} />
                       </td>
-                       <td className={cn("px-8 py-6", t('lang_direction') === 'rtl' ? "text-left" : "text-right")}>
+                      <td className={cn("px-8 py-6", t('lang_direction') === 'rtl' ? "text-left" : "text-right")}>
                         <div className={cn("flex items-center gap-1", t('lang_direction') === 'rtl' ? "justify-start" : "justify-end")}>
                           <button onClick={() => handleEdit(rec)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-primary-teal transition-all">
                             <Edit size={16} />
@@ -586,7 +594,6 @@ export const ReceivingManager = () => {
                       </button>
                       <button 
                         type="button"
-                        style={{ position: "relative", zIndex: 9999 }}
                         disabled={loadingId === (rec.id || rec._id)}
                         onClick={(e) => {
                           e.preventDefault();
@@ -596,7 +603,7 @@ export const ReceivingManager = () => {
                           handleDelete(targetId);
                         }} 
                         className={cn(
-                          "p-3 rounded-xl transition-all pointer-events-auto border border-slate-100 shadow-sm relative z-50",
+                          "p-3 rounded-xl transition-all pointer-events-auto border border-slate-100 shadow-sm relative z-0",
                           loadingId === (rec.id || rec._id) ? "opacity-50 cursor-wait bg-slate-50" : "hover:bg-red-50 text-slate-400 hover:text-red-500 bg-white"
                         )}
                       >

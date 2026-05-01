@@ -216,8 +216,8 @@ export const InventoryManager = () => {
       )}
 
       <div className={cn(
-        "grid gap-8",
-        view === 'grid' ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4" : "grid-cols-1"
+        "grid gap-8 pb-32",
+        view === 'grid' ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" : "grid-cols-1"
       )}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
@@ -423,30 +423,30 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean, onDelete: () =>
 
   return (
     <div className={cn(
-      "fintech-card p-6 flex flex-col justify-between group",
-      horizontal && "flex-row items-center p-8"
+      "fintech-card p-6 flex flex-col justify-between group overflow-hidden h-full",
+      horizontal && "flex-row items-center p-8 h-auto"
     )}>
       <div className={cn("flex flex-col gap-5", horizontal && "flex-row items-center flex-1 gap-12")}>
-        <div className="flex items-start justify-between w-full">
-          <div className="flex items-center gap-5">
+        <div className="flex items-start justify-between w-full overflow-hidden">
+          <div className="flex items-center gap-5 overflow-hidden">
              <div className="w-14 h-14 rounded-2xl bg-primary-teal/5 border border-primary-teal/10 flex items-center justify-center text-primary-teal shrink-0 group-hover:scale-110 transition-transform">
                <Package size={28} />
              </div>
-             <div>
-               <div className="flex items-center gap-2 mb-1.5">
-                 <span className="font-mono text-[10px] bg-[#1A1D1F] text-white px-2 py-0.5 rounded-lg font-black tracking-widest shadow-sm">
+             <div className="overflow-hidden">
+               <div className="flex items-center gap-2 mb-1.5 overflow-hidden">
+                 <span className="font-mono text-[10px] bg-[#1A1D1F] text-white px-2 py-0.5 rounded-lg font-black tracking-widest shadow-sm truncate">
                    {item.item_code}
                  </span>
-                 <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">
+                 <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none truncate">
                     {t('select_bab')?.split(' ')[0]} {item.bab_code}
                  </div>
                </div>
-               <div className="text-xl font-black text-[#1A1D1F] tracking-tight leading-tight group-hover:text-primary-teal transition-colors">
+               <div className="text-xl font-black text-[#1A1D1F] tracking-tight leading-tight group-hover:text-primary-teal transition-colors truncate w-full">
                  {item.name}
                </div>
              </div>
           </div>
-          <div className={cn("px-3 py-1 rounded-full text-[10px] font-black border uppercase tracking-widest", statusStyles[item.status])}>
+          <div className={cn("px-3 py-1 rounded-full text-[10px] font-black border uppercase tracking-widest shrink-0 ml-2", statusStyles[item.status])}>
             {translatedStatus[item.status] || item.status}
           </div>
         </div>
@@ -462,23 +462,23 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean, onDelete: () =>
         </div>
       </div>
 
-      <div className={cn("mt-10 flex gap-3", horizontal && "mt-0 ml-12")}>
+      <div className={cn("mt-10 flex gap-3 flex-wrap", horizontal && "mt-0 ml-12")}>
         <button 
           onClick={onEdit}
-          className="w-14 h-14 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center hover:bg-slate-100 hover:text-primary-teal transition-all border border-slate-100 shadow-sm"
+          className="w-14 h-14 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center hover:bg-slate-100 hover:text-primary-teal transition-all border border-slate-100 shadow-sm shrink-0"
         >
           <Edit size={24} />
         </button>
         <button 
           onClick={() => handlePrintLedger(item)}
-          className="flex-1 bg-[#1A1D1F] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all flex items-center justify-center gap-3 shadow-2xl shadow-slate-900/10"
+          className="flex-1 min-w-[120px] bg-[#1A1D1F] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all flex items-center justify-center gap-3 shadow-2xl shadow-slate-900/10"
         >
           {t('inventory_ledger')}
           <ArrowUpRight size={14} className="opacity-50" />
         </button>
         <button 
           onClick={onDelete}
-          className="w-14 h-14 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center hover:bg-red-100 transition-all border border-red-100"
+          className="w-14 h-14 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center hover:bg-red-100 transition-all border border-red-100 shrink-0"
         >
           <Trash2 size={24} />
         </button>

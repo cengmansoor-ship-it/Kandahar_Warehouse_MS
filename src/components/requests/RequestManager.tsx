@@ -49,7 +49,8 @@ export const RequestManager = () => {
     name: '',
     email: '',
     faculty: '',
-    role: ''
+    role: '',
+    cellNumber: ''
   });
 
   const [approvers, setApprovers] = useState<{name: string, role: string, approved: boolean}[]>([
@@ -87,6 +88,7 @@ export const RequestManager = () => {
         requesterEmail: requesterInfo.email,
         requesterFaculty: requesterInfo.faculty,
         requesterRole: requesterInfo.role,
+        requesterPhone: requesterInfo.cellNumber,
         status: 'Pending',
         progress: 0,
         item_code: itemData.item_code,
@@ -143,7 +145,24 @@ export const RequestManager = () => {
                         <input 
                           placeholder="e.g. Ahmad Shah"
                           value={requesterInfo.name}
-                          onChange={(e) => setRequesterInfo({...requesterInfo, name: e.target.value})}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRequesterInfo({...requesterInfo, name: val});
+                            
+                            // Dynamic alert logic
+                            if (val.length > 3) {
+                              const existing = requests.filter(r => 
+                                r.requester.toLowerCase().includes(val.toLowerCase()) && 
+                                (r.status === 'Approved' || r.status === 'Delivered')
+                              );
+                              if (existing.length > 0) {
+                                toast.warning(`Alert: ${val} from ${existing[0].requesterFaculty} already has ${existing.length} items assigned. Do you still want to proceed?`, {
+                                  duration: 5000,
+                                  description: `Previous items: ${existing.map(r => r.title).join(', ')}`
+                                });
+                              }
+                            }
+                          }}
                           className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
                         />
                      </div>
@@ -156,8 +175,8 @@ export const RequestManager = () => {
                           className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
                         />
                      </div>
-                     <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1 text-start">
                            <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Faculty</label>
                            <input 
                              placeholder="Education"
@@ -166,7 +185,7 @@ export const RequestManager = () => {
                              className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
                            />
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 text-start">
                            <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Position / Role</label>
                            <input 
                              placeholder="Lecturer"
@@ -175,6 +194,15 @@ export const RequestManager = () => {
                              className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
                            />
                         </div>
+                     </div>
+                     <div className="space-y-1 text-start">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Cell Number</label>
+                        <input 
+                          placeholder="e.g. 070XXXXXXX"
+                          value={requesterInfo.cellNumber}
+                          onChange={(e) => setRequesterInfo({...requesterInfo, cellNumber: e.target.value})}
+                          className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
+                        />
                      </div>
                   </div>
                </div>
@@ -335,6 +363,26 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
   const handleUpdate = async (status: string, progress: number) => {
     try {
       await requestService.updateStatus(request.id, { status, progress });
+      
+      // Automatic stock reduction when items are distributed (Approved/Issued)
+      if (status === 'Approved' || status === 'Delivered') {
+        const item = request.items?.[0];
+        if (item && item.id) {
+          try {
+            await api.post('/distribute', {
+              itemId: item.id,
+              personName: request.requester,
+              faculty: request.requesterFaculty,
+              quantity: item.quantity || 1
+            });
+            toast.success(`Inventory updated: ${item.name} stock reduced.`);
+          } catch (distError) {
+            console.error("Stock reduction failed:", distError);
+            toast.error("Status updated but failed to adjust inventory levels.");
+          }
+        }
+      }
+
       toast.success(`Request ${status} successfully`);
       
       // Send SMS

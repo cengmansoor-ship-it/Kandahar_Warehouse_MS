@@ -70,28 +70,28 @@ export const ProcurementManager: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                  <div className="col-span-1 md:col-span-2 space-y-8">
                     <div className="bg-emerald-50 border border-emerald-100 p-10 rounded-[44px] space-y-4">
-                      <h3 className="text-2xl font-black text-emerald-900 tracking-tight">Official Document Management</h3>
+                      <h3 className="text-2xl font-black text-emerald-900 tracking-tight">{t('official_doc_mgmt')}</h3>
                       <p className="text-emerald-700 font-medium leading-relaxed">
-                        Welcome to the Procurement Documents panel. Here you can generate, manage, and print official government-standard forms for the university acquisition process. All forms are dynamic and based on official templates.
+                        {t('procurement_welcome')}
                       </p>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                       <DocumentFeatureCard 
-                        title="Tender Acquisition" 
-                        desc="Generate price quotation forms for vendors based on specific technical requirements and government standards."
+                        title={t('tender_acquisition')} 
+                        desc={t('tender_acq_desc')}
                         onClick={() => setActiveTab('tender')}
                         icon={<FileText size={28} />}
                       />
                        <DocumentFeatureCard 
-                        title="Comparison Matrix" 
-                        desc="Compare multiple supplier bids side-by-side and identify the winner based on price, quality, and eligibility."
+                        title={t('comparison_matrix')} 
+                        desc={t('comparison_matrix_desc')}
                         onClick={() => setActiveTab('comparison')}
                         icon={<ClipboardList size={28} />}
                       />
                     </div>
                  </div>
                  <div className="bg-white border border-slate-100 p-10 rounded-[44px] shadow-sm space-y-8">
-                    <h4 className="font-black text-slate-900 uppercase tracking-widest text-[10px] bg-slate-50 p-2 text-center rounded-lg">Logistics Governance</h4>
+                    <h4 className="font-black text-slate-900 uppercase tracking-widest text-[10px] bg-slate-50 p-2 text-center rounded-lg">{t('logistics_governance')}</h4>
                     <div className="space-y-6">
                        {[1,2,3].map(i => (
                          <div key={i} className="flex items-center gap-5 p-5 rounded-3xl bg-slate-50/50 border border-slate-100 hover:border-[#0F8F7F]/30 transition-all cursor-pointer">
@@ -104,7 +104,9 @@ export const ProcurementManager: React.FC = () => {
                        ))}
                     </div>
                     <div className="pt-6 border-t border-dashed border-slate-100">
-                       <button className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">View Full Audit Trail</button>
+                       <button onClick={() => setActiveTab('overview')} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">
+                         {t('view_audit_trail')}
+                       </button>
                     </div>
                  </div>
               </div>
@@ -120,19 +122,22 @@ export const ProcurementManager: React.FC = () => {
   );
 };
 
-const DocumentFeatureCard = ({ title, desc, onClick, icon }: { title: string, desc: string, onClick: () => void, icon: React.ReactNode }) => (
-  <button 
-    onClick={onClick}
-    className="group bg-white p-10 rounded-[44px] border border-slate-100 shadow-sm text-start hover:border-[#0F8F7F] hover:shadow-xl hover:shadow-slate-200/40 transition-all flex flex-col h-full"
-  >
-    <div className="w-16 h-16 bg-slate-50 rounded-[24px] flex items-center justify-center text-slate-400 group-hover:bg-[#0F8F7F] group-hover:text-white transition-all mb-8 shadow-inner">
-      {icon}
-    </div>
-    <h4 className="font-black text-xl text-slate-900 mb-3 tracking-tight">{title}</h4>
-    <p className="text-sm text-slate-500 font-medium leading-relaxed flex-1">{desc}</p>
-    <div className="mt-8 flex items-center gap-2 text-[#0F8F7F] font-black text-[10px] uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-opacity">
-       Initialize Form →
-    </div>
-  </button>
-);
+const DocumentFeatureCard = ({ title, desc, onClick, icon }: { title: string, desc: string, onClick: () => void, icon: React.ReactNode }) => {
+  const { t } = useTranslation();
+  return (
+    <button 
+      onClick={onClick}
+      className="group bg-white p-10 rounded-[44px] border border-slate-100 shadow-sm text-start hover:border-[#0F8F7F] hover:shadow-xl hover:shadow-slate-200/40 transition-all flex flex-col h-full"
+    >
+      <div className="w-16 h-16 bg-slate-50 rounded-[24px] flex items-center justify-center text-slate-400 group-hover:bg-[#0F8F7F] group-hover:text-white transition-all mb-8 shadow-inner">
+        {icon}
+      </div>
+      <h4 className="font-black text-xl text-slate-900 mb-3 tracking-tight">{title}</h4>
+      <p className="text-sm text-slate-500 font-medium leading-relaxed flex-1">{desc}</p>
+      <div className="mt-8 flex items-center gap-2 text-[#0F8F7F] font-black text-[10px] uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-opacity">
+         {t('initialize_form')}
+      </div>
+    </button>
+  );
+};
 

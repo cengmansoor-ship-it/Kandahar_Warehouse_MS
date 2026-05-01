@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Printer, Download, Plus, XCircle, Save } from 'lucide-react';
 import api, { procurementService } from '@/src/services/api';
 import { toast } from 'sonner';
@@ -44,50 +45,58 @@ export const TenderForm: React.FC<TenderFormProps> = ({
   },
   isEditable = true
 }) => {
+  const { t } = useTranslation();
   const [formData, setFormData] = React.useState(initialData);
   const componentRef = React.useRef<HTMLDivElement>(null);
 
   const handlePrint = async () => {
     if (!componentRef.current) return;
-    toast.info("Opening print dialog...");
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-    const doc = iframe.contentWindow?.document;
-    if (!doc) return;
+    
+    // Check if we are in an iframe
+    const isIframe = window.self !== window.top;
+    
+    if (isIframe) {
+      toast.info("For best printing quality, please open the app in a new tab if the dialog doesn't appear.");
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error("Pop-up blocked. Please allow pop-ups to print.");
+      return;
+    }
+
     const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
-    doc.open();
-    doc.write(`
+    const content = componentRef.current.innerHTML;
+
+    printWindow.document.write(`
       <html dir="rtl">
         <head>
           <title>${formData.projectTitle || 'Procurement Tender'}</title>
           ${styles}
           <style>
-             @page { size: A4; margin: 0; }
-             @media print { 
-               .no-print { display: none !important; } 
-               body { padding: 0; margin: 0; } 
-               .a4-page { border: none !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; padding: 40px !important; } 
-             }
-             body { margin: 0; padding: 0; }
+            @page { size: A4; margin: 20mm; }
+            @media print { 
+              .no-print { display: none !important; } 
+              body { padding: 0; margin: 0; } 
+              .a4-page { border: none !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; } 
+            }
+            body { padding: 40px; font-family: sans-serif; }
           </style>
         </head>
         <body>
-          ${componentRef.current.innerHTML}
+          ${content}
           <script>
-            window.onload=()=>{
-              setTimeout(()=>{
+            window.onload = () => {
+              setTimeout(() => {
                 window.print();
-                setTimeout(() => {
-                  window.parent.document.body.removeChild(window.frameElement);
-                }, 100);
-              }, 1000);
+                window.close();
+              }, 500);
             };
           </script>
         </body>
       </html>
     `);
-    doc.close();
+    printWindow.document.close();
   };
 
   const [codes, setCodes] = React.useState<any[]>([]);
@@ -338,7 +347,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
             <input 
               value={formData.projectTitle} 
               onChange={(e) => setFormData({...formData, projectTitle: e.target.value})}
-              className="w-full bg-slate-50 border-none text-center font-black text-lg focus:ring-2 focus:ring-emerald-500 rounded p-1"
+              className="w-full bg-slate-50 border-none text-center font-black text-lg focus:ring-2 focus:ring-emerald-500 rounded p-1 text-black"
             />
           ) : (formData.projectTitle || '')} 
         />

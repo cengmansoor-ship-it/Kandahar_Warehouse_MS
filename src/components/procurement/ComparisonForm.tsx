@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Printer, Download, Award, XCircle, Info, UserPlus, PlusCircle } from 'lucide-react';
 import { DocumentHeader } from './DocumentHeader';
 
@@ -70,50 +71,56 @@ export const ComparisonForm: React.FC<ComparisonFormProps> = ({
     ]
   }
 }) => {
+  const { t } = useTranslation();
   const [formData, setFormData] = React.useState(initialData);
   const componentRef = React.useRef<HTMLDivElement>(null);
 
   const handlePrint = async () => {
     if (!componentRef.current) return;
-    toast.info("Opening print dialog...");
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-    const doc = iframe.contentWindow?.document;
-    if (!doc) return;
+    
+    const isIframe = window.self !== window.top;
+    if (isIframe) {
+      toast.info("For best printing quality, please open the app in a new tab if the dialog doesn't appear.");
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error("Pop-up blocked. Please allow pop-ups to print.");
+      return;
+    }
+
     const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
-    doc.open();
-    doc.write(`
+    const content = componentRef.current.innerHTML;
+
+    printWindow.document.write(`
       <html dir="rtl">
         <head>
           <title>${formData.projectTitle || 'Comparison Matrix'}</title>
           ${styles}
           <style>
-             @page { size: A4 landscape; margin: 0; }
+             @page { size: A4 landscape; margin: 15mm; }
              @media print { 
                .no-print { display: none !important; } 
                body { padding: 0; margin: 0; } 
-               .a4-page { border: none !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; padding: 40px !important; } 
+               .a4-page { border: none !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; } 
              }
-             body { margin: 0; padding: 0; }
+             body { padding: 20px; font-family: sans-serif; }
           </style>
         </head>
         <body>
-          ${componentRef.current.innerHTML}
+          ${content}
           <script>
-            window.onload=()=>{
-              setTimeout(()=>{
+            window.onload = () => {
+              setTimeout(() => {
                 window.print();
-                setTimeout(() => {
-                   window.parent.document.body.removeChild(window.frameElement);
-                }, 100);
-              }, 1000);
+                window.close();
+              }, 500);
             };
           </script>
         </body>
       </html>
     `);
-    doc.close();
+    printWindow.document.close();
   };
 
   const updateUnitPrice = (supplierIdx: number, itemIdx: number, price: number) => {
@@ -263,7 +270,13 @@ export const ComparisonForm: React.FC<ComparisonFormProps> = ({
 
         <DocumentHeader 
           title="د نرخ اخستنې میعارې مقایسوي پاڼه" 
-          projectTitle={formData.projectTitle || ''} 
+          projectTitle={
+            <input 
+              value={formData.projectTitle}
+              onChange={(e) => setFormData({...formData, projectTitle: e.target.value})}
+              className="bg-white/10 border-none text-center font-black text-xs uppercase tracking-tight text-black w-full"
+            />
+          } 
         />
 
         <div className="text-[11px] mb-4 p-3 bg-slate-50 border border-slate-900 font-bold leading-relaxed">

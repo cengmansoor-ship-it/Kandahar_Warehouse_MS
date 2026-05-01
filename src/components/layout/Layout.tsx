@@ -188,44 +188,7 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
           </div>
         </main>
 
-        {/* Floating Chatbot Button */}
-        <div className="fixed bottom-8 right-8 z-[100] flex flex-col items-end gap-4 scale-75 sm:scale-100">
-          <AnimatePresence>
-            {showChatbot && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.8, y: 50, transformOrigin: 'bottom right' }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.8, y: 50 }}
-                className="w-[380px] h-[550px] bg-white rounded-[32px] shadow-2xl border border-slate-100 overflow-hidden mb-4 flex flex-col"
-              >
-                <div className="p-6 bg-primary-teal text-white flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Sparkles size={20} />
-                    <span className="font-black uppercase tracking-widest text-sm">AI Assistant</span>
-                  </div>
-                  <button onClick={() => setShowChatbot(false)} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
-                    <X size={20} />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-hidden relative">
-                  <AIAssistant forceOpen />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowChatbot(!showChatbot)}
-            className={cn(
-              "w-16 h-16 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-primary-teal/40 transition-all",
-              showChatbot ? "bg-slate-900" : "bg-primary-teal"
-            )}
-          >
-            {showChatbot ? <X size={28} /> : <Sparkles size={28} />}
-          </motion.button>
-        </div>
+        <AIAssistant />
       </div>
     </div>
   );

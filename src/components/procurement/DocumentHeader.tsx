@@ -6,6 +6,12 @@ interface DocumentHeaderProps {
 }
 
 export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ title, projectTitle }) => {
+  const [data, setData] = React.useState({
+    islamicState: 'د افغانستان اسلامي امارت',
+    ministry: 'د لوړو زده کړو وزارت',
+    university: 'کندهار پوهنتون'
+  });
+
   const [logos, setLogos] = React.useState({
     university: localStorage.getItem('doc_logo_university') || "https://upload.wikimedia.org/wikipedia/en/2/23/Kandahar_University_Logo.png",
     ministry: localStorage.getItem('doc_logo_ministry') || "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Flag_of_the_Taliban.svg/1024px-Flag_of_the_Taliban.svg.png"
@@ -39,8 +45,11 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ title, projectTi
         <div className="flex flex-col items-center gap-2">
           <div 
             onClick={() => handleLogoChange('university')}
-            className="w-[100px] h-[100px] flex items-center justify-center bg-slate-50 rounded-2xl p-2 border border-slate-100 shadow-sm overflow-hidden cursor-pointer hover:ring-4 hover:ring-primary-teal/10 transition-all group"
+            className="w-[100px] h-[100px] flex items-center justify-center bg-slate-50 rounded-2xl p-2 border border-slate-100 shadow-sm overflow-hidden cursor-pointer hover:ring-4 hover:ring-primary-teal/10 transition-all group relative"
           >
+            <div className="absolute inset-0 bg-primary-teal/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[8px] font-black uppercase tracking-widest z-10">
+              Click to Upload
+            </div>
             <img 
               src={logos.university} 
               alt="Kandahar University Logo" 
@@ -51,26 +60,41 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ title, projectTi
           <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Kandahar University</span>
         </div>
         
-        <div className="flex-1 px-8 text-slate-900 font-bold">
-          <p className="text-xl leading-snug mb-1 font-black">د افغانستان اسلامي امارت</p>
-          <p className="text-lg leading-snug mb-1 font-black">د لوړو زده کړو وزارت</p>
-          <p className="text-lg leading-snug mb-6 font-black">کندهار پوهنتون</p>
+        <div className="flex-1 px-8 text-black font-bold">
+          <input 
+            value={data.islamicState} 
+            onChange={(e) => setData({...data, islamicState: e.target.value})}
+            className="text-xl leading-snug mb-1 font-black w-full bg-transparent border-none text-center focus:ring-1 focus:ring-emerald-500 rounded"
+          />
+          <input 
+            value={data.ministry} 
+            onChange={(e) => setData({...data, ministry: e.target.value})}
+            className="text-lg leading-snug mb-1 font-black w-full bg-transparent border-none text-center focus:ring-1 focus:ring-emerald-500 rounded"
+          />
+          <input 
+            value={data.university} 
+            onChange={(e) => setData({...data, university: e.target.value})}
+            className="text-lg leading-snug mb-6 font-black w-full bg-transparent border-none text-center focus:ring-1 focus:ring-emerald-500 rounded"
+          />
           
           <div className="border-y-2 border-slate-900 py-4 mb-6 relative">
             <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 bg-white px-4 text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">Official Document</div>
-            <h1 className="text-2xl font-black tracking-tight">{title}</h1>
+            <h1 className="text-2xl font-black tracking-tight text-black">{title}</h1>
           </div>
           
-          <div className="bg-slate-900 text-white px-10 py-2 rounded-full inline-block shadow-xl shadow-slate-900/10">
-             <h2 className="text-sm font-black uppercase tracking-tight">{projectTitle}</h2>
+          <div className="bg-slate-50 border-2 border-slate-900 text-black px-10 py-2 rounded-full inline-block shadow-xl shadow-slate-900/5">
+             <div className="text-sm font-black uppercase tracking-tight text-black">{projectTitle}</div>
           </div>
         </div>
 
         <div className="flex flex-col items-center gap-2">
           <div 
             onClick={() => handleLogoChange('ministry')}
-            className="w-[100px] h-[100px] flex items-center justify-center bg-slate-50 rounded-2xl p-2 border border-slate-100 shadow-sm overflow-hidden cursor-pointer hover:ring-4 hover:ring-primary-teal/10 transition-all group"
+            className="w-[100px] h-[100px] flex items-center justify-center bg-slate-50 rounded-2xl p-2 border border-slate-100 shadow-sm overflow-hidden cursor-pointer hover:ring-4 hover:ring-primary-teal/10 transition-all group relative"
           >
+             <div className="absolute inset-0 bg-primary-teal/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[8px] font-black uppercase tracking-widest z-10">
+              Click to Upload
+            </div>
              <img 
               src={logos.ministry} 
               alt="Ministry Logo" 

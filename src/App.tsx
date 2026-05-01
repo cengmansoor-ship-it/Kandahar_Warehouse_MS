@@ -14,10 +14,10 @@ import { ProcurementManager } from './components/procurement/ProcurementManager'
 import { ReportManager } from './components/reports/ReportManager';
 import { SettingsManager } from './components/settings/SettingsManager';
 import { TrashManager } from './components/inventory/TrashManager';
+import { SystemActivities } from './components/activities/SystemActivities';
 import { ExitClearanceManager } from './components/inventory/ExitClearanceManager';
 import { LoginManager } from './components/auth/LoginManager';
 import AboutUs from './pages/AboutUs';
-import AIAssistantPage from './pages/AIAssistantPage';
 import Dashboard from './pages/Dashboard';
 import { Package, TrendingUp, AlertTriangle, FileCheck, ArrowRight } from 'lucide-react';
 import { User, UserRole } from './types';
@@ -35,12 +35,12 @@ function MainRoutes({ user, handleLogout }: { user: User, handleLogout: () => vo
         <Route path="/inventory" element={<InventoryManager />} />
         <Route path="/receiving" element={<ReceivingManager />} />
         <Route path="/requests" element={<RequestManager />} />
+        <Route path="/activities" element={<SystemActivities />} />
         <Route path="/procurement" element={<ProcurementManager />} />
         <Route path="/reports" element={<ReportManager />} />
         <Route path="/trash" element={<TrashManager />} />
         <Route path="/settings" element={<SettingsManager />} />
         <Route path="/about" element={<AboutUs />} />
-        <Route path="/chat" element={<AIAssistantPage />} />
         <Route path="/guide" element={<SystemGuide />} />
         <Route path="/roles" element={<RoleManagement />} />
       </Routes>

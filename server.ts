@@ -13,8 +13,85 @@ const PORT = 3000;
 const DB_FILE = path.join(process.cwd(), "db.json");
 const SECRET_KEY = process.env.JWT_SECRET || "kandahar_procurement_safe_key_2024";
 
+// --- Activity Logging Helper ---
+function logActivity(user: string, action: string, target: string, type: string) {
+  const db = getDb();
+  const newActivity = {
+    id: randomUUID(),
+    user,
+    action,
+    target,
+    type,
+    timestamp: new Date().toISOString()
+  };
+  if (!db.activities) db.activities = [];
+  db.activities = [newActivity, ...db.activities].slice(0, 50); // Keep last 50
+  saveDb(db);
+}
+
 app.use(cors());
 app.use(express.json());
+
+// Get System Activities
+app.get("/api/activities", (req, res) => {
+  const db = getDb();
+  res.json(db.activities || []);
+});
+
+// --- Item Distribution (Stock Reduction) ---
+app.post("/api/distribute", (req, res) => {
+  const { itemId, personName, faculty, quantity } = req.body;
+  const db = getDb();
+  const item = db.items.find((i: any) => i.id === itemId);
+  const qtyNum = Number(quantity) || 1;
+
+  if (item && item.quantity >= qtyNum) {
+    item.quantity -= qtyNum;
+    item.status = item.quantity > 10 ? 'In Stock' : (item.quantity > 0 ? 'Low Stock' : 'Out of Stock');
+    
+    // Log the distribution in a new collection "allocations"
+    if (!db.allocations) db.allocations = [];
+    const allocation = {
+      id: randomUUID(),
+      itemId,
+      itemName: item.name,
+      personName,
+      faculty,
+      quantity: qtyNum,
+      timestamp: new Date().toISOString()
+    };
+    db.allocations.push(allocation);
+    
+    saveDb(db);
+    logActivity(personName, 'Item Assigned', item.name, 'special');
+    res.json({ success: true, item, allocation });
+  } else {
+    res.status(400).json({ error: "Insufficient stock or item not found" });
+  }
+});
+
+// --- Analytics: Forecasting & Allocation ---
+app.get("/api/analytics/forecast", (req, res) => {
+  const db = getDb();
+  
+  // Basic linear forecast based on monthly consumption
+  const faculties = ["Engineering", "Medicine", "Agriculture", "Computer Science", "Economics"];
+  const forecast = faculties.map(f => {
+    const historical = (db.allocations || [])
+      .filter((a: any) => a.faculty === f)
+      .reduce((sum: number, a: any) => sum + a.quantity, 0);
+    
+    return {
+      faculty: f,
+      current: historical,
+      forecast: Math.floor(historical * 1.25 + 5), // Simulating 25% growth forecast
+      confidence: "High",
+      trend: "Increasing"
+    };
+  });
+  
+  res.json(forecast);
+});
 
 // --- Database Helper ---
 function getDb() {
@@ -43,6 +120,17 @@ function getDb() {
         orders: [],
         trash: [],
         notifications: [],
+        faculties: [
+          { name: "Medicine", image: "https://images.unsplash.com/photo-1576091160550-217359f48866?w=200&h=200&fit=crop", count: 12 },
+          { name: "Computer Science", image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=200&h=200&fit=crop", count: 8 },
+          { name: "Engineering", image: "https://images.unsplash.com/photo-1581094724018-0902f5a8987b?w=200&h=200&fit=crop", count: 15 },
+          { name: "Agriculture", image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=200&h=200&fit=crop", count: 5 },
+        ],
+        personnel: [
+          { id: 'p1', faculty: "Medicine", name: "Dr. Ahmad Shah", image: "https://i.pravatar.cc/150?u=ahmad", item: "Microscope X1", date: "2024-05-01", exists: true },
+          { id: 'p2', faculty: "Medicine", name: "Dr. Laila Jan", image: "https://i.pravatar.cc/150?u=laila", item: "None", date: "N/A", exists: true },
+          { id: 'p3', faculty: "Computer Science", name: "Eng. Mustafa", image: "https://i.pravatar.cc/150?u=mustafa", item: "Server Rack", date: "2024-04-28", exists: true },
+        ],
         users: [{ 
           id: 'admin', 
           name: 'System Admin',
@@ -79,6 +167,10 @@ function getDb() {
         saveDb(db);
       }
     }
+    
+    // Ensure faculties and personnel exist
+    if (!db.faculties) db.faculties = [];
+    if (!db.personnel) db.personnel = [];
     
     return db;
   } catch (error) {
@@ -167,6 +259,7 @@ app.post("/api/items", (req, res) => {
   };
   db.items.push(newItem);
   saveDb(db);
+  logActivity('Admin User', 'Added Item', newItem.name, 'create');
   res.json(newItem);
 });
 
@@ -207,54 +300,6 @@ app.get("/api/reports/inventory", (req, res) => {
     lowStockCount: lowStock.length,
     items: db.items
   });
-});
-
-// --- Chatbot API ---
-app.post("/api/chat", (req, res) => {
-  const { message, lang } = req.body;
-  const db = getDb();
-  let reply = "";
-  const msg = message.toLowerCase();
-
-  const isPashto = lang === 'ps' || /[\u0600-\u06FF]/.test(message);
-
-  if (msg.includes("stock") || msg.includes("inventory") || msg.includes("ګودام") || msg.includes("جنس")) {
-    const totalItems = db.items.length;
-    const lowStockItems = db.items.filter((i: any) => i.status === 'Low Stock' || i.quantity < 10);
-    const totalQty = db.items.reduce((sum: number, i: any) => sum + (Number(i.quantity) || 0), 0);
-    
-    if (msg.includes("low") || msg.includes("کم")) {
-      const names = lowStockItems.map((i: any) => i.name).slice(0, 3).join(", ");
-      reply = isPashto
-        ? `موږ ${lowStockItems.length} توکي لرو چې مقدار یې کم دی، لکه: ${names}.`
-        : `Currently, ${lowStockItems.length} items are low on stock, including: ${names}. You should restock these soon.`;
-    } else {
-      reply = isPashto
-        ? `زموږ په ګودام کې ${totalItems} ډوله توکي شته. مجموعي شمېر یې ${totalQty} دی، او ${lowStockItems.length} توکي په لږ مقدار کې دي. زه کولی شم لیست درته وښیم؟`
-        : `Inventory Status: Total unique SKUs: ${totalItems}. Gross quantity: ${totalQty}. Alert: ${lowStockItems.length} items require attention due to low stock levels.`;
-    }
-  } else if (msg.includes("request") || msg.includes("غوښتنه")) {
-    const pending = db.requests.filter((r: any) => r.status === 'PENDING' || r.status === 'Pending').length;
-    const approved = db.requests.filter((r: any) => r.status === 'APPROVED' || r.status === 'Approved').length;
-    reply = isPashto
-      ? `په سیسټم کې ${db.requests.length} غوښتنې ثبت دي. ${pending} غوښتنې په انتظار کې دي او ${approved} تایید شوي دي. ایا غواړئ نوې غوښتنه تایید کړئ؟`
-      : `Request Pipeline: ${db.requests.length} total entries. ${pending} are pending approval and ${approved} have been cleared for procurement.`;
-  } else if (msg.includes("tender") || msg.includes("procurement") || msg.includes("تدارکات")) {
-    const onlineTenders = db.tenders.length;
-    reply = isPashto
-      ? `اوس مهال په سیسټم کې ${onlineTenders} فعال تدارکاتي اعلانونه شتون لري. تدارکاتي رخصتۍ پای ته رسیدلي.`
-      : `Procurement Intelligence: ${onlineTenders} active tenders identified. The system is monitoring all vendor submissions in real-time.`;
-  } else if (msg.includes("hello") || msg.includes("hi") || msg.includes("سلام")) {
-    reply = isPashto
-      ? "سلام! زه ستاسو هوښیار مرستندوی یم. زه د ګودام مدیریت، تدارکاتو او راپورونو په اړه بشپړ معلومات لرم. زه څنګه مرسته کولی شم؟"
-      : "Salutations! I am your Intelligent WMS Copilot. I have real-time access to stock levels, procurement pipelines, and system audits. How may I assist your operations today?";
-  } else {
-    reply = isPashto
-      ? "بښنه غواړو، زه په دې اړه دقیق معلومات نه لرم. خو زه کولی شم ستاسو لپاره سټاک یا غوښتنه وګورم."
-      : "I'm processing your request, but I couldn't find a direct correlation in the current ledger. Would you like me to analyze the stock levels or pending approvals instead?";
-  }
-
-  res.json({ reply, response: reply }); // Supporting both keys for compatibility
 });
 
 // --- Email API ---
@@ -360,6 +405,7 @@ app.post("/api/v1/receiving", (req, res) => {
   
   db.receivings.push(newReceiving);
   saveDb(db);
+  logActivity('Logistics Dept', 'Received Inventory', newReceiving.item_name, 'create');
   res.json(newReceiving);
 });
 
@@ -615,6 +661,7 @@ app.post("/api/requests", (req, res) => {
   });
   
   saveDb(db);
+  logActivity(req.body.requestedBy || 'Personnel', 'New Request', newRequest.item_name || 'Generic Asset', 'special');
   res.json(newRequest);
 });
 
@@ -664,6 +711,42 @@ app.delete("/api/notifications", (req, res) => {
   db.notifications = [];
   saveDb(db);
   res.json({ success: true });
+});
+
+// --- Traceability (Faculties & Personnel) API ---
+app.get("/api/faculties", (req, res) => {
+  const db = getDb();
+  res.json(db.faculties || []);
+});
+
+app.post("/api/faculties", (req, res) => {
+  const db = getDb();
+  if (!db.faculties) db.faculties = [];
+  const newFaculty = { ...req.body, count: req.body.count || 0 };
+  db.faculties.push(newFaculty);
+  saveDb(db);
+  res.json(newFaculty);
+});
+
+app.get("/api/personnel", (req, res) => {
+  const db = getDb();
+  res.json(db.personnel || []);
+});
+
+app.post("/api/personnel", (req, res) => {
+  const db = getDb();
+  if (!db.personnel) db.personnel = [];
+  const newPerson = { id: randomUUID(), ...req.body };
+  db.personnel.push(newPerson);
+  
+  // Update faculty count
+  if (db.faculties) {
+    const faculty = db.faculties.find((f: any) => f.name === newPerson.faculty);
+    if (faculty) faculty.count = (faculty.count || 0) + 1;
+  }
+  
+  saveDb(db);
+  res.json(newPerson);
 });
 
 // --- Settings & User API ---
