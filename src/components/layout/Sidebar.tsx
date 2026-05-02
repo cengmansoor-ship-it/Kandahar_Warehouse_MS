@@ -94,7 +94,6 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout, user }: SidebarProp
     { id: 'inventory', label: t('inventory'), icon: Package, path: '/inventory', permission: 'manage_inventory' },
     { id: 'receiving', label: t('receiving'), icon: Truck, path: '/receiving', permission: 'manage_receiving' },
     { id: 'requests', label: t('requests'), icon: FileText, path: '/requests', permission: 'manage_requests' },
-    { id: 'activities', label: t('nav_activities') || 'System Activities', icon: Activity, path: '/activities', permission: 'manage_inventory' },
     { id: 'procurement', label: t('procurement'), icon: ShoppingCart, path: '/procurement', permission: 'manage_procurement' },
     { id: 'reports', label: t('reports'), icon: BarChart3, path: '/reports', permission: 'view_reports' },
     { id: 'trash', label: t('trash_bin'), icon: Trash2, path: '/trash', permission: 'manage_inventory' },

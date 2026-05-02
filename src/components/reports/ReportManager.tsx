@@ -743,13 +743,13 @@ const TraceabilityView = () => {
         <div className="max-w-xl mx-auto bg-white p-10 rounded-[44px] shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300">
            <div className="text-start mb-8">
              <h4 className="text-2xl font-black text-slate-900 uppercase italic">Register New Faculty</h4>
-             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Add institutional departments with visual identification</p>
+             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Add institutional departments</p>
            </div>
            <form className="space-y-6 text-start" onSubmit={async (e) => {
              e.preventDefault();
              const fd = new FormData(e.currentTarget);
              const name = fd.get('name') as string;
-             const image = fd.get('image') as string || "https://images.unsplash.com/photo-1541339907198-e08756ebafe1?w=200&h=200&fit=crop";
+             const image = fd.get('image_base64') as string || "https://images.unsplash.com/photo-1541339907198-e08756ebafe1?w=200&h=200&fit=crop";
              
              try {
                await api.post('/faculties', { name, image, count: 0 });
@@ -765,11 +765,43 @@ const TraceabilityView = () => {
                 <input name="name" required className="w-full bg-slate-50 border-none rounded-2xl p-4 text-xs font-bold focus:ring-4 focus:ring-primary-teal/5 outline-none" placeholder="e.g. Fine Arts" />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Logo URL / Picture</label>
-                <input name="image" className="w-full bg-slate-50 border-none rounded-2xl p-4 text-xs font-bold focus:ring-4 focus:ring-primary-teal/5 outline-none" placeholder="https://image-url..." />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Faculty Logo (Local Upload)</label>
+                <div className="flex items-center gap-4">
+                  <label className="flex-1 cursor-pointer">
+                    <div className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-primary-teal hover:text-primary-teal transition-all text-center">
+                      Select Image from PC
+                    </div>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            const base64 = reader.result as string;
+                            const input = document.getElementById('faculty-image-base64') as HTMLInputElement;
+                            if (input) input.value = base64;
+                            toast.success("Image imported successfully");
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                  <input type="hidden" name="image_base64" id="faculty-image-base64" />
+                </div>
               </div>
-              <div className="pt-4">
-                <button type="submit" className="w-full bg-slate-900 text-white py-5 rounded-[24px] text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all">Complete Registration</button>
+              <div className="pt-4 flex gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setViewLevel('faculties')}
+                  className="flex-1 bg-slate-100 text-slate-500 py-5 rounded-[24px] text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="flex-[2] bg-slate-900 text-white py-5 rounded-[24px] text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all">Complete Registration</button>
               </div>
            </form>
         </div>
@@ -785,7 +817,7 @@ const TraceabilityView = () => {
              e.preventDefault();
              const fd = new FormData(e.currentTarget);
              const name = fd.get('name') as string;
-             const image = fd.get('image') as string || `https://i.pravatar.cc/150?u=${name}`;
+             const image = fd.get('person_image_base64') as string || `https://i.pravatar.cc/150?u=${name}`;
              
              try {
                await api.post('/personnel', { 
@@ -798,21 +830,53 @@ const TraceabilityView = () => {
                });
                fetchTraceabilityData();
                setViewLevel('personnel');
-               toast.success(`${name} added to ${selectedFaculty} roster.`);
+               toast.success(`${name} registered in ${selectedFaculty}.`);
              } catch (err) {
-               toast.error("Failed to add personnel");
+               toast.error("Personnel registration failed");
              }
            }}>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
-                <input name="name" required className="w-full bg-slate-50 border-none rounded-2xl p-4 text-xs font-bold focus:ring-4 focus:ring-primary-teal/5 outline-none" placeholder="Dr. John Doe" />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Person Name</label>
+                <input name="name" required className="w-full bg-slate-50 border-none rounded-2xl p-4 text-xs font-bold focus:ring-4 focus:ring-primary-teal/5 outline-none" placeholder="Enter full name" />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Staff Photo URL</label>
-                <input name="image" className="w-full bg-slate-50 border-none rounded-2xl p-4 text-xs font-bold focus:ring-4 focus:ring-primary-teal/5 outline-none" placeholder="https://avatar-url..." />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ID Picture (Local Upload)</label>
+                <div className="flex items-center gap-4">
+                  <label className="flex-1 cursor-pointer">
+                    <div className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-primary-teal hover:text-primary-teal transition-all text-center">
+                      Select Picture from PC
+                    </div>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            const base64 = reader.result as string;
+                            const input = document.getElementById('person-image-base64') as HTMLInputElement;
+                            if (input) input.value = base64;
+                            toast.success("Picture imported successfully");
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                  <input type="hidden" name="person_image_base64" id="person-image-base64" />
+                </div>
               </div>
-              <div className="pt-4">
-                <button type="submit" className="w-full bg-slate-900 text-white py-5 rounded-[24px] text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all">Verify & Add Staff Member</button>
+              <div className="pt-4 flex gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setViewLevel('personnel')}
+                  className="flex-1 bg-slate-100 text-slate-500 py-5 rounded-[24px] text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="flex-[2] bg-slate-900 text-white py-5 rounded-[24px] text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all">Register Person</button>
               </div>
            </form>
         </div>

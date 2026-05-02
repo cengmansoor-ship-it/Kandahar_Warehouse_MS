@@ -30,7 +30,8 @@ function logActivity(user: string, action: string, target: string, type: string)
 }
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Get System Activities
 app.get("/api/activities", (req, res) => {
@@ -120,6 +121,83 @@ function getDb() {
         orders: [],
         trash: [],
         notifications: [],
+        codes: [
+          {
+            bab: "220",
+            name: "Travel & Allowance (سفریه او امتیازات)",
+            fasls: [
+              {
+                code: "221",
+                name: "Allowances (امتیازات)",
+                items: [
+                  { code: "22100", name: "Domestic Allowance (امتياز داخلی)" },
+                  { code: "22101", name: "International Allowance (امتياز بين المللی)" },
+                  { code: "22102", name: "Domestic Travel (سفریه داخلی)" },
+                  { code: "22103", name: "International Travel (سفریه خارجی)" },
+                  { code: "22104", name: "Uniformed Domestic Allowance (سفريه داخلی کارندان يونبفورم)" },
+                  { code: "22105", name: "Travel Advance (پيشکی های سفريه)" }
+                ]
+              },
+              {
+                code: "223",
+                name: "Contract Services (خدمات قراردادي)",
+                items: [
+                  { code: "22300", name: "Public Relations & Advertising (خدمات اشتهازی تبلغاتی اجتماعی)" },
+                  { code: "22301", name: "Printing (مطبع)" },
+                  { code: "22302", name: "Accounting & Audit (تفتيش و محاسبه)" },
+                  { code: "22303", name: "Engineering & Design (انجنری و ډيزان)" },
+                  { code: "22304", name: "Security Services (خدماتی امنيتی)" },
+                  { code: "22305", name: "Freight & Handling (کرايه و جابجاشدن)" },
+                  { code: "22306", name: "Training & Seminars (سمنارها و کورس های اموزيشی)" },
+                  { code: "22307", name: "Development Consulting (بوديجه انکشافی و شرکت های مشورتی)" },
+                  { code: "22308", name: "Individual Consultants (بوديجه انکشافی مشاورين انفرادی)" },
+                  { code: "22309", name: "NGO Development Services (انکشافی خدمات موسسات غير دولتی)" },
+                  { code: "22310", name: "Project Management (بوديجه انکشافی اداره پروژه)" },
+                  { code: "22311", name: "Development Admin Fee (نکشافی فيس های اداری)" }
+                ]
+              },
+              {
+                code: "226",
+                name: "Fuel (روغنیات)",
+                items: [
+                  { code: "22601", name: "Fuel Vehicles (روغنيات)" },
+                  { code: "22602", name: "Gas (ګاز)" },
+                  { code: "22603", name: "Domestic Fuel (روغنيات داخلی)" }
+                ]
+              },
+              {
+                code: "227",
+                name: "Tools & Materials (سامان و لوازم)",
+                items: [
+                  { code: "22700", name: "Medical & Laboratory (طبی و البراتوار)" },
+                  { code: "22701", name: "Office Equipment & Supplies (تجهزات و تدارکات دفتری)" },
+                  { code: "22702", name: "Household & Kitchen (منزل و اشپزهانه)" },
+                  { code: "22703", name: "Education & Recreational (مواد تعلمی و تفريحی)" },
+                  { code: "22704", name: "Clothing (لباس)" },
+                  { code: "22705", name: "Furniture (فرنيچر)" },
+                  { code: "22706", name: "Valuable Papers (اسناد و اوراق)" },
+                  { code: "22707", name: "Agriculture Tools (سامان و لوازم زراعتی)" },
+                  { code: "22708", name: "Military Equipment (تجهزات و لوارم نظامی)" },
+                  { code: "22709", name: "Gifts (تحايف)" }
+                ]
+              }
+            ]
+          },
+          {
+            bab: "222",
+            name: "Food (غذا)",
+            fasls: [
+              {
+                code: "222",
+                name: "Food Items",
+                items: [
+                  { code: "22201", name: "Food - Non Salary (غذا - بدون معاش)" },
+                  { code: "22202", name: "Advance of Food (پيشکي هاي غذا بدون معاش)" }
+                ]
+              }
+            ]
+          }
+        ],
         faculties: [
           { name: "Medicine", image: "https://images.unsplash.com/photo-1576091160550-217359f48866?w=200&h=200&fit=crop", count: 12 },
           { name: "Computer Science", image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=200&h=200&fit=crop", count: 8 },
@@ -1052,7 +1130,70 @@ app.get("/api/procurement/codes", (req, res) => {
 });
 
 app.get("/api/codes", (req, res) => {
-  res.json(BUDGET_TREE);
+  const db = getDb();
+  res.json(db.codes || []);
+});
+
+app.post("/api/codes/bab", (req, res) => {
+  const db = getDb();
+  if (!db.codes) db.codes = [];
+  const newBab = { bab: req.body.bab, name: req.body.name, fasls: [] };
+  db.codes.push(newBab);
+  saveDb(db);
+  res.json(newBab);
+});
+
+app.delete("/api/codes/bab/:bab", (req, res) => {
+  const db = getDb();
+  db.codes = db.codes.filter((b: any) => b.bab !== req.params.bab);
+  saveDb(db);
+  res.json({ success: true });
+});
+
+app.post("/api/codes/fasl", (req, res) => {
+  const db = getDb();
+  const bab = db.codes.find((b: any) => b.bab === req.body.bab);
+  if (!bab) return res.status(404).json({ error: "BaB not found" });
+  const newFasl = { code: req.body.code, name: req.body.name, items: [] };
+  bab.fasls.push(newFasl);
+  saveDb(db);
+  res.json(newFasl);
+});
+
+app.delete("/api/codes/fasl/:bab/:fasl", (req, res) => {
+  const db = getDb();
+  const bab = db.codes.find((b: any) => b.bab === req.params.bab);
+  if (bab) {
+    bab.fasls = bab.fasls.filter((f: any) => f.code !== req.params.fasl);
+    saveDb(db);
+  }
+  res.json({ success: true });
+});
+
+app.post("/api/codes/item", (req, res) => {
+  const db = getDb();
+  const bab = db.codes.find((b: any) => b.bab === req.body.bab);
+  if (!bab) return res.status(404).json({ error: "BaB not found" });
+  const fasl = bab.fasls.find((f: any) => f.code === req.body.fasl);
+  if (!fasl) return res.status(404).json({ error: "Fasl not found" });
+  
+  const newItem = { code: req.body.code, name: req.body.name };
+  fasl.items.push(newItem);
+  saveDb(db);
+  res.json(newItem);
+});
+
+app.delete("/api/codes/item/:bab/:fasl/:item", (req, res) => {
+  const db = getDb();
+  const bab = db.codes.find((b: any) => b.bab === req.params.bab);
+  if (bab) {
+    const fasl = bab.fasls.find((f: any) => f.code === req.params.fasl);
+    if (fasl) {
+      fasl.items = fasl.items.filter((i: any) => i.code !== req.params.item);
+      saveDb(db);
+    }
+  }
+  res.json({ success: true });
 });
 
 

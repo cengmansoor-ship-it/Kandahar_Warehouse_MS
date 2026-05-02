@@ -25,7 +25,20 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
   const [showChatbot, setShowChatbot] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(localStorage.getItem('profile_image'));
   const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
   const location = useLocation();
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
 
@@ -102,7 +115,18 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
             >
               <Menu size={20} />
             </button>
-            <div className="text-xl lg:text-2xl font-black text-[#0F8F7F] tracking-tighter">{t('app_name')}</div>
+            <div className="flex items-center gap-3">
+              <div className="text-xl lg:text-2xl font-black text-[#0F8F7F] tracking-tighter">{t('app_name')}</div>
+              <div className={cn(
+                "flex items-center gap-1.5 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all duration-500 shadow-sm",
+                isOnline 
+                  ? "bg-emerald-50 text-emerald-600 border-emerald-100" 
+                  : "bg-red-50 text-red-600 border-red-100 animate-pulse"
+              )}>
+                 <div className={cn("w-1.5 h-1.5 rounded-full", isOnline ? "bg-emerald-500" : "bg-red-500")} />
+                 {isOnline ? 'Online' : 'Offline'}
+              </div>
+            </div>
           </div>
           
           <div className="flex items-center gap-3 lg:gap-6">
