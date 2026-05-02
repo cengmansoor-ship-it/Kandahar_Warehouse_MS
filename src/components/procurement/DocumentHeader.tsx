@@ -1,8 +1,8 @@
 import React from 'react';
 
 interface DocumentHeaderProps {
-  title: string;
-  projectTitle: string;
+  title: React.ReactNode;
+  projectTitle: React.ReactNode;
 }
 
 export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ title, projectTitle }) => {

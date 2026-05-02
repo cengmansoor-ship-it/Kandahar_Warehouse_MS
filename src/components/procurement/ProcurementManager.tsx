@@ -91,7 +91,12 @@ export const ProcurementManager: React.FC = () => {
                     </div>
                  </div>
                  <div className="bg-white border border-slate-100 p-10 rounded-[44px] shadow-sm space-y-8">
-                    <h4 className="font-black text-slate-900 uppercase tracking-widest text-[10px] bg-slate-50 p-2 text-center rounded-lg">{t('logistics_governance')}</h4>
+                     <h4 
+                       onClick={() => toast.info("Logistics Governance Board accessed.")}
+                       className="font-black text-slate-900 uppercase tracking-widest text-[10px] bg-slate-50 p-2 text-center rounded-lg cursor-pointer hover:bg-slate-100 transition-all"
+                     >
+                       {t('logistics_governance')}
+                     </h4>
                     <div className="space-y-6">
                        {[1,2,3].map(i => (
                          <div key={i} className="flex items-center gap-5 p-5 rounded-3xl bg-slate-50/50 border border-slate-100 hover:border-[#0F8F7F]/30 transition-all cursor-pointer">
@@ -103,11 +108,18 @@ export const ProcurementManager: React.FC = () => {
                          </div>
                        ))}
                     </div>
-                    <div className="pt-6 border-t border-dashed border-slate-100">
-                       <button onClick={() => setActiveTab('overview')} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">
-                         {t('view_audit_trail')}
-                       </button>
-                    </div>
+                     <div className="pt-6 border-t border-dashed border-slate-100">
+                        <button 
+                          onClick={() => {
+                            toast.success("Retrieving full system audit trail...");
+                            const actTab = document.querySelector('[data-tab="activities"]');
+                            if (actTab) (actTab as any).click();
+                          }} 
+                          className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all"
+                        >
+                          {t('view_audit_trail')}
+                        </button>
+                     </div>
                  </div>
               </div>
             )}

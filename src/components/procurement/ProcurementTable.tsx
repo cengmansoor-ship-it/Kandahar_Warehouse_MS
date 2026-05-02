@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface TableColumn {
-  header: string;
+  header: React.ReactNode;
   key: string;
   width?: string;
   align?: 'left' | 'center' | 'right';

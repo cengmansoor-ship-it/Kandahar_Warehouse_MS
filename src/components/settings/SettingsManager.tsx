@@ -144,9 +144,9 @@ export const SettingsManager = () => {
   };
 
   const auditLogs = [
-    { id: 1, action: t('audit_stock'), user: 'Admin Official', time: '2 mins ago', type: 'update' },
-    { id: 2, action: t('audit_approval'), user: 'Store Master', time: '1 hour ago', type: 'create' },
-    { id: 3, action: t('audit_login'), user: 'Eng. Faculty Rep', time: '2 hours ago', type: 'auth' },
+    { id: 1, action: 'Stock Updated', user: 'Admin Official', time: '2 mins ago', type: 'update' },
+    { id: 2, action: 'New Request Approved', user: 'Store Master', time: '1 hour ago', type: 'create' },
+    { id: 3, action: 'User Login', user: 'Eng. Faculty Rep', time: '2 hours ago', type: 'auth' },
   ];
 
   return (
@@ -330,33 +330,33 @@ export const SettingsManager = () => {
         </section>
 
         {/* System Activities Integration */}
-        <section className="fintech-card p-6 lg:p-8 bg-slate-900 text-white space-y-8 shadow-2xl">
+        <section className="fintech-card p-6 lg:p-8 bg-white border-2 border-slate-900 space-y-8 shadow-2xl">
            <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                 <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white">
+                 <div className="w-12 h-12 rounded-2xl bg-black flex items-center justify-center text-white">
                    <Activity size={22} />
                  </div>
-                 <div>
-                   <h3 className="text-lg font-black leading-none italic uppercase">System Activities</h3>
-                   <p className="text-xs text-white/40 font-bold uppercase tracking-wider mt-1.5">Audit Logs & History</p>
+                 <div className="text-start">
+                   <h3 className="text-lg font-black leading-none italic uppercase text-black">System Activities</h3>
+                   <p className="text-xs text-black font-bold uppercase tracking-wider mt-1.5">Audit Logs & History</p>
                  </div>
               </div>
-              <Link to="/activities" className="bg-[#0F8F7F] text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#0F8F7F]/80 transition-all flex items-center gap-2">
-                 View Full Ledger
-                 <ArrowRight size={14} />
+              <Link to="/activities" className="bg-black text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all flex items-center gap-2">
+                 <span className="text-white font-black">View Full Ledger</span>
+                 <ArrowRight size={14} className="text-white" />
               </Link>
            </div>
            
-           <div className="space-y-3">
+           <div className="space-y-3 text-start">
               {auditLogs.map((log) => (
-                <div key={log.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex items-center justify-between group hover:bg-white/10 transition-all">
+                <div key={log.id} className="p-4 bg-white rounded-2xl border-2 border-black flex items-center justify-between group hover:bg-slate-50 transition-all">
                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#0F8F7F]/20 flex items-center justify-center text-[#0F8F7F] group-hover:scale-110 transition-transform">
+                      <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center text-white group-hover:scale-110 transition-transform">
                          <History size={14} />
                       </div>
-                      <div>
-                         <div className="text-[10px] font-black uppercase tracking-wide">{log.action}</div>
-                         <div className="text-[8px] text-white/40 font-bold uppercase italic mt-0.5">{log.user} • {log.time}</div>
+                      <div className="text-start">
+                         <div className="text-[10px] font-black uppercase tracking-wide text-black">{log.action}</div>
+                         <div className="text-[8px] text-black font-black uppercase italic mt-0.5">{log.user} • {log.time}</div>
                       </div>
                    </div>
                 </div>

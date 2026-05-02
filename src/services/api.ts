@@ -85,4 +85,30 @@ export const userService = {
   updateProfile: (data: any) => api.post('/user/profile', data),
 };
 
+export const traceabilityService = {
+  getFaculties: () => api.get('/faculties'),
+  addFaculty: (data: any) => api.post('/faculties', data),
+  updateFaculty: (id: string, data: any) => api.patch(`/faculties/${id}`, data),
+  deleteFaculty: (id: string) => api.delete(`/faculties/${id}`),
+  
+  getAdminUnits: () => api.get('/admin-units'),
+  addAdminUnit: (data: any) => api.post('/admin-units', data),
+  updateAdminUnit: (id: string, data: any) => api.patch(`/admin-units/${id}`, data),
+  deleteAdminUnit: (id: string) => api.delete(`/admin-units/${id}`),
+  
+  getDepartments: () => api.get('/departments'),
+  addDepartment: (data: any) => api.post('/departments', data),
+  updateDepartment: (id: string, data: any) => api.patch(`/departments/${id}`, data),
+  deleteDepartment: (id: string) => api.delete(`/departments/${id}`),
+  
+  getPersonnel: () => api.get('/personnel'),
+  addPersonnel: (data: any) => api.post('/personnel', data),
+  updatePersonnel: (id: string, data: any) => api.patch(`/personnel/${id}`, data),
+  deletePersonnel: (id: string) => api.delete(`/personnel/${id}`),
+  
+  getHistory: (params: any) => api.get('/traceability/history', { params }),
+  manualAllocate: (data: { personId: string, itemId: string, quantity: number, date?: string, notes?: string }) => 
+    api.post('/traceability/allocate', data)
+};
+
 export default api;

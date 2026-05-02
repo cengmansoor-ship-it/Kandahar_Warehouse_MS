@@ -110,6 +110,30 @@ export const InventoryManager = () => {
     }
   };
 
+  const handleExport = () => {
+    try {
+      const data = filteredItems.map(item => ({
+        Code: item.item_code,
+        Name: item.name,
+        Category: item.category,
+        Quantity: item.quantity,
+        Unit: item.unit,
+        Status: item.status,
+        Location: item.location
+      }));
+      
+      import('xlsx').then(XLSX => {
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "InventoryLedger");
+        XLSX.writeFile(wb, `Inventory_Ledger_${new Date().getTime()}.xlsx`);
+        toast.success(t('inventory_ledger_exported'));
+      });
+    } catch (err) {
+      toast.error("Export failed");
+    }
+  };
+
   return (
     <div className="space-y-8">
       {showAddModal && (
@@ -188,7 +212,7 @@ export const InventoryManager = () => {
             {t('filter')}
           </button>
           <button 
-            onClick={() => toast.success(t('inventory_ledger_exported'))}
+            onClick={handleExport}
             className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white text-slate-400 px-8 py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-primary-teal transition-all border border-slate-100 shadow-sm"
           >
             <ArrowUpRight size={18} />

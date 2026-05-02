@@ -221,9 +221,30 @@ function getDb() {
       fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
       return initial;
     }
-    const content = fs.readFileSync(DB_FILE, "utf-8");
-    const db = JSON.parse(content || '{"items":[], "receivings":[], "requests":[], "tenders":[], "quotations":[], "orders":[], "trash":[], "notifications":[], "users":[]}');
+    const data = fs.readFileSync(DB_FILE, "utf-8");
+    const db = JSON.parse(data || '{"items":[], "receivings":[], "requests":[], "tenders":[], "quotations":[], "orders":[], "trash":[], "notifications":[], "users":[], "faculties":[], "personnel":[], "adminUnits":[], "departments":[], "allocations":[]}');
     
+    // Ensure all collections exist
+    db.allocations = db.allocations || [];
+    db.faculties = db.faculties || [];
+    db.personnel = db.personnel || [];
+    db.adminUnits = db.adminUnits || [];
+    db.departments = db.departments || [];
+    db.trash = db.trash || [];
+    if (db.trash && db.trash.length > 0) {
+      const now = Date.now();
+      const initialLength = db.trash.length;
+      db.trash = db.trash.filter((t: any) => {
+        if (!t.trashDate) return true;
+        const trashDate = new Date(t.trashDate).getTime();
+        return (now - trashDate) < (30 * 24 * 60 * 60 * 1000); // 30 days
+      });
+      if (db.trash.length !== initialLength) {
+        saveDb(db);
+        console.log(`[TRASH CLEANUP] Purged ${initialLength - db.trash.length} expired items.`);
+      }
+    }
+
     // Repair/Sync Admin User (Self-healing)
     const adminIndex = db.users.findIndex((u: any) => u.email === 'admin@kandahar.edu.af');
     if (adminIndex === -1) {
@@ -253,7 +274,23 @@ function getDb() {
     return db;
   } catch (error) {
     console.error("Database read error:", error);
-    return { items: [], receivings: [], requests: [], tenders: [], quotations: [], orders: [], trash: [], notifications: [], users: [] };
+    return { 
+      items: [], 
+      receivings: [], 
+      requests: [], 
+      tenders: [], 
+      quotations: [], 
+      orders: [], 
+      trash: [], 
+      notifications: [], 
+      users: [],
+      faculties: [],
+      personnel: [],
+      adminUnits: [],
+      departments: [],
+      allocations: [],
+      codes: []
+    };
   }
 }
 
@@ -318,7 +355,7 @@ app.get("/api/health", (req, res) => {
 // --- Inventory API ---
 app.get("/api/items", (req, res) => {
   const db = getDb();
-  res.json(db.items);
+  res.json(db.items.filter((i: any) => !i.isDeleted));
 });
 
 app.get("/api/categories", (req, res) => {
@@ -355,7 +392,9 @@ app.post("/api/items/:id/trash", (req, res) => {
   const index = db.items.findIndex((i: any) => i.id === req.params.id);
   if (index === -1) return res.status(404).json({ error: "Item not found" });
   
-  const item = db.items.splice(index, 1)[0];
+  db.items[index].isDeleted = true;
+  const item = db.items[index];
+  
   db.trash.push({
     ...item,
     trashId: randomUUID(),
@@ -715,7 +754,7 @@ app.get("/api/inventory/allocation", (req, res) => {
 // --- Requests API ---
 app.get("/api/requests", (req, res) => {
   const db = getDb();
-  res.json(db.requests);
+  res.json((db.requests || []).filter((r: any) => !r.isDeleted));
 });
 
 app.post("/api/requests", (req, res) => {
@@ -753,6 +792,205 @@ app.patch("/api/requests/:id", (req, res) => {
   res.json(request);
 });
 
+// --- Traceability API (Faculties, Admin Units, Departments, Personnel) ---
+
+app.get("/api/faculties", (req, res) => {
+  const db = getDb();
+  res.json(db.faculties || []);
+});
+
+app.post("/api/faculties", (req, res) => {
+  const db = getDb();
+  const newFaculty = { id: randomUUID(), ...req.body, count: 0 };
+  db.faculties.push(newFaculty);
+  saveDb(db);
+  res.json(newFaculty);
+});
+
+app.patch("/api/faculties/:id", (req, res) => {
+  const db = getDb();
+  const index = db.faculties.findIndex((f: any) => f.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Faculty not found" });
+  db.faculties[index] = { ...db.faculties[index], ...req.body };
+  saveDb(db);
+  res.json(db.faculties[index]);
+});
+
+app.delete("/api/faculties/:id", (req, res) => {
+  const db = getDb();
+  const index = db.faculties.findIndex((f: any) => f.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Faculty not found" });
+  const faculty = db.faculties.splice(index, 1)[0];
+  db.trash.push({ ...faculty, trashId: randomUUID(), trashDate: new Date().toISOString(), originalModule: 'faculties' });
+  saveDb(db);
+  res.json({ success: true });
+});
+
+app.get("/api/admin-units", (req, res) => {
+  const db = getDb();
+  res.json(db.adminUnits || []);
+});
+
+app.post("/api/admin-units", (req, res) => {
+  const db = getDb();
+  const newUnit = { id: randomUUID(), ...req.body };
+  db.adminUnits.push(newUnit);
+  saveDb(db);
+  res.json(newUnit);
+});
+
+app.patch("/api/admin-units/:id", (req, res) => {
+  const db = getDb();
+  const index = db.adminUnits.findIndex((u: any) => u.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Unit not found" });
+  db.adminUnits[index] = { ...db.adminUnits[index], ...req.body };
+  saveDb(db);
+  res.json(db.adminUnits[index]);
+});
+
+app.delete("/api/admin-units/:id", (req, res) => {
+  const db = getDb();
+  const index = db.adminUnits.findIndex((u: any) => u.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Unit not found" });
+  const unit = db.adminUnits.splice(index, 1)[0];
+  db.trash.push({ ...unit, trashId: randomUUID(), trashDate: new Date().toISOString(), originalModule: 'adminUnits' });
+  saveDb(db);
+  res.json({ success: true });
+});
+
+app.get("/api/departments", (req, res) => {
+  const db = getDb();
+  res.json(db.departments || []);
+});
+
+app.post("/api/departments", (req, res) => {
+  const db = getDb();
+  const newDept = { id: randomUUID(), ...req.body };
+  db.departments.push(newDept);
+  saveDb(db);
+  res.json(newDept);
+});
+
+app.patch("/api/departments/:id", (req, res) => {
+  const db = getDb();
+  const index = db.departments.findIndex((d: any) => d.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Department not found" });
+  db.departments[index] = { ...db.departments[index], ...req.body };
+  saveDb(db);
+  res.json(db.departments[index]);
+});
+
+app.delete("/api/departments/:id", (req, res) => {
+  const db = getDb();
+  const index = db.departments.findIndex((d: any) => d.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Department not found" });
+  const dept = db.departments.splice(index, 1)[0];
+  db.trash.push({ ...dept, trashId: randomUUID(), trashDate: new Date().toISOString(), originalModule: 'departments' });
+  saveDb(db);
+  res.json({ success: true });
+});
+
+app.get("/api/personnel", (req, res) => {
+  const db = getDb();
+  res.json(db.personnel || []);
+});
+
+app.post("/api/personnel", (req, res) => {
+  const db = getDb();
+  const newPerson = { id: randomUUID(), ...req.body };
+  db.personnel.push(newPerson);
+  saveDb(db);
+  res.json(newPerson);
+});
+
+app.patch("/api/personnel/:id", (req, res) => {
+  const db = getDb();
+  const index = db.personnel.findIndex((p: any) => p.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Personnel not found" });
+  db.personnel[index] = { ...db.personnel[index], ...req.body };
+  saveDb(db);
+  res.json(db.personnel[index]);
+});
+
+app.delete("/api/personnel/:id", (req, res) => {
+  const db = getDb();
+  const index = db.personnel.findIndex((p: any) => p.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Personnel not found" });
+  const person = db.personnel.splice(index, 1)[0];
+  db.trash.push({ ...person, trashId: randomUUID(), trashDate: new Date().toISOString(), originalModule: 'personnel' });
+  saveDb(db);
+  res.json({ success: true });
+});
+
+// Traceability History Helper
+app.get("/api/traceability/history", (req, res) => {
+  const { personId, departmentId, facultyId, adminUnitId } = req.query;
+  const db = getDb();
+  let history = db.allocations || [];
+
+  if (personId) {
+    // Note: Older records might use personName, newer ones should link by ID
+    const person = db.personnel.find((p:any) => p.id === personId);
+    history = history.filter((h: any) => h.personId === personId || (person && h.personName === person.name));
+  } else if (departmentId) {
+    history = history.filter((h: any) => h.departmentId === departmentId);
+  } else if (facultyId) {
+    history = history.filter((h: any) => h.facultyId === facultyId || h.faculty === facultyId);
+  } else if (adminUnitId) {
+    history = history.filter((h: any) => h.adminUnitId === adminUnitId);
+  }
+
+  res.json(history);
+});
+
+// Manual Item Allocation (Recording history or issuing without request)
+app.post("/api/traceability/allocate", (req, res) => {
+  const { personId, itemId, quantity, date, notes } = req.body;
+  const db = getDb();
+  
+  const person = db.personnel.find((p: any) => p.id === personId);
+  const item = db.items.find((i: any) => i.id === itemId);
+  
+  if (!person) return res.status(404).json({ error: "Personnel not found" });
+  if (!item) return res.status(404).json({ error: "Item not found" });
+
+  const qty = Number(quantity) || 1;
+  const allocationId = randomUUID();
+  const allocation = {
+    id: allocationId,
+    personId,
+    personName: person.name,
+    itemId,
+    itemName: item.name,
+    itemCode: item.item_code,
+    quantity: qty,
+    timestamp: date || new Date().toISOString(),
+    notes: notes || "Manual allocation",
+    facultyId: person.facultyId,
+    faculty: person.faculty,
+    departmentId: person.departmentId,
+    type: 'MANUAL'
+  };
+
+  if (!db.allocations) db.allocations = [];
+  db.allocations.push(allocation);
+  
+  // Reduce stock for manual issuance
+  if (item.quantity >= qty) {
+    item.quantity -= qty;
+    item.status = item.quantity > 10 ? 'In Stock' : (item.quantity > 0 ? 'Low Stock' : 'Out of Stock');
+  } else {
+    // If we reach here, we're likely recording past issuance where stock wasn't tracked
+    // Or we allow negative stock? WMS usually shouldn't.
+    // However, the user said "Manual assignment (for past items)"
+    // If it's a past item, the stock is already gone. 
+  }
+
+  saveDb(db);
+  logActivity('Admin', 'Manually Assigned Item', `${item.name} to ${person.name}`, 'special');
+  res.json({ success: true, allocation });
+});
+
 // --- Trash & Bin API ---
 app.get("/api/trash", (req, res) => {
   const db = getDb();
@@ -761,19 +999,48 @@ app.get("/api/trash", (req, res) => {
 
 app.post("/api/trash/restore/:trashId", (req, res) => {
   const db = getDb();
+  const trashIndex = db.trash.findIndex((t: any) => t.trashId === req.params.trashId);
+  if (trashIndex === -1) return res.status(404).json({ error: "Item not found in trash" });
+  
+  const trashItem = db.trash.splice(trashIndex, 1)[0];
+  const { trashId, trashDate, originalModule, reason, ...itemData } = trashItem;
+  
+  // Find the item in its original collection and set isDeleted to false
+  let collection: any[] = [];
+  if (originalModule === 'inventory') collection = db.items;
+  else if (originalModule === 'personnel') collection = db.personnel;
+  else if (originalModule === 'faculties') collection = db.faculties;
+  else if (originalModule === 'tender') collection = db.tenders;
+  else if (originalModule === 'quotation') collection = db.quotations;
+  else if (originalModule === 'order') collection = db.orders;
+  else if (originalModule === 'request') collection = db.requests;
+  else if (originalModule === 'receiving') collection = db.receivings;
+  
+  const itemIndex = collection.findIndex((i: any) => i.id === itemData.id);
+  if (itemIndex !== -1) {
+    collection[itemIndex].isDeleted = false;
+    
+    // Specific personnel logic
+    if (originalModule === 'personnel') {
+      const faculty = db.faculties.find((f: any) => f.id === collection[itemIndex].facultyId || f.name === collection[itemIndex].faculty);
+      if (faculty) faculty.count = (faculty.count || 0) + 1;
+    }
+  } else {
+    // If somehow missing, push it back
+    itemData.isDeleted = false;
+    collection.push(itemData);
+  }
+  
+  saveDb(db);
+  res.json({ success: true });
+});
+
+app.delete("/api/trash/permanent/:trashId", (req, res) => {
+  const db = getDb();
   const index = db.trash.findIndex((t: any) => t.trashId === req.params.trashId);
   if (index === -1) return res.status(404).json({ error: "Item not found in trash" });
   
-  const item = db.trash.splice(index, 1)[0];
-  const { trashId, deletedAt, originalModule, reason, ...originalItem } = item;
-  
-  if (originalModule === 'inventory') {
-    db.items.push(originalItem);
-  } else {
-    // Default to items if unknown
-    db.items.push(originalItem);
-  }
-  
+  db.trash.splice(index, 1);
   saveDb(db);
   res.json({ success: true });
 });
@@ -806,6 +1073,32 @@ app.post("/api/faculties", (req, res) => {
   res.json(newFaculty);
 });
 
+app.patch("/api/faculties/:id", (req, res) => {
+  const db = getDb();
+  const index = db.faculties.findIndex((f: any) => f.id === req.params.id || f.name === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Faculty not found" });
+  db.faculties[index] = { ...db.faculties[index], ...req.body };
+  saveDb(db);
+  res.json(db.faculties[index]);
+});
+
+app.delete("/api/faculties/:id", (req, res) => {
+  const db = getDb();
+  const index = db.faculties.findIndex((f: any) => f.id === req.params.id || f.name === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Faculty not found" });
+  
+  db.faculties[index].isDeleted = true;
+  db.trash.push({
+    ...db.faculties[index],
+    trashId: randomUUID(),
+    trashDate: new Date().toISOString(),
+    originalModule: 'faculties',
+    reason: "Administrative Deletion"
+  });
+  saveDb(db);
+  res.json({ success: true });
+});
+
 app.get("/api/personnel", (req, res) => {
   const db = getDb();
   res.json(db.personnel || []);
@@ -825,6 +1118,38 @@ app.post("/api/personnel", (req, res) => {
   
   saveDb(db);
   res.json(newPerson);
+});
+
+app.patch("/api/personnel/:id", (req, res) => {
+  const db = getDb();
+  const index = db.personnel.findIndex((p: any) => p.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Personnel not found" });
+  db.personnel[index] = { ...db.personnel[index], ...req.body };
+  saveDb(db);
+  res.json(db.personnel[index]);
+});
+
+app.delete("/api/personnel/:id", (req, res) => {
+  const db = getDb();
+  const index = db.personnel.findIndex((p: any) => p.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Personnel not found" });
+  
+  db.personnel[index].isDeleted = true;
+  const person = db.personnel[index];
+  
+  // Update faculty count
+  const faculty = db.faculties.find((f: any) => f.id === person.facultyId || f.name === person.faculty);
+  if (faculty) faculty.count = Math.max(0, (faculty.count || 0) - 1);
+
+  db.trash.push({
+    ...person,
+    trashId: randomUUID(),
+    trashDate: new Date().toISOString(),
+    originalModule: 'personnel',
+    reason: "Staff Departure / Cleanup"
+  });
+  saveDb(db);
+  res.json({ success: true });
 });
 
 // --- Settings & User API ---
@@ -880,38 +1205,87 @@ app.get("/api/procurement/codes", (req, res) => {
 
 app.get("/api/procurement/requests", (req, res) => {
   const db = getDb();
-  res.json(db.requests);
+  res.json(db.requests.filter((r: any) => !r.isDeleted));
 });
 
 app.get("/api/procurement/tenders", (req, res) => {
   const db = getDb();
-  res.json(db.tenders);
+  res.json(db.tenders.filter((t: any) => !t.isDeleted));
 });
 
 app.post("/api/procurement/tenders", (req, res) => {
   const db = getDb();
-  const { requestId } = req.body;
-  const request = db.requests.find((r: any) => r.id === requestId);
-  if (!request) return res.status(404).json({ error: "Request not found" });
+  const { requestId, tenderNumber, items } = req.body;
+  
+  if (requestId) {
+    const request = db.requests.find((r: any) => r.id === requestId);
+    if (!request) return res.status(404).json({ error: "Request not found" });
 
-  const newTender = {
-    id: randomUUID(),
-    requestId,
-    tenderNumber: ` عـ-${Math.floor(Math.random() * 10000)}`,
-    createdAt: new Date().toISOString(),
-    items: request.items,
-    status: "OPEN"
-  };
+    const newTender = {
+      id: randomUUID(),
+      requestId,
+      tenderNumber: tenderNumber || ` عـ-${Math.floor(Math.random() * 10000)}`,
+      createdAt: new Date().toISOString(),
+      items: items || request.items,
+      status: "OPEN",
+      isDeleted: false
+    };
 
-  request.status = "TENDER_CREATED";
-  db.tenders.push(newTender);
+    request.status = "TENDER_CREATED";
+    db.tenders.push(newTender);
+    saveDb(db);
+    res.json(newTender);
+  } else {
+    // Manual tender creation
+    const newTender = {
+      id: randomUUID(),
+      tenderNumber: tenderNumber || ` عـ-${Math.floor(Math.random() * 10000)}`,
+      createdAt: new Date().toISOString(),
+      items: items || [],
+      status: "OPEN",
+      isDeleted: false,
+      ...req.body
+    };
+    db.tenders.push(newTender);
+    saveDb(db);
+    res.json(newTender);
+  }
+});
+
+app.patch("/api/procurement/tenders/:id", (req, res) => {
+  const db = getDb();
+  const index = db.tenders.findIndex((t: any) => t.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Tender not found" });
+  
+  db.tenders[index] = { ...db.tenders[index], ...req.body };
   saveDb(db);
-  res.json(newTender);
+  res.json(db.tenders[index]);
+});
+
+app.delete("/api/procurement/tenders/:id", (req, res) => {
+  const db = getDb();
+  const index = db.tenders.findIndex((t: any) => t.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Tender not found" });
+  
+  db.tenders[index].isDeleted = true;
+  const tender = db.tenders[index];
+  
+  db.trash.push({
+    ...tender,
+    trashId: randomUUID(),
+    trashDate: new Date().toISOString(),
+    originalModule: 'tender',
+    name: tender.tenderNumber,
+    reason: "Administrative Deletion"
+  });
+  
+  saveDb(db);
+  res.json({ success: true });
 });
 
 app.get("/api/procurement/quotations", (req, res) => {
   const db = getDb();
-  res.json(db.quotations);
+  res.json(db.quotations.filter((q: any) => !q.isDeleted));
 });
 
 app.post("/api/procurement/quotations", (req, res) => {
@@ -920,11 +1294,43 @@ app.post("/api/procurement/quotations", (req, res) => {
     id: randomUUID(),
     submittedAt: new Date().toISOString(),
     isWinner: false,
+    isDeleted: false,
     ...req.body
   };
   db.quotations.push(quotation);
   saveDb(db);
   res.json(quotation);
+});
+
+app.patch("/api/procurement/quotations/:id", (req, res) => {
+  const db = getDb();
+  const index = db.quotations.findIndex((q: any) => q.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Quotation not found" });
+  
+  db.quotations[index] = { ...db.quotations[index], ...req.body };
+  saveDb(db);
+  res.json(db.quotations[index]);
+});
+
+app.delete("/api/procurement/quotations/:id", (req, res) => {
+  const db = getDb();
+  const index = db.quotations.findIndex((q: any) => q.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Quotation not found" });
+  
+  db.quotations[index].isDeleted = true;
+  const quotation = db.quotations[index];
+  
+  db.trash.push({
+    ...quotation,
+    trashId: randomUUID(),
+    trashDate: new Date().toISOString(),
+    originalModule: 'quotation',
+    name: `Quotation from ${quotation.supplierName}`,
+    reason: "Administrative Deletion"
+  });
+  
+  saveDb(db);
+  res.json({ success: true });
 });
 
 app.post("/api/procurement/select-winner", (req, res) => {
@@ -947,7 +1353,8 @@ app.post("/api/procurement/select-winner", (req, res) => {
     createdAt: new Date().toISOString(),
     status: "ISSUED",
     supplierName: winQ?.supplierName,
-    items: winQ?.items
+    items: winQ?.items,
+    isDeleted: false
   };
   db.orders.push(newOrder);
   saveDb(db);
@@ -956,20 +1363,38 @@ app.post("/api/procurement/select-winner", (req, res) => {
 
 app.get("/api/procurement/orders", (req, res) => {
   const db = getDb();
-  res.json(db.orders);
+  res.json(db.orders.filter((o: any) => !o.isDeleted));
 });
 
-app.post("/api/procurement/orders", auth, checkRole(["Admin", "SuperAdmin"]), (req: any, res) => {
+app.patch("/api/procurement/orders/:id", (req, res) => {
   const db = getDb();
-  const newOrder = {
-    id: randomUUID(),
-    ...req.body,
-    createdAt: new Date().toISOString()
-  };
-  if (!db.orders) db.orders = [];
-  db.orders.push(newOrder);
+  const index = db.orders.findIndex((o: any) => o.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Order not found" });
+  
+  db.orders[index] = { ...db.orders[index], ...req.body };
   saveDb(db);
-  res.status(201).json(newOrder);
+  res.json(db.orders[index]);
+});
+
+app.delete("/api/procurement/orders/:id", (req, res) => {
+  const db = getDb();
+  const index = db.orders.findIndex((o: any) => o.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Order not found" });
+  
+  db.orders[index].isDeleted = true;
+  const order = db.orders[index];
+  
+  db.trash.push({
+    ...order,
+    trashId: randomUUID(),
+    trashDate: new Date().toISOString(),
+    originalModule: 'order',
+    name: order.poNumber,
+    reason: "Administrative Deletion"
+  });
+  
+  saveDb(db);
+  res.json({ success: true });
 });
 
 // --- Budget Tree Data (Full Hierarchy from PDF) ---
@@ -1196,6 +1621,29 @@ app.delete("/api/codes/item/:bab/:fasl/:item", (req, res) => {
   res.json({ success: true });
 });
 
+
+// --- Background Jobs ---
+function cleanupTrash() {
+  const db = getDb();
+  const now = new Date();
+  
+  if (db.trash) {
+    const originalCount = db.trash.length;
+    db.trash = db.trash.filter((item: any) => {
+      if (!item.expiresAt) return true; // Keep items without expiration
+      const expiration = new Date(item.expiresAt);
+      return expiration > now;
+    });
+    
+    if (db.trash.length < originalCount) {
+      console.log(`[Worker] Auto-deleted ${originalCount - db.trash.length} expired items from trash.`);
+      saveDb(db);
+    }
+  }
+}
+
+// Run cleanup every hour
+setInterval(cleanupTrash, 60 * 60 * 1000);
 
 // --- Vite Integration ---
 async function startServer() {

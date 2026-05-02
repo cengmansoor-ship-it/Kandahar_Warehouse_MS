@@ -49,6 +49,7 @@ export const RequestManager = () => {
     name: '',
     email: '',
     faculty: '',
+    department: '',
     role: '',
     cellNumber: ''
   });
@@ -87,6 +88,7 @@ export const RequestManager = () => {
         requester: requesterInfo.name,
         requesterEmail: requesterInfo.email,
         requesterFaculty: requesterInfo.faculty,
+        requesterDepartment: requesterInfo.department,
         requesterRole: requesterInfo.role,
         requesterPhone: requesterInfo.cellNumber,
         status: 'Pending',
@@ -140,7 +142,7 @@ export const RequestManager = () => {
                <div className="space-y-4">
                   <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] mb-4">Requester Information</h4>
                   <div className="space-y-3">
-                     <div className="space-y-1">
+                     <div className="space-y-1 text-start">
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Name</label>
                         <input 
                           placeholder="e.g. Ahmad Shah"
@@ -156,15 +158,33 @@ export const RequestManager = () => {
                                 (r.status === 'Approved' || r.status === 'Delivered')
                               );
                               if (existing.length > 0) {
-                                toast.warning(`Alert: ${val} from ${existing[0].requesterFaculty} already has ${existing.length} items assigned. Do you still want to proceed?`, {
+                                toast.warning(`Alert: ${val} already has items assignment.`, {
                                   duration: 5000,
-                                  description: `Previous items: ${existing.map(r => r.title).join(', ')}`
+                                  description: `${existing.length} items found.`
                                 });
                               }
                             }
                           }}
                           className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
                         />
+                        {/* History Panel */}
+                        {requesterInfo.name.length > 3 && (
+                          <div className="bg-primary-teal/5 border border-primary-teal/10 rounded-2xl p-4 mt-2">
+                             <div className="flex items-center justify-between mb-2">
+                               <span className="text-[9px] font-black uppercase text-primary-teal tracking-widest">Requester History</span>
+                             </div>
+                             <div className="space-y-1.5 max-h-[80px] overflow-y-auto custom-scrollbar">
+                               {requests.filter(r => 
+                                 r.requester.toLowerCase().includes(requesterInfo.name.toLowerCase()) && 
+                                 (r.status === 'Approved' || r.status === 'Delivered')
+                               ).map((r, idx) => (
+                                 <div key={idx} className="flex items-center justify-between bg-white/50 p-2 rounded-lg">
+                                   <span className="text-[8px] font-black text-slate-700">{r.title}</span>
+                                 </div>
+                               ))}
+                             </div>
+                          </div>
+                        )}
                      </div>
                      <div className="space-y-1">
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Official Email</label>
@@ -186,6 +206,17 @@ export const RequestManager = () => {
                            />
                         </div>
                         <div className="space-y-1 text-start">
+                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Department</label>
+                           <input 
+                             placeholder="Mathematics"
+                             value={requesterInfo.department}
+                             onChange={(e) => setRequesterInfo({...requesterInfo, department: e.target.value})}
+                             className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
+                           />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1 text-start">
                            <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Position / Role</label>
                            <input 
                              placeholder="Lecturer"
@@ -194,16 +225,16 @@ export const RequestManager = () => {
                              className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
                            />
                         </div>
-                     </div>
-                     <div className="space-y-1 text-start">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Cell Number</label>
-                        <input 
-                          placeholder="e.g. 070XXXXXXX"
-                          value={requesterInfo.cellNumber}
-                          onChange={(e) => setRequesterInfo({...requesterInfo, cellNumber: e.target.value})}
-                          className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
-                        />
-                     </div>
+                        <div className="space-y-1 text-start">
+                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Cell Number</label>
+                           <input 
+                             placeholder="070XXXXXXX"
+                             value={requesterInfo.cellNumber}
+                             onChange={(e) => setRequesterInfo({...requesterInfo, cellNumber: e.target.value})}
+                             className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
+                           />
+                        </div>
+                      </div>
                   </div>
                </div>
 
@@ -414,23 +445,23 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
               </span>
             </div>
             <h4 className="text-2xl font-black text-[#1A1D1F] mt-2 group-hover:text-primary-teal transition-colors tracking-tight leading-tight text-start">{request.title}</h4>
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] text-slate-400 mt-2.5 font-black uppercase tracking-widest">
-              <span className="text-slate-900">{request.requester}</span>
-              {request.requesterEmail && (
-                <>
-                  <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                  <span className="lowercase font-bold tracking-tight">{request.requesterEmail}</span>
-                </>
-              )}
-              {request.requesterFaculty && (
-                <>
-                  <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                  <span className="text-primary-teal">{request.requesterFaculty}</span>
-                </>
-              )}
-              <span className="w-1 h-1 bg-slate-300 rounded-full" />
-              <span>{new Date(request.createdAt).toLocaleDateString()}</span>
-            </div>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] text-slate-400 mt-2.5 font-black uppercase tracking-widest text-start">
+                <span className="text-slate-900">{request.requester}</span>
+                {request.requesterEmail && (
+                  <>
+                    <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                    <span className="lowercase font-bold tracking-tight">{request.requesterEmail}</span>
+                  </>
+                )}
+                {request.requesterFaculty && (
+                  <>
+                    <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                    <span className="text-primary-teal">{request.requesterFaculty} {request.requesterDepartment && `(${request.requesterDepartment})`}</span>
+                  </>
+                )}
+                <span className="w-1 h-1 bg-slate-300 rounded-full text-start" />
+                <span className="text-start">{new Date(request.createdAt).toLocaleDateString()}</span>
+              </div>
 
             {request.approvalChain && request.approvalChain.length > 0 && (
               <div className="mt-6 p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">

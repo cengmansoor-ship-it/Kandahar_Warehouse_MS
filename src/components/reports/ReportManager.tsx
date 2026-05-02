@@ -24,6 +24,7 @@ import api, { analyticsService } from '@/src/services/api';
 import { useNavigate } from 'react-router-dom';
 import { LabelList } from 'recharts';
 import { ReportFilterModal } from './ReportFilterModal';
+import { TraceabilitySection } from './TraceabilitySection';
 
 const COLORS = ['#0F8F7F', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -34,6 +35,24 @@ export const ReportManager = () => {
   const [loading, setLoading] = useState(true);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filterType, setFilterType] = useState<'excel' | 'pdf' | 'print'>('print');
+  
+  const [faculties, setFaculties] = useState<any[]>([]);
+  const [personnel, setPersonnel] = useState<any[]>([]);
+
+  const printRef = React.useRef<HTMLDivElement>(null);
+
+  const fetchTraceabilityData = async () => {
+    try {
+      const [facRes, perRes] = await Promise.all([
+        api.get('/faculties'),
+        api.get('/personnel')
+      ]);
+      setFaculties(facRes.data || []);
+      setPersonnel(perRes.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleChartClick = (data: any) => {
     if (data && data.activeLabel) {
@@ -43,12 +62,20 @@ export const ReportManager = () => {
     }
   };
 
+  const handleCategoryClick = (data: any) => {
+    if (data && data.name) {
+      toast.info(`Filtering inventory by: ${data.name}`);
+      navigate('/inventory', { state: { searchTerm: data.name } });
+    }
+  };
+
   const [annualNeeds, setAnnualNeeds] = useState<any[]>([]);
   const [forecast, setForecast] = useState<any[]>([]);
   const [allocation, setAllocation] = useState<any[]>([]);
 
   useEffect(() => {
     fetchData();
+    fetchTraceabilityData();
   }, []);
 
   const fetchData = async () => {
@@ -156,7 +183,7 @@ export const ReportManager = () => {
           </div>
 
           <div id="print-content">
-            ${document.querySelector('main')?.innerHTML || 'No report content available'}
+            ${document.querySelector(`#tab-${activeTab}`)?.innerHTML || document.querySelector('main')?.innerHTML || 'No report content available'}
           </div>
 
           <script>
@@ -178,13 +205,105 @@ export const ReportManager = () => {
   const executeExport = (filters: any) => {
     toast.success(`Exporting ${filterType.toUpperCase()} for ${filters.faculty}...`);
     setShowFilterModal(false);
+    
     if (filterType === 'print') {
       handlePrint(filters);
-    } else {
-      // Simulate export logic (Excel/PDF)
-      setTimeout(() => {
-        toast.info("Document generation complete. Download started.");
-      }, 1000);
+    } else if (filterType === 'excel') {
+      let dataToExport: any[] = [];
+      if (activeTab === 'needs') dataToExport = annualNeeds;
+      else if (activeTab === 'analytics') dataToExport = allocation;
+      else if (activeTab === 'forecasting') dataToExport = forecast;
+      else if (activeTab === 'traceability') {
+        dataToExport = personnel.map(p => ({
+          Name: p.name,
+          Faculty: p.faculty,
+          Department: p.department || 'N/A',
+          Assigned_Item: p.item,
+          Last_Request: p.date,
+          Status: p.exists ? 'Active' : 'Missing'
+        }));
+      }
+
+      // Apply faculty filter if not "All"
+      if (filters.faculty !== 'All') {
+        dataToExport = dataToExport.filter(item => 
+          (item.faculty && item.faculty.includes(filters.faculty)) || 
+          (item.Faculty && item.Faculty.includes(filters.faculty))
+        );
+      }
+
+      // Apply date range filter
+      if (filters.fromDate && filters.toDate) {
+        const start = new Date(filters.fromDate).getTime();
+        const end = new Date(filters.toDate).getTime();
+        dataToExport = dataToExport.filter(item => {
+          const itemDate = item.date || item.timestamp || item.Last_Request || item.registry_date;
+          if (!itemDate) return true; // Include if no date found for filtering
+          const time = new Date(itemDate).getTime();
+          return time >= start && time <= end;
+        });
+      }
+      
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Report");
+      XLSX.writeFile(wb, `KDRU_WMS_Report_${activeTab}_${new Date().getTime()}.xlsx`);
+    } else if (filterType === 'pdf') {
+      import('jspdf').then(({ default: jsPDF }) => {
+        import('jspdf-autotable').then(() => {
+          const doc = new jsPDF('landscape') as any;
+          const uniLogo = localStorage.getItem('doc_logo_university') || "https://upload.wikimedia.org/wikipedia/en/2/23/Kandahar_University_Logo.png";
+          
+          doc.setFontSize(22);
+          doc.setTextColor(15, 143, 127);
+          doc.text(`Kandahar University WMS Official Report`, 14, 20);
+          
+          doc.setFontSize(10);
+          doc.setTextColor(100);
+          doc.text(`Report Type: ${activeTab.toUpperCase()}`, 14, 30);
+          doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 35);
+          doc.text(`Faculty Filter: ${filters.faculty || 'All'}`, 14, 40);
+          
+          let dataToExport: any[] = [];
+          if (activeTab === 'needs') dataToExport = annualNeeds;
+          else if (activeTab === 'analytics') dataToExport = allocation;
+          else if (activeTab === 'forecasting') dataToExport = forecast;
+          else if (activeTab === 'traceability') {
+            dataToExport = personnel.map(p => ({
+              Name: p.name,
+              Faculty: p.faculty,
+              Department: p.department || 'N/A',
+              Item: p.item,
+              Date: p.date
+            }));
+          }
+
+          // Apply faculty filter
+          if (filters.faculty !== 'All') {
+            dataToExport = dataToExport.filter(item => 
+              (item.faculty && item.faculty.includes(filters.faculty)) || 
+              (item.Faculty && item.Faculty.includes(filters.faculty))
+            );
+          }
+          
+          if (dataToExport.length > 0) {
+            const headers = Object.keys(dataToExport[0]);
+            const rows = dataToExport.map((item: any) => Object.values(item));
+            doc.autoTable({
+              head: [headers],
+              body: rows,
+              startY: 50,
+              theme: 'grid',
+              headStyles: { fillColor: [15, 143, 127], textColor: [255, 255, 255], fontStyle: 'bold' },
+              alternateRowStyles: { fillColor: [245, 247, 250] },
+              margin: { top: 50 }
+            });
+          } else {
+            doc.text("No data found for the selected criteria.", 14, 60);
+          }
+          doc.save(`KDRU_Report_${activeTab}_${new Date().getTime()}.pdf`);
+        });
+      });
     }
   };
 
@@ -257,7 +376,7 @@ export const ReportManager = () => {
         onConfirm={executeExport}
       />
 
-      <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 w-fit overflow-x-auto max-w-full">
+      <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 w-fit overflow-x-auto max-w-full no-print">
         {['analytics', 'needs', 'forecasting', 'traceability'].map((tab) => (
           <button 
             key={tab}
@@ -272,276 +391,281 @@ export const ReportManager = () => {
         ))}
       </div>
 
-      {activeTab === 'traceability' && <TraceabilityView />}
+      <div id={`tab-${activeTab}`} className="w-full">
+        {activeTab === 'traceability' && (
+          <TraceabilitySection key="tab-content-traceability" onRefresh={fetchTraceabilityData} />
+        )}
 
-      {activeTab === 'analytics' && (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="fintech-card p-8 bg-white border border-slate-100 shadow-xl overflow-hidden">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
-              <h3 className="font-black text-xl tracking-tight uppercase text-black">Faculties & Departments</h3>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              {["Engineering", "Medicine", "Agriculture", "Computer Science", "Economics"].map((faculty) => (
-                <button 
-                  key={faculty}
-                  onClick={() => navigate('/inventory', { state: { faculty } })}
-                  className="p-6 rounded-[24px] bg-slate-50 border border-slate-100 hover:bg-white hover:border-primary-teal hover:shadow-xl transition-all group text-start"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center mb-4 group-hover:bg-primary-teal transition-all shadow-sm">
-                    <Users size={20} className="text-primary-teal group-hover:text-white" />
-                  </div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary-teal/60 mb-1">Explore</div>
-                  <div className="text-sm font-black tracking-tight text-slate-900">{t(`dept_${faculty.toLowerCase().replace(' ', '_')}`) || faculty}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="fintech-card p-8 bg-white overflow-hidden">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-4">
-                   <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
-                   <h3 className="font-black text-xl text-black tracking-tight">{t('allocation_by_faculty')}</h3>
-                </div>
+        {activeTab === 'analytics' && (
+          <div key="tab-content-analytics" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="fintech-card p-8 bg-white border border-slate-100 shadow-xl overflow-hidden no-print">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
+                <h3 className="font-black text-xl tracking-tight uppercase text-black">Faculties & Departments</h3>
               </div>
-              <div className="h-80 w-full cursor-pointer" dir="ltr">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart 
-                    data={chartData}
-                    onClick={handleChartClick}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {["Engineering", "Medicine", "Agriculture", "Computer Science", "Economics"].map((faculty) => (
+                  <button 
+                    key={faculty}
+                    onClick={() => navigate('/inventory', { state: { faculty } })}
+                    className="p-6 rounded-[24px] bg-slate-50 border border-slate-100 hover:bg-white hover:border-primary-teal hover:shadow-xl transition-all group text-start"
                   >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
-                    <Tooltip 
-                      cursor={{fill: '#f1f5f9'}}
-                      contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '10px'}}
-                    />
-                    <Bar dataKey="value" fill="#0F8F7F" radius={[6, 6, 0, 0]}>
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                      <LabelList dataKey="value" position="top" fill="#94a3b8" fontSize={10} fontWeight={800} offset={10} />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className="fintech-card p-8 bg-white">
-              <div className="flex items-center gap-4 mb-8 text-black">
-                 <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
-                 <h3 className="font-black text-xl tracking-tight uppercase">Inventory Categories</h3>
-              </div>
-              <div className="h-80 w-full flex items-center justify-center cursor-pointer" dir="ltr">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categoryDistribution}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={5}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {categoryDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '10px'}}
-                      itemStyle={{fontWeight: 900, textTransform: 'uppercase'}}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="grid grid-cols-2 gap-3 mt-8">
-                {categoryDistribution.map((entry, index) => (
-                  <div 
-                    key={entry.name} 
-                    className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100"
-                  >
-                    <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: COLORS[index % COLORS.length]}}></div>
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest truncate">{entry.name}</span>
-                  </div>
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center mb-4 group-hover:bg-primary-teal transition-all shadow-sm">
+                      <Users size={20} className="text-primary-teal group-hover:text-white" />
+                    </div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary-teal/60 mb-1">Explore</div>
+                    <div className="text-sm font-black tracking-tight text-slate-900">{t(`dept_${faculty.toLowerCase().replace(' ', '_')}`) || faculty}</div>
+                  </button>
                 ))}
               </div>
             </div>
-          </div>
-        </div>
-      )}
 
-       {activeTab === 'needs' && (
-        <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-           <div className="fintech-card p-10 bg-white border border-slate-100 shadow-xl overflow-hidden">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-10">
-                <div className="flex items-center gap-6 cursor-pointer group" onClick={() => {
-                   fetchData();
-                   toast.success("Intelligence data synchronized");
-                }}>
-                   <div className="w-20 h-20 rounded-3xl bg-primary-teal flex items-center justify-center shadow-2xl shadow-primary-teal/30 group-hover:scale-110 group-hover:rotate-3 transition-all">
-                      <Target size={32} className="text-white" />
-                   </div>
-                   <div className="text-start">
-                      <h3 className="text-3xl font-black tracking-tighter italic text-black group-hover:text-primary-teal transition-colors uppercase">{t('annual_needs_analysis')}</h3>
-                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-2 px-2 py-1 bg-slate-50 rounded border border-slate-100">Optimization System Powered by Gemini AI</p>
-                   </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-end hidden sm:block">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-primary-teal">AI Accuracy</div>
-                    <div className="text-xl font-black text-slate-900">94.8%</div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="fintech-card p-8 bg-white overflow-hidden">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
+                    <h3 className="font-black text-xl text-black tracking-tight">{t('allocation_by_faculty')}</h3>
                   </div>
-                  <div className="w-px h-10 bg-slate-200 mx-4 hidden sm:block" />
-                  <Activity className="text-primary-teal animate-pulse" size={24} />
+                </div>
+                <div className="h-80 w-full cursor-pointer" dir="ltr">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart 
+                      data={chartData}
+                      onClick={handleChartClick}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
+                      <Tooltip 
+                        cursor={{fill: '#f1f5f9'}}
+                        contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '10px'}}
+                      />
+                      <Bar dataKey="value" fill="#0F8F7F" radius={[6, 6, 0, 0]}>
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                        <LabelList dataKey="value" position="top" fill="#94a3b8" fontSize={10} fontWeight={800} offset={10} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
-           </div>
 
-           <div className="grid grid-cols-1 gap-6">
-             <div className="overflow-x-auto rounded-[32px] border border-slate-100 bg-white shadow-xl">
-               <table className="w-full text-start">
-                 <thead>
-                   <tr className="bg-slate-50/50">
-                     <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-start border-b border-slate-100">Item Detail</th>
-                     <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100">Stock</th>
-                     <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100">Target</th>
-                     <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100">Gap</th>
-                     <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100">Recommendation</th>
-                   </tr>
-                 </thead>
-                 <tbody>
-                   {Array.isArray(annualNeeds) && annualNeeds.map((item, idx) => (
-                     <tr key={idx} className="group hover:bg-slate-50/50 transition-colors">
-                       <td className="px-8 py-6 border-b border-slate-50">
-                         <div className="flex items-center gap-4">
-                           <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary-teal group-hover:text-white transition-all">
-                             <Package size={18} />
-                           </div>
-                           <div>
-                             <div className="text-xs font-black text-slate-900 uppercase tracking-tight">{item.name}</div>
-                             <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{item.item_code}</div>
-                           </div>
-                         </div>
-                       </td>
-                       <td className="px-8 py-6 border-b border-slate-50 text-center font-black text-xs text-slate-600">{item.current_stock}</td>
-                       <td className="px-8 py-6 border-b border-slate-50 text-center font-black text-xs text-primary-teal">{item.estimated_annual_consumption}</td>
-                       <td className="px-8 py-6 border-b border-slate-50 text-center">
-                         <span className={cn(
-                           "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
-                           item.recommended_purchase > 0 ? "bg-red-50 text-red-500" : "bg-emerald-50 text-emerald-500"
-                         )}>
-                           {item.recommended_purchase > 0 ? `-${item.recommended_purchase}` : 'Optimal'}
-                         </span>
-                       </td>
-                       <td className="px-8 py-6 border-b border-slate-50 text-center">
-                         <button 
-                           onClick={() => {
-                             toast.success("Procurement Plan Generated Successfully");
-                             navigate('/procurement/tenders');
-                           }}
-                           className="text-[9px] font-black text-primary-teal hover:underline uppercase tracking-widest p-2 rounded-lg hover:bg-primary-teal/5 transition-all"
-                         >
-                           Create Procurement Plan
-                         </button>
-                       </td>
-                     </tr>
-                   ))}
-                 </tbody>
-               </table>
-             </div>
-           </div>
-        </div>
-      )}
-
-      {activeTab === 'forecasting' && (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 fintech-card p-10 bg-white">
-                <div className="flex items-center justify-between mb-10">
-                   <div className="flex items-center gap-4">
-                      <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
-                      <h3 className="font-black text-xl text-slate-900 tracking-tight">Demand Forecast (Next 12 Months)</h3>
-                   </div>
-                   <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-2">
-                         <div className="w-3 h-3 rounded-full bg-primary-teal" />
-                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Projected</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                         <div className="w-3 h-3 rounded-full bg-slate-200" />
-                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Historical</span>
-                      </div>
-                   </div>
+              <div className="fintech-card p-8 bg-white">
+                <div className="flex items-center gap-4 mb-8 text-black">
+                  <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
+                  <h3 className="font-black text-xl tracking-tight uppercase">Inventory Categories</h3>
                 </div>
-                <div className="h-96 w-full" dir="ltr">
-                   <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart 
-                        data={forecast}
-                        onClick={(data: any) => {
-                          if (data && data.activeLabel) {
-                            const units = data.activePayload?.[0]?.value || 0;
-                            toast.info(`Forecasting ${data.activeLabel}: ${units} units projected`);
-                            navigate('/inventory', { state: { searchTerm: data.activeLabel } });
-                          }
-                        }}
+                <div className="h-80 w-full flex items-center justify-center cursor-pointer" dir="ltr">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={categoryDistribution}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={5}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        onClick={handleCategoryClick}
                       >
-                        <defs>
-                          <linearGradient id="colorProjected" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#0F8F7F" stopOpacity={0.1}/>
-                            <stop offset="95%" stopColor="#0F8F7F" stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
-                        <Tooltip 
-                            contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '10px'}}
-                            itemStyle={{fontWeight: 900, textTransform: 'uppercase'}}
-                            formatter={(value: any, name: string) => [
-                              <span style={{ color: name === 'actual' ? '#000000' : '#0f8f7f' }}>{value} Units</span>,
-                              name === 'actual' ? <span className="text-black font-black">ACTUAL</span> : name.toUpperCase()
-                            ]}
-                        />
-                        <Area type="monotone" dataKey="projected" stroke="#0F8F7F" strokeWidth={3} fillOpacity={1} fill="url(#colorProjected)" />
-                        <Area type="monotone" dataKey="actual" stroke="#1A1D1F" strokeWidth={2} fillOpacity={0} />
-                      </AreaChart>
-                   </ResponsiveContainer>
+                        {categoryDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} className="hover:opacity-80 transition-opacity cursor-pointer" />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '10px'}}
+                        itemStyle={{fontWeight: 900, textTransform: 'uppercase'}}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-8">
+                  {categoryDistribution.map((entry, index) => (
+                    <div 
+                      key={entry.name} 
+                      className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100"
+                    >
+                      <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: COLORS[index % COLORS.length]}}></div>
+                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest truncate">{entry.name}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-              
-              <div className="space-y-8">
-                 <PredictiveCard 
-                   onClick={() => toast.info("Details: High demand expected in Medicine Faculty due to new lab enrollments.")}
-                   icon={<TrendingUp size={24} />} 
-                   title="Growth Rate" 
-                   value="+15.2%" 
-                   desc="Predicted increase in laboratory materials procurement for next semester." 
-                 />
-                 <PredictiveCard 
-                   onClick={() => navigate('/inventory', { state: { statusFilter: 'Low Stock' } })}
-                   icon={<AlertTriangle size={24} />} 
-                   title="Low Stock Risk" 
-                   value="Critical" 
-                   desc="8 items are predicted to go out of stock within the next 14 days." 
-                   color="amber"
-                 />
-                 <PredictiveCard 
-                   onClick={() => toast.success("Optimization request sent to logistics department.")}
-                   icon={<Users size={24} />} 
-                   title="User Allocation" 
-                   value="Optimizing" 
-                   desc="Allocation logic suggests re-routing 400 paper boxes to Main Office." 
-                   color="indigo"
-                 />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'needs' && (
+          <div key="tab-content-needs" className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="fintech-card p-10 bg-white border border-slate-100 shadow-xl overflow-hidden no-print">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-10">
+                  <div className="flex items-center gap-6 cursor-pointer group" onClick={() => {
+                    fetchData();
+                    toast.success("Intelligence data synchronized");
+                  }}>
+                    <div className="w-20 h-20 rounded-3xl bg-primary-teal flex items-center justify-center shadow-2xl shadow-primary-teal/30 group-hover:scale-110 group-hover:rotate-3 transition-all">
+                        <Target size={32} className="text-white" />
+                    </div>
+                    <div className="text-start">
+                        <h3 className="text-3xl font-black tracking-tighter italic text-black group-hover:text-primary-teal transition-colors uppercase">{t('annual_needs_analysis')}</h3>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-2 px-2 py-1 bg-slate-50 rounded border border-slate-100">Optimization System Powered by Gemini AI</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-end hidden sm:block">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-primary-teal">AI Accuracy</div>
+                      <div className="text-xl font-black text-slate-900">94.8%</div>
+                    </div>
+                    <div className="w-px h-10 bg-slate-200 mx-4 hidden sm:block" />
+                    <Activity className="text-primary-teal animate-pulse" size={24} />
+                  </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6">
+              <div className="overflow-x-auto rounded-[32px] border border-slate-100 bg-white shadow-xl">
+                <table className="w-full text-start">
+                  <thead>
+                    <tr className="bg-slate-50/50">
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-start border-b border-slate-100">Item Detail</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100">Stock</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100">Target</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100">Gap</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100 no-print">Recommendation</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.isArray(annualNeeds) && annualNeeds.map((item, idx) => (
+                      <tr key={idx} className="group hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-6 border-b border-slate-50">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary-teal group-hover:text-white transition-all">
+                              <Package size={18} />
+                            </div>
+                            <div>
+                              <div className="text-xs font-black text-slate-900 uppercase tracking-tight">{item.name}</div>
+                              <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{item.item_code}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6 border-b border-slate-50 text-center font-black text-xs text-slate-600">{item.current_stock}</td>
+                        <td className="px-8 py-6 border-b border-slate-50 text-center font-black text-xs text-primary-teal">{item.estimated_annual_consumption}</td>
+                        <td className="px-8 py-6 border-b border-slate-50 text-center">
+                          <span className={cn(
+                            "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
+                            item.recommended_purchase > 0 ? "bg-red-50 text-red-500" : "bg-emerald-50 text-emerald-500"
+                          )}>
+                            {item.recommended_purchase > 0 ? `-${item.recommended_purchase}` : 'Optimal'}
+                          </span>
+                        </td>
+                        <td className="px-8 py-6 border-b border-slate-50 text-center no-print">
+                          <button 
+                            onClick={() => {
+                              toast.success("Procurement Plan Generated Successfully");
+                              navigate('/procurement/tenders');
+                            }}
+                            className="text-[9px] font-black text-primary-teal hover:underline uppercase tracking-widest p-2 rounded-lg hover:bg-primary-teal/5 transition-all"
+                          >
+                            Create Procurement Plan
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-           </div>
-        </div>
-      )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'forecasting' && (
+          <div key="tab-content-forecasting" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 fintech-card p-10 bg-white">
+                  <div className="flex items-center justify-between mb-10">
+                    <div className="flex items-center gap-4">
+                        <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
+                        <h3 className="font-black text-xl text-slate-900 tracking-tight">Demand Forecast (Next 12 Months)</h3>
+                    </div>
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-primary-teal" />
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Projected</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-slate-200" />
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Historical</span>
+                        </div>
+                    </div>
+                  </div>
+                  <div className="h-96 w-full" dir="ltr">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart 
+                          data={forecast}
+                          onClick={(data: any) => {
+                            if (data && data.activeLabel) {
+                              const units = data.activePayload?.[0]?.value || 0;
+                              toast.info(`Forecasting ${data.activeLabel}: ${units} units projected`);
+                              navigate('/inventory', { state: { searchTerm: data.activeLabel } });
+                            }
+                          }}
+                        >
+                          <defs>
+                            <linearGradient id="colorProjected" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#0F8F7F" stopOpacity={0.1}/>
+                              <stop offset="95%" stopColor="#0F8F7F" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
+                          <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
+                          <Tooltip 
+                              contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '10px'}}
+                              itemStyle={{fontWeight: 900, textTransform: 'uppercase'}}
+                              formatter={(value: any, name: string) => [
+                                <span style={{ color: name === 'actual' ? '#000000' : '#0f8f7f' }}>{value} Units</span>,
+                                name === 'actual' ? <span className="text-black font-black">ACTUAL</span> : name.toUpperCase()
+                              ]}
+                          />
+                          <Area type="monotone" dataKey="projected" stroke="#0F8F7F" strokeWidth={3} fillOpacity={1} fill="url(#colorProjected)" />
+                          <Area type="monotone" dataKey="actual" stroke="#1A1D1F" strokeWidth={2} fillOpacity={0} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                
+                <div className="space-y-8 no-print">
+                  <PredictiveCard 
+                    onClick={() => toast.info("Details: High demand expected in Medicine Faculty due to new lab enrollments.")}
+                    icon={<TrendingUp size={24} />} 
+                    title="Growth Rate" 
+                    value="+15.2%" 
+                    desc="Predicted increase in laboratory materials procurement for next semester." 
+                  />
+                  <PredictiveCard 
+                    onClick={() => navigate('/inventory', { state: { statusFilter: 'Low Stock' } })}
+                    icon={<AlertTriangle size={24} />} 
+                    title="Low Stock Risk" 
+                    value="Critical" 
+                    desc="8 items are predicted to go out of stock within the next 14 days." 
+                    color="amber"
+                  />
+                  <PredictiveCard 
+                    onClick={() => toast.success("Optimization request sent to logistics department.")}
+                    icon={<Users size={24} />} 
+                    title="User Allocation" 
+                    value="Optimizing" 
+                    desc="Allocation logic suggests re-routing 400 paper boxes to Main Office." 
+                    color="indigo"
+                  />
+                </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -565,322 +689,6 @@ const PredictiveCard = ({ icon, title, value, desc, color = "teal", onClick }: a
           <div className="text-2xl font-black text-slate-900 mt-1 tracking-tight">{value}</div>
           <p className="text-[10px] text-slate-500 font-medium mt-3 leading-relaxed text-start">{desc}</p>
        </div>
-    </div>
-  );
-};
-
-import { Search, MapPin, User, FileSearch, Trash2 } from 'lucide-react';
-
-const TraceabilityView = () => {
-  const { t, i18n } = useTranslation();
-  const [viewLevel, setViewLevel] = useState<'intro' | 'faculties' | 'personnel' | 'add-faculty' | 'add-person'>('intro');
-  const [selectedFaculty, setSelectedFaculty] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const isRtl = i18n.dir() === 'rtl';
-
-  const [faculties, setFaculties] = useState<any[]>([]);
-  const [personnel, setPersonnel] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    fetchTraceabilityData();
-  }, []);
-
-  const fetchTraceabilityData = async () => {
-    try {
-      setLoading(true);
-      const [facRes, perRes] = await Promise.all([
-        api.get('/faculties'),
-        api.get('/personnel')
-      ]);
-      setFaculties(facRes.data || []);
-      setPersonnel(perRes.data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredPersonnel = personnel.filter(p => 
-    (selectedFaculty ? p.faculty === selectedFaculty : true) &&
-    (searchTerm ? p.name.toLowerCase().includes(searchTerm.toLowerCase()) : true)
-  );
-
-  return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center justify-between">
-        <div className="text-start">
-          <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Traceability Control</h3>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-            {viewLevel === 'intro' && "Select a main gateway to start tracking"}
-            {viewLevel === 'faculties' && "Institutional Faculty Management"}
-            {viewLevel === 'personnel' && `Personnel within ${selectedFaculty}`}
-          </p>
-        </div>
-        <div className="flex gap-3">
-          {viewLevel === 'faculties' && (
-            <button 
-              onClick={() => setViewLevel('add-faculty')}
-              className="px-6 py-3 bg-primary-teal text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary-teal/20"
-            >
-              + Add Faculty
-            </button>
-          )}
-          {viewLevel === 'personnel' && (
-            <button 
-              onClick={() => setViewLevel('add-person')}
-              className="px-6 py-3 bg-primary-teal text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary-teal/20"
-            >
-              + Add Personnel
-            </button>
-          )}
-          {viewLevel !== 'intro' && (
-            <button 
-              onClick={() => {
-                if (viewLevel === 'personnel') setViewLevel('faculties');
-                else setViewLevel('intro');
-              }}
-              className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
-            >
-              ← Back
-            </button>
-          )}
-        </div>
-      </div>
-
-      {viewLevel === 'intro' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-10">
-           <div 
-            onClick={() => setViewLevel('faculties')}
-            className="p-10 bg-white border border-slate-100 rounded-[44px] shadow-xl hover:border-primary-teal hover:shadow-2xl transition-all group cursor-pointer text-start relative overflow-hidden"
-           >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-primary-teal/5 rounded-bl-[100px] -mr-10 -mt-10 group-hover:scale-125 transition-transform" />
-              <div className="w-16 h-16 bg-primary-teal rounded-3xl flex items-center justify-center text-white mb-8 shadow-lg shadow-primary-teal/20">
-                <Target size={32} />
-              </div>
-              <h4 className="text-2xl font-black text-slate-900 tracking-tighter uppercase mb-4 italic">University Main</h4>
-              <p className="text-[10px] text-slate-400 font-bold leading-relaxed uppercase tracking-widest">Access faculties and track every person registered in our institutional records.</p>
-              <div className="mt-10 flex items-center gap-2 text-primary-teal font-black text-[10px] uppercase tracking-widest">
-                Browse Faculties <ArrowRight size={14} />
-              </div>
-           </div>
-        </div>
-      )}
-
-      {viewLevel === 'faculties' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {faculties.map(f => (
-            <div 
-              key={f.name}
-              onClick={() => {
-                setSelectedFaculty(f.name);
-                setViewLevel('personnel');
-              }}
-              className="group cursor-pointer"
-            >
-              <div className="bg-white border border-slate-100 rounded-[32px] overflow-hidden shadow-sm hover:shadow-2xl hover:border-primary-teal transition-all flex flex-col items-center p-8">
-                <div className="w-24 h-24 rounded-full overflow-hidden mb-6 border-4 border-slate-50 ring-4 ring-primary-teal/10 group-hover:ring-primary-teal/30 transition-all">
-                  <img src={f.image} alt={f.name} className="w-full h-full object-cover" />
-                </div>
-                <h5 className="font-black text-slate-900 uppercase tracking-tight mb-2">{f.name}</h5>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4 py-2 bg-slate-50 rounded-full">
-                  {f.count} Registered Personnel
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {viewLevel === 'personnel' && (
-        <div className="space-y-6">
-          <div className="flex items-center gap-4 bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
-            <Search size={18} className="text-slate-300 ml-4" />
-            <input 
-              placeholder="Search person by name..."
-              className="flex-1 bg-transparent border-none outline-none font-bold text-sm"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredPersonnel.map(p => (
-              <div key={p.id} className="fintech-card p-6 bg-white border border-slate-100 flex items-center gap-6 group hover:border-primary-teal transition-all">
-                <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-lg border-2 border-white flex-shrink-0">
-                  <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1 text-start">
-                   <div className="flex items-center gap-2 mb-1">
-                     <span className="text-sm font-black text-slate-900 uppercase tracking-tight">{p.name}</span>
-                     {p.exists ? (
-                       <span className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                     ) : (
-                       <span className="w-2 h-2 bg-red-500 rounded-full" title="Requesting person not found in DB!" />
-                     )}
-                   </div>
-                   <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Faculty: {p.faculty}</div>
-                   
-                   <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-slate-50 p-3 rounded-2xl">
-                        <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest leading-none mb-1">Assigned Item</div>
-                        <div className="text-[10px] font-black text-slate-600 truncate">{p.item}</div>
-                      </div>
-                      <div className="bg-slate-50 p-3 rounded-2xl">
-                        <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest leading-none mb-1">Last Request</div>
-                        <div className="text-[10px] font-black text-slate-600">{p.date}</div>
-                      </div>
-                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {viewLevel === 'add-faculty' && (
-        <div className="max-w-xl mx-auto bg-white p-10 rounded-[44px] shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300">
-           <div className="text-start mb-8">
-             <h4 className="text-2xl font-black text-slate-900 uppercase italic">Register New Faculty</h4>
-             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Add institutional departments</p>
-           </div>
-           <form className="space-y-6 text-start" onSubmit={async (e) => {
-             e.preventDefault();
-             const fd = new FormData(e.currentTarget);
-             const name = fd.get('name') as string;
-             const image = fd.get('image_base64') as string || "https://images.unsplash.com/photo-1541339907198-e08756ebafe1?w=200&h=200&fit=crop";
-             
-             try {
-               await api.post('/faculties', { name, image, count: 0 });
-               fetchTraceabilityData();
-               setViewLevel('faculties');
-               toast.success(`Faculty ${name} registered successfully.`);
-             } catch (err) {
-               toast.error("Registration failed");
-             }
-           }}>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Faculty Name</label>
-                <input name="name" required className="w-full bg-slate-50 border-none rounded-2xl p-4 text-xs font-bold focus:ring-4 focus:ring-primary-teal/5 outline-none" placeholder="e.g. Fine Arts" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Faculty Logo (Local Upload)</label>
-                <div className="flex items-center gap-4">
-                  <label className="flex-1 cursor-pointer">
-                    <div className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-primary-teal hover:text-primary-teal transition-all text-center">
-                      Select Image from PC
-                    </div>
-                    <input 
-                      type="file" 
-                      className="hidden" 
-                      accept="image/*" 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            const base64 = reader.result as string;
-                            const input = document.getElementById('faculty-image-base64') as HTMLInputElement;
-                            if (input) input.value = base64;
-                            toast.success("Image imported successfully");
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                  </label>
-                  <input type="hidden" name="image_base64" id="faculty-image-base64" />
-                </div>
-              </div>
-              <div className="pt-4 flex gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => setViewLevel('faculties')}
-                  className="flex-1 bg-slate-100 text-slate-500 py-5 rounded-[24px] text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="flex-[2] bg-slate-900 text-white py-5 rounded-[24px] text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all">Complete Registration</button>
-              </div>
-           </form>
-        </div>
-      )}
-
-      {viewLevel === 'add-person' && (
-        <div className="max-w-xl mx-auto bg-white p-10 rounded-[44px] shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300">
-           <div className="text-start mb-8">
-             <h4 className="text-2xl font-black text-slate-900 uppercase italic">Register Personnel</h4>
-             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Adding staff to {selectedFaculty} records</p>
-           </div>
-           <form className="space-y-6 text-start" onSubmit={async (e) => {
-             e.preventDefault();
-             const fd = new FormData(e.currentTarget);
-             const name = fd.get('name') as string;
-             const image = fd.get('person_image_base64') as string || `https://i.pravatar.cc/150?u=${name}`;
-             
-             try {
-               await api.post('/personnel', { 
-                 faculty: selectedFaculty!, 
-                 name, 
-                 image, 
-                 item: "None", 
-                 date: "N/A", 
-                 exists: true 
-               });
-               fetchTraceabilityData();
-               setViewLevel('personnel');
-               toast.success(`${name} registered in ${selectedFaculty}.`);
-             } catch (err) {
-               toast.error("Personnel registration failed");
-             }
-           }}>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Person Name</label>
-                <input name="name" required className="w-full bg-slate-50 border-none rounded-2xl p-4 text-xs font-bold focus:ring-4 focus:ring-primary-teal/5 outline-none" placeholder="Enter full name" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ID Picture (Local Upload)</label>
-                <div className="flex items-center gap-4">
-                  <label className="flex-1 cursor-pointer">
-                    <div className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-primary-teal hover:text-primary-teal transition-all text-center">
-                      Select Picture from PC
-                    </div>
-                    <input 
-                      type="file" 
-                      className="hidden" 
-                      accept="image/*" 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            const base64 = reader.result as string;
-                            const input = document.getElementById('person-image-base64') as HTMLInputElement;
-                            if (input) input.value = base64;
-                            toast.success("Picture imported successfully");
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                  </label>
-                  <input type="hidden" name="person_image_base64" id="person-image-base64" />
-                </div>
-              </div>
-              <div className="pt-4 flex gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => setViewLevel('personnel')}
-                  className="flex-1 bg-slate-100 text-slate-500 py-5 rounded-[24px] text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="flex-[2] bg-slate-900 text-white py-5 rounded-[24px] text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all">Register Person</button>
-              </div>
-           </form>
-        </div>
-      )}
     </div>
   );
 };

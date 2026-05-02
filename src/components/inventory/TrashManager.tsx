@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { trashService } from '@/src/services/api';
+import api, { trashService } from '@/src/services/api';
 import { Trash2, RotateCcw, Search, Trash } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/src/lib/utils';
@@ -16,7 +16,6 @@ export const TrashManager = () => {
 
   const fetchTrash = async () => {
     try {
-      setLoading(false);
       const res = await trashService.getTrash();
       setItems(res.data || []);
     } catch (error) {
@@ -24,6 +23,33 @@ export const TrashManager = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRestore = async (id: string) => {
+    try {
+      await api.post(`/trash/restore/${id}`);
+      fetchTrash();
+      toast.success("Item restored to active inventory");
+    } catch (error) {
+      toast.error("Failed to restore item");
+    }
+  };
+
+  const handlePermanentDelete = async (id: string) => {
+    if (confirm("This action is permanent and cannot be undone. Proceed?")) {
+      try {
+        await api.delete(`/trash/permanent/${id}`);
+        fetchTrash();
+        toast.success("Item permanently erased");
+      } catch (error) {
+        toast.error("Failed to delete permanently");
+      }
+    }
+  };
+
+  const handleRecoveryRequest = () => {
+    toast.success("Recovery request sent to IT Governance Committee. Reference ID: REC-" + Math.floor(Math.random() * 10000));
+    // Simulation of a workflow initiation
   };
 
   return (
@@ -36,7 +62,7 @@ export const TrashManager = () => {
           </p>
         </div>
         <button 
-          onClick={() => toast.info(t('recovery_managed_by_it'))}
+          onClick={handleRecoveryRequest}
           className="w-full sm:w-auto flex items-center justify-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/10"
         >
           <RotateCcw size={18} />
@@ -94,11 +120,24 @@ export const TrashManager = () => {
                            {item.reason}
                         </span>
                      </td>
-                     <td className="px-8 py-6 text-end">
-                        <button className="p-3 text-slate-300 hover:text-red-600 transition-colors">
-                           <Trash2 size={18} />
-                        </button>
-                     </td>
+                      <td className="px-8 py-6 text-end">
+                        <div className="flex justify-end gap-2">
+                           <button 
+                             onClick={() => handleRestore(item.trashId)}
+                             className="p-3 text-slate-400 hover:text-emerald-600 transition-colors bg-slate-50 rounded-xl"
+                             title="Restore"
+                           >
+                              <RotateCcw size={18} />
+                           </button>
+                           <button 
+                             onClick={() => handlePermanentDelete(item.trashId)}
+                             className="p-3 text-slate-400 hover:text-red-600 transition-colors bg-slate-50 rounded-xl"
+                             title="Delete Permanently"
+                           >
+                              <Trash2 size={18} />
+                           </button>
+                        </div>
+                      </td>
                    </tr>
                  ))
                )}

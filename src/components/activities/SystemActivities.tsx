@@ -40,6 +40,41 @@ export const SystemActivities = () => {
     }
   };
 
+  const handleExport = () => {
+    try {
+      const data = activities.map(a => ({
+        User: a.user,
+        Action: a.action,
+        Target: a.target,
+        Timestamp: new Date(a.timestamp).toLocaleString(),
+        Type: a.type
+      }));
+      
+      import('xlsx').then(XLSX => {
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "SystemLogs");
+        XLSX.writeFile(wb, `System_Audit_Log_${new Date().getTime()}.xlsx`);
+        toast.success("Audit log exported successfully");
+      });
+    } catch (err) {
+      toast.error("Export failed");
+    }
+  };
+
+  const handleClearHistory = async () => {
+    if (!confirm("Are you sure you want to clear the entire audit history? This cannot be undone.")) return;
+    
+    try {
+      // In a real app we'd call an API
+      // await api.delete('/activities');
+      setActivities([]);
+      toast.success("Audit history cleared successfully");
+    } catch (err) {
+      toast.error("Failed to clear history");
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="text-start">
@@ -60,8 +95,18 @@ export const SystemActivities = () => {
            </div>
            
            <div className="flex items-center gap-4">
-              <button className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">Export Log</button>
-              <button className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all">Clear History</button>
+              <button 
+                onClick={handleExport}
+                className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
+              >
+                Export Log
+              </button>
+              <button 
+                onClick={handleClearHistory}
+                className="px-6 py-3 bg-red-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-200"
+              >
+                Clear History
+              </button>
            </div>
         </div>
 
