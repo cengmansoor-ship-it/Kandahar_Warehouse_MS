@@ -16,6 +16,7 @@ import { SettingsManager } from './components/settings/SettingsManager';
 import { TrashManager } from './components/inventory/TrashManager';
 import { SystemActivities } from './components/activities/SystemActivities';
 import { ExitClearanceManager } from './components/inventory/ExitClearanceManager';
+import { ForecastModule } from './components/forecast/ForecastModule';
 import { LoginManager } from './components/auth/LoginManager';
 import AboutUs from './pages/AboutUs';
 import Dashboard from './pages/Dashboard';
@@ -35,6 +36,7 @@ function MainRoutes({ user, handleLogout }: { user: User, handleLogout: () => vo
         <Route path="/inventory" element={<InventoryManager />} />
         <Route path="/receiving" element={<ReceivingManager />} />
         <Route path="/requests" element={<RequestManager />} />
+        <Route path="/forecast" element={<ForecastModule />} />
         <Route path="/activities" element={<SystemActivities />} />
         <Route path="/procurement" element={<ProcurementManager />} />
         <Route path="/reports" element={<ReportManager />} />

@@ -13,7 +13,8 @@ import {
   PlusCircle,
   Tag,
   Package,
-  List as ListIcon
+  List as ListIcon,
+  Trash2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
@@ -27,10 +28,27 @@ export const RequestManager = () => {
   const [loading, setLoading] = useState(true);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedItemForRequest, setSelectedItemForRequest] = useState<any>(null);
+  const [faculties, setFaculties] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [filteredDepartments, setFilteredDepartments] = useState<any[]>([]);
 
   useEffect(() => {
     fetchRequests();
+    fetchSupportData();
   }, []);
+
+  const fetchSupportData = async () => {
+    try {
+      const [facRes, deptRes] = await Promise.all([
+        api.get('/faculties'),
+        api.get('/departments')
+      ]);
+      setFaculties(facRes.data || []);
+      setDepartments(deptRes.data || []);
+    } catch (error) {
+      console.error("Failed to load support data", error);
+    }
+  };
 
   const fetchRequests = async () => {
     try {
@@ -197,22 +215,41 @@ export const RequestManager = () => {
                      </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1 text-start">
-                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Faculty</label>
-                           <input 
-                             placeholder="Education"
+                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Faculty *</label>
+                           <select 
                              value={requesterInfo.faculty}
-                             onChange={(e) => setRequesterInfo({...requesterInfo, faculty: e.target.value})}
-                             className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
-                           />
+                             onChange={(e) => {
+                               const facultyId = e.target.value;
+                               setRequesterInfo({
+                                 ...requesterInfo, 
+                                 faculty: facultyId,
+                                 department: '' // Reset department
+                               });
+                               setFilteredDepartments(departments.filter(d => d.facultyId === facultyId));
+                             }}
+                             className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-[#0F8F7F]/20 appearance-none"
+                             required
+                           >
+                             <option value="">Select Faculty</option>
+                             {faculties.map(f => (
+                               <option key={f.id} value={f.id}>{f.name}</option>
+                             ))}
+                           </select>
                         </div>
                         <div className="space-y-1 text-start">
-                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Department</label>
-                           <input 
-                             placeholder="Mathematics"
+                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Department *</label>
+                           <select 
                              value={requesterInfo.department}
                              onChange={(e) => setRequesterInfo({...requesterInfo, department: e.target.value})}
-                             className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary-teal/20"
-                           />
+                             disabled={!requesterInfo.faculty}
+                             className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-[#0F8F7F]/20 appearance-none disabled:opacity-50"
+                             required
+                           >
+                             <option value="">Select Dept</option>
+                             {filteredDepartments.map(d => (
+                               <option key={d.id} value={d.id}>{d.name}</option>
+                             ))}
+                           </select>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
@@ -425,6 +462,17 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
     }
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to move this request to trash?")) return;
+    try {
+      await api.delete(`/requests/${request.id}`);
+      toast.success("Request moved to trash");
+      onUpdate();
+    } catch (error) {
+      toast.error("Failed to delete request");
+    }
+  };
+
   const config = statusConfig[request.status] || statusConfig['Pending'];
   const currentProgress = request.progress || 0;
 
@@ -578,6 +626,13 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
                  </button>
                </>
              )}
+             <button 
+               onClick={handleDelete}
+               className="w-14 h-14 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all shadow-sm flex items-center justify-center border border-rose-100"
+               title="Move to Trash"
+             >
+               <Trash2 size={20} />
+             </button>
              <button className={cn("w-14 h-14 bg-slate-50 text-slate-300 rounded-2xl hover:bg-primary-teal hover:text-white transition-all shadow-sm flex items-center justify-center border border-slate-100 group-hover:border-primary-teal", t('lang_direction') === 'rtl' && "rotate-180")}>
                <ChevronRight size={24} />
              </button>

@@ -200,32 +200,21 @@ export const ReceivingManager = () => {
   };
 
   const handleDelete = async (id: string) => {
-    console.log("DEBUG: Delete triggered for ID:", id);
     if (!id) {
-      console.error("DEBUG: Delete failed - ID is null or undefined");
       toast.error("Invalid record ID");
       return;
     }
 
     const confirmed = window.confirm(t('confirm_delete_record') || "Are you sure you want to delete this record?");
-    if (!confirmed) {
-      console.log("DEBUG: Delete cancelled by user");
-      return;
-    }
+    if (!confirmed) return;
     
     try {
       setLoadingId(id);
-      console.log(`DEBUG: Calling DELETE /api/v1/receiving/${id}`);
-      const response = await api.delete(`/v1/receiving/${id}`);
-      console.log("DEBUG: Delete API Response:", response.data);
-      
+      await api.delete(`/v1/receiving/${id}`);
       setReceivings(prev => prev.filter(r => r.id !== id && r._id !== id));
-      
       toast.success(t('record_deleted') || "Record deleted successfully");
-      // Still fetch to sync inventory state if needed
       fetchData();
     } catch (error: any) {
-      console.error("DEBUG: Delete API failed:", error);
       const errorMsg = error.response?.data?.error || t('delete_failed') || "Failed to delete record";
       toast.error(errorMsg);
     } finally {
@@ -341,7 +330,6 @@ export const ReceivingManager = () => {
         <div className="flex flex-col gap-2">
           <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-4 uppercase italic leading-none">
             {t('receiving')}
-            <span className="text-[10px] bg-primary-teal text-white px-3 py-1 rounded-lg not-italic font-black uppercase tracking-[0.4em] shadow-lg shadow-primary-teal/20">KDRU</span>
           </h2>
           <div className="flex items-center gap-3">
             <div className="h-0.5 w-8 bg-primary-teal/30 rounded-full" />

@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { randomUUID } from "crypto";
 import { createServer as createViteServer } from "vite";
+import forecastRoutes from "./modules/forecast/forecast.routes";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,6 +33,8 @@ function logActivity(user: string, action: string, target: string, type: string)
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+app.use("/api/forecast", forecastRoutes);
 
 // Get System Activities
 app.get("/api/activities", (req, res) => {
@@ -62,6 +65,18 @@ app.post("/api/distribute", (req, res) => {
       timestamp: new Date().toISOString()
     };
     db.allocations.push(allocation);
+
+    // Log Stock Transaction
+    if (!db.stock_transactions) db.stock_transactions = [];
+    db.stock_transactions.push({
+      id: randomUUID(),
+      itemId,
+      type: 'OUT',
+      quantity: qtyNum,
+      faculty,
+      personName,
+      created_at: new Date().toISOString()
+    });
     
     saveDb(db);
     logActivity(personName, 'Item Assigned', item.name, 'special');
@@ -121,6 +136,7 @@ function getDb() {
         orders: [],
         trash: [],
         notifications: [],
+        stock_transactions: [],
         codes: [
           {
             bab: "220",
@@ -522,6 +538,18 @@ app.post("/api/v1/receiving", (req, res) => {
   }
   
   db.receivings.push(newReceiving);
+
+  // Log Stock Transaction
+  if (!db.stock_transactions) db.stock_transactions = [];
+  db.stock_transactions.push({
+    id: randomUUID(),
+    itemId: item ? item.id : newReceiving.id, // Falls back to receiving ID if new item
+    type: 'IN',
+    quantity: qtyNum,
+    supplier,
+    created_at: new Date().toISOString()
+  });
+
   saveDb(db);
   logActivity('Logistics Dept', 'Received Inventory', newReceiving.item_name, 'create');
   res.json(newReceiving);
@@ -791,6 +819,23 @@ app.patch("/api/requests/:id", (req, res) => {
   Object.assign(request, req.body);
   saveDb(db);
   res.json(request);
+});
+
+app.delete("/api/requests/:id", (req, res) => {
+  const db = getDb();
+  const request = db.requests.find((r: any) => r.id === req.params.id);
+  if (!request) return res.status(404).json({ error: "Request not found" });
+  
+  request.isDeleted = true;
+  db.trash.push({ 
+    ...request, 
+    trashId: randomUUID(), 
+    trashDate: new Date().toISOString(), 
+    originalModule: 'requests' 
+  });
+  
+  saveDb(db);
+  res.json({ success: true });
 });
 
 // --- Traceability API (Faculties, Admin Units, Departments, Personnel) ---

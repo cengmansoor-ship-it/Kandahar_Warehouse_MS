@@ -21,6 +21,25 @@ export const ReportFilterModal: React.FC<ReportFilterModalProps> = ({ isOpen, on
     toDate: new Date().toISOString().split('T')[0],
   });
 
+  const [faculties, setFaculties] = React.useState<any[]>([]);
+  const [personnel, setPersonnel] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [facRes, perRes] = await Promise.all([
+          api.get('/faculties'),
+          api.get('/personnel')
+        ]);
+        setFaculties(facRes.data || []);
+        setPersonnel(perRes.data || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadData();
+  }, []);
+
   if (!isOpen) return null;
 
   const Icon = type === 'excel' ? FileSpreadsheet : type === 'pdf' ? FileDown : Printer;
@@ -54,10 +73,9 @@ export const ReportFilterModal: React.FC<ReportFilterModalProps> = ({ isOpen, on
                       className={cn("w-full bg-slate-50 border-none rounded-2xl py-4.5 text-xs font-bold outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all text-slate-700 appearance-none", isRtl ? "pr-12 pl-6" : "pl-12 pr-6")}
                     >
                        <option value="All">All Faculties</option>
-                       <option value="Medicine">Medicine</option>
-                       <option value="Computer Science">Computer Science</option>
-                       <option value="Engineering">Engineering</option>
-                       <option value="Agriculture">Agriculture</option>
+                       {faculties.map(f => (
+                         <option key={f.id} value={f.name}>{f.name}</option>
+                       ))}
                     </select>
                   </div>
                </div>
@@ -72,9 +90,9 @@ export const ReportFilterModal: React.FC<ReportFilterModalProps> = ({ isOpen, on
                       className={cn("w-full bg-slate-50 border-none rounded-2xl py-4.5 text-xs font-bold outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all text-slate-700 appearance-none", isRtl ? "pr-12 pl-6" : "pl-12 pr-6")}
                     >
                        <option value="All">All Personnel</option>
-                       <option value="Dr. Ahmad Shah">Dr. Ahmad Shah</option>
-                       <option value="Eng. Mustafa">Eng. Mustafa</option>
-                       <option value="Prof. Sadiq">Prof. Sadiq</option>
+                       {personnel.map(p => (
+                         <option key={p.id} value={p.name}>{p.name}</option>
+                       ))}
                     </select>
                   </div>
                </div>
