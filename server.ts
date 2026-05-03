@@ -199,10 +199,11 @@ function getDb() {
           }
         ],
         faculties: [
-          { name: "Medicine", image: "https://images.unsplash.com/photo-1576091160550-217359f48866?w=200&h=200&fit=crop", count: 12 },
-          { name: "Computer Science", image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=200&h=200&fit=crop", count: 8 },
-          { name: "Engineering", image: "https://images.unsplash.com/photo-1581094724018-0902f5a8987b?w=200&h=200&fit=crop", count: 15 },
-          { name: "Agriculture", image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=200&h=200&fit=crop", count: 5 },
+          { id: 'f1', name: "Medicine", image: "https://images.unsplash.com/photo-1576091160550-217359f48866?w=200&h=200&fit=crop", count: 12 },
+          { id: 'f2', name: "Computer Science", image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=200&h=200&fit=crop", count: 8 },
+          { id: 'f3', name: "Engineering", image: "https://images.unsplash.com/photo-1581094724018-0902f5a8987b?w=200&h=200&fit=crop", count: 15 },
+          { id: 'f4', name: "Agriculture", image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=200&h=200&fit=crop", count: 5 },
+          { id: 'f5', name: "Economics", image: "https://images.unsplash.com/photo-1454165833767-027508496b4c?w=200&h=200&fit=crop", count: 7 },
         ],
         personnel: [
           { id: 'p1', faculty: "Medicine", name: "Dr. Ahmad Shah", image: "https://i.pravatar.cc/150?u=ahmad", item: "Microscope X1", date: "2024-05-01", exists: true },
