@@ -3,9 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { 
   Users, Target, ShieldCheck, LayoutGrid, User, Search, 
   Plus, Edit, Trash2, ArrowLeft, Camera, Package, Calendar,
-  Activity, Clock, ChevronRight, MoreHorizontal, Image as ImageIcon
+  Activity, Clock, ChevronRight, MoreHorizontal, Image as ImageIcon,
+  Printer, Download, FileSpreadsheet, FileJson
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/src/lib/utils';
 import api, { traceabilityService, inventoryService } from '@/src/services/api';
 
@@ -17,6 +22,7 @@ interface TraceabilitySectionProps {
 
 export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefresh }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [level, setLevel] = useState<Level>('ROOT');
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -112,16 +118,83 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
   };
 
   const handleGovernanceClick = () => {
-    toast.info("Accessing Logistics Governance Board...");
-    // In a real app, this might navigate to a specific policy or admin page
+    toast.info("Navigating to Logistics Governance Board...");
+    navigate('/procurement', { state: { tab: 'po' } });
   };
 
   const handleAuditTrailClick = () => {
-    toast.info("Retrieving full audit trail for faculty records...");
-    // Potentially open a modal or navigate to a logs view
-    api.get('/activities').then(res => {
-      console.log('Full Audit Data:', res.data);
-    });
+    toast.info("Accessing comprehensive audit logs...");
+    navigate('/reports', { state: { tab: 'needs' } });
+  };
+
+  const handleExport = (type: 'pdf' | 'excel') => {
+    let exportData: any[] = [];
+    let title = "Traceability Report";
+    let filename = `traceability_${new Date().toISOString().split('T')[0]}`;
+
+    // Filter logic based on level
+    if (level === 'ROOT') {
+      exportData = personnel.map(p => ({
+        Name: p.name,
+        Faculty: p.faculty || p.facultyId || 'N/A',
+        Department: p.department || 'N/A',
+        Items: p.itemsCount || 0
+      }));
+      title = "University Wide Traceability Summary";
+    } else if (selectedFaculty) {
+      const filtered = personnel.filter(p => p.facultyId === selectedFaculty.id);
+      exportData = filtered.map(p => ({
+        Name: p.name,
+        Department: p.department || 'N/A',
+        Role: p.jobTitle || 'N/A',
+        "Assets Count": p.itemsCount || 0
+      }));
+      title = `Faculty of ${selectedFaculty.name} - Traceability Report`;
+      filename = `faculty_${selectedFaculty.name.toLowerCase().replace(/\s+/g, '_')}`;
+    } else if (selectedPerson) {
+      exportData = personHistory.map(h => ({
+        Item: h.itemName,
+        Action: h.action,
+        Date: h.date,
+        Reference: h.referenceNumber
+      }));
+      title = `Asset Assignment History: ${selectedPerson.name}`;
+      filename = `personnel_${selectedPerson.name.toLowerCase().replace(/\s+/g, '_')}`;
+    }
+
+    if (exportData.length === 0) {
+      toast.error("No data available for export in this view.");
+      return;
+    }
+
+    if (type === 'excel') {
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Traceability");
+      XLSX.writeFile(wb, `${filename}.xlsx`);
+      toast.success("Excel report generated successfully.");
+    } else {
+      const doc = new jsPDF() as any;
+      doc.setFontSize(18);
+      doc.text(title, 14, 22);
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+      
+      doc.autoTable({
+        startY: 35,
+        head: [Object.keys(exportData[0])],
+        body: exportData.map(obj => Object.values(obj)),
+        theme: 'striped',
+        headStyles: { fillStyle: '#0F8F7F' }
+      });
+      doc.save(`${filename}.pdf`);
+      toast.success("PDF report generated successfully.");
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   const renderRoot = () => (
@@ -468,26 +541,25 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header with Stats & Breadcrumbs */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
         <div className="text-start flex-1">
           <div className="flex items-center gap-2 mb-2">
             <button 
               onClick={() => setLevel('ROOT')}
-              className={cn("text-[9px] font-black uppercase tracking-[0.2em]", level === 'ROOT' ? "text-primary-teal" : "text-slate-400 hover:text-primary-teal")}
+              className={cn("text-[10px] font-black uppercase tracking-[0.2em]", level === 'ROOT' ? "text-[#0F8F7F]" : "text-slate-400 hover:text-[#0F8F7F]")}
             >
               Traceability Gateway
             </button>
             {level !== 'ROOT' && (
               <>
                 <ChevronRight size={12} className="text-slate-300" />
-                <span className="text-[9px] font-black text-primary-teal uppercase tracking-[0.2em] italic">
+                <span className="text-[10px] font-black text-[#0F8F7F] uppercase tracking-[0.2em] italic">
                   {selectedFaculty?.name || selectedAdminUnit?.name}
                 </span>
                 {selectedDepartment && (
                   <>
                     <ChevronRight size={12} className="text-slate-300" />
-                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] italic">
+                    <span className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] italic">
                       {selectedDepartment.name}
                     </span>
                   </>
@@ -498,55 +570,50 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
           <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic flex items-center gap-4">
              {level === 'ROOT' && 'System Drill-Down'}
              {level === 'FACULTIES_L1' && 'University Faculties'}
-             {level === 'ADMIN_L1' && 'Admin Units'}
+             {level === 'ADMIN_L1' && 'Administrative Section'}
              {(level === 'FACULTY_L2' || level === 'ADMIN_L2') && (selectedFaculty?.name || selectedAdminUnit?.name)}
              {level === 'PERSONNEL_L3' && selectedDepartment?.name}
              {level === 'PERSONNEL_DETAILS' && 'Personnel Portrait'}
           </h2>
         </div>
 
-        {/* Search Integration */}
-        <div className="w-full lg:w-96 relative group">
-           <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-primary-teal transition-colors" />
-           <input 
-             type="text" 
-             placeholder="Search People, Items or Units..."
-             value={searchTerm}
-             onChange={(e) => setSearchTerm(e.target.value)}
-             className="w-full bg-white border-2 border-slate-100 rounded-3xl py-4 pl-14 pr-6 text-[11px] font-black uppercase tracking-widest outline-none focus:border-primary-teal focus:ring-4 focus:ring-primary-teal/5 transition-all shadow-xl shadow-slate-900/5 group-hover:border-slate-200"
-           />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center bg-white border border-slate-100 rounded-2xl p-1 shadow-sm">
+            <button onClick={handlePrint} className="p-3 text-slate-500 hover:bg-slate-50 rounded-xl transition-all" title="Print"><Printer size={16} /></button>
+            <div className="w-px h-4 bg-slate-200 mx-1" />
+            <button onClick={() => handleExport('excel')} className="p-3 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Excel"><FileSpreadsheet size={16} /></button>
+            <button onClick={() => handleExport('pdf')} className="p-3 text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="PDF"><Download size={16} /></button>
+          </div>
+
+          <div className="relative group">
+            <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-[#0F8F7F] transition-colors" />
+            <input 
+              type="text" 
+              placeholder="Search Intelligence..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white border-2 border-slate-100 rounded-3xl py-4 pl-14 pr-6 text-[11px] font-black uppercase tracking-widest outline-none focus:border-[#0F8F7F] focus:ring-4 focus:ring-[#0F8F7F]/5 transition-all shadow-xl shadow-slate-900/5 lg:w-80"
+            />
             {searchTerm && (
-             <div className="absolute top-full mt-3 left-0 right-0 bg-white border border-slate-100 rounded-3xl shadow-2xl z-[100] max-h-[300px] overflow-y-auto custom-scrollbar p-4 space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div key="search-header" className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-2 border-b border-slate-50 pb-2 text-start">Matched entities found</div>
+              <div className="absolute top-full mt-3 left-0 right-0 bg-white border border-slate-100 rounded-3xl shadow-2xl z-[100] max-h-[300px] overflow-y-auto custom-scrollbar p-4 space-y-2">
+                <div className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-2 border-b border-slate-50 pb-2 text-start">Matched entities found</div>
                 {personnel.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map((p, idx) => (
-                  <div key={`search-person-${p.id || idx}`} onClick={() => { setSelectedPerson(p); setLevel('PERSONNEL_DETAILS'); getPersonHistory(p); setSearchTerm(''); }} className="flex items-center gap-4 p-3 hover:bg-primary-teal/5 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-primary-teal/10 group/res">
-                    <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-primary-teal font-black text-[10px] border border-slate-100 group-hover/res:bg-white">{p.name[0]}</div>
+                  <div key={`s-p-${idx}`} onClick={() => { setSelectedPerson(p); setLevel('PERSONNEL_DETAILS'); getPersonHistory(p); setSearchTerm(''); }} className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-2xl cursor-pointer transition-all">
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-[#0F8F7F] font-black text-[10px] border border-slate-100 uppercase">{p.name[0]}</div>
                     <div className="flex flex-col text-start">
                       <span className="text-[10px] font-black text-slate-900 uppercase">{p.name}</span>
                       <span className="text-[8px] font-bold text-slate-400 uppercase">{p.jobTitle || 'Personnel'}</span>
                     </div>
                   </div>
                 ))}
-                {faculties.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase())).map((f, idx) => (
-                  <div key={`search-faculty-${f.id || idx}`} onClick={() => { setSelectedFaculty(f); setLevel('FACULTY_L2'); setSearchTerm(''); }} className="flex items-center gap-4 p-3 hover:bg-primary-teal/5 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-primary-teal/10 group/res">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 font-black text-[10px] border border-blue-100 group-hover/res:bg-white">F</div>
-                    <div className="flex flex-col text-start">
-                      <span className="text-[10px] font-black text-slate-900 uppercase">{f.name}</span>
-                      <span className="text-[8px] font-bold text-slate-400 uppercase">Faculty</span>
-                    </div>
-                  </div>
-                ))}
-                {searchTerm && personnel.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && faculties.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
-                  <div className="p-10 text-center text-[10px] font-black text-slate-300 uppercase italic">No direct matches found</div>
-                )}
-             </div>
-           )}
-        </div>
-        <div className="flex items-center gap-4">
+              </div>
+            )}
+          </div>
+          
           {level !== 'ROOT' && (
             <button 
               onClick={handleBack}
-              className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2 shadow-sm"
+              className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all flex items-center gap-2 shadow-sm"
             >
               <ArrowLeft size={16} /> Back
             </button>

@@ -25,6 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import { LabelList } from 'recharts';
 import { ReportFilterModal } from './ReportFilterModal';
 import { TraceabilitySection } from './TraceabilitySection';
+import { ForecastingSection } from './ForecastingSection';
 
 const COLORS = ['#0F8F7F', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -582,88 +583,7 @@ export const ReportManager = () => {
         )}
 
         {activeTab === 'forecasting' && (
-          <div key="tab-content-forecasting" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 fintech-card p-10 bg-white">
-                  <div className="flex items-center justify-between mb-10">
-                    <div className="flex items-center gap-4">
-                        <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
-                        <h3 className="font-black text-xl text-slate-900 tracking-tight">Demand Forecast (Next 12 Months)</h3>
-                    </div>
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full bg-primary-teal" />
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Projected</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full bg-slate-200" />
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Historical</span>
-                        </div>
-                    </div>
-                  </div>
-                  <div className="h-96 w-full" dir="ltr">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart 
-                          data={forecast}
-                          onClick={(data: any) => {
-                            if (data && data.activeLabel) {
-                              const units = data.activePayload?.[0]?.value || 0;
-                              toast.info(`Forecasting ${data.activeLabel}: ${units} units projected`);
-                              navigate('/inventory', { state: { searchTerm: data.activeLabel } });
-                            }
-                          }}
-                        >
-                          <defs>
-                            <linearGradient id="colorProjected" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#0F8F7F" stopOpacity={0.1}/>
-                              <stop offset="95%" stopColor="#0F8F7F" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                          <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
-                          <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 800}} />
-                          <Tooltip 
-                              contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '10px'}}
-                              itemStyle={{fontWeight: 900, textTransform: 'uppercase'}}
-                              formatter={(value: any, name: string) => [
-                                <span style={{ color: name === 'actual' ? '#000000' : '#0f8f7f' }}>{value} Units</span>,
-                                name === 'actual' ? <span className="text-black font-black">ACTUAL</span> : name.toUpperCase()
-                              ]}
-                          />
-                          <Area type="monotone" dataKey="projected" stroke="#0F8F7F" strokeWidth={3} fillOpacity={1} fill="url(#colorProjected)" />
-                          <Area type="monotone" dataKey="actual" stroke="#1A1D1F" strokeWidth={2} fillOpacity={0} />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                
-                <div className="space-y-8 no-print">
-                  <PredictiveCard 
-                    onClick={() => toast.info("Details: High demand expected in Medicine Faculty due to new lab enrollments.")}
-                    icon={<TrendingUp size={24} />} 
-                    title="Growth Rate" 
-                    value="+15.2%" 
-                    desc="Predicted increase in laboratory materials procurement for next semester." 
-                  />
-                  <PredictiveCard 
-                    onClick={() => navigate('/inventory', { state: { statusFilter: 'Low Stock' } })}
-                    icon={<AlertTriangle size={24} />} 
-                    title="Low Stock Risk" 
-                    value="Critical" 
-                    desc="8 items are predicted to go out of stock within the next 14 days." 
-                    color="amber"
-                  />
-                  <PredictiveCard 
-                    onClick={() => toast.success("Optimization request sent to logistics department.")}
-                    icon={<Users size={24} />} 
-                    title="User Allocation" 
-                    value="Optimizing" 
-                    desc="Allocation logic suggests re-routing 400 paper boxes to Main Office." 
-                    color="indigo"
-                  />
-                </div>
-            </div>
-          </div>
+          <ForecastingSection data={forecast} />
         )}
       </div>
     </div>

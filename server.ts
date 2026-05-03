@@ -9,7 +9,7 @@ import { randomUUID } from "crypto";
 import { createServer as createViteServer } from "vite";
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(process.cwd(), "db.json");
 const SECRET_KEY = process.env.JWT_SECRET || "kandahar_procurement_safe_key_2024";
 
@@ -1663,7 +1663,7 @@ async function startServer() {
       });
     }
 
-    app.listen(PORT, "0.0.0.0", () => {
+    app.listen(Number(PORT), "0.0.0.0", () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
   } catch (err) {

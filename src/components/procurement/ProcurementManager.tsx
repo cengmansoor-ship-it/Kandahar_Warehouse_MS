@@ -8,6 +8,7 @@ import {
   ClipboardList
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { TenderForm } from './TenderForm';
 import { ComparisonForm } from './ComparisonForm';
@@ -15,6 +16,7 @@ import { PurchaseOrderForm } from './PurchaseOrderForm';
 
 export const ProcurementManager: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'tender' | 'comparison' | 'po'>('overview');
 
   return (
@@ -91,17 +93,21 @@ export const ProcurementManager: React.FC = () => {
                       />
                     </div>
                  </div>
-                 <div className="bg-white border border-slate-100 p-10 rounded-[44px] shadow-sm space-y-8">
+                  <div className="bg-white border border-slate-100 p-10 rounded-[44px] shadow-sm space-y-8">
                      <h4 
-                       onClick={() => toast.info("Logistics Governance Board accessed.")}
-                       className="font-black text-slate-900 uppercase tracking-widest text-[10px] bg-slate-50 p-2 text-center rounded-lg cursor-pointer hover:bg-slate-100 transition-all"
+                       onClick={() => setActiveTab('po')}
+                       className="font-black text-[#0F8F7F] uppercase tracking-widest text-[10px] bg-emerald-50 p-3 text-center rounded-2xl cursor-pointer hover:bg-emerald-100 transition-all border border-emerald-100/50"
                      >
                        {t('logistics_governance')}
                      </h4>
                     <div className="space-y-6">
                        {[1,2,3].map(i => (
-                         <div key={i} className="flex items-center gap-5 p-5 rounded-3xl bg-slate-50/50 border border-slate-100 hover:border-[#0F8F7F]/30 transition-all cursor-pointer">
-                            <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-[#0F8F7F] shadow-sm border border-slate-100"><Send size={20} /></div>
+                         <div 
+                           key={i} 
+                           onClick={() => setActiveTab('po')}
+                           className="flex items-center gap-5 p-5 rounded-3xl bg-slate-50/50 border border-slate-100 hover:border-[#0F8F7F]/30 transition-all cursor-pointer group"
+                         >
+                            <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-[#0F8F7F] shadow-sm border border-slate-100 group-hover:bg-[#0F8F7F] group-hover:text-white transition-all"><Send size={20} /></div>
                             <div>
                               <p className="text-xs font-black text-slate-900 uppercase">PO #1404-0{i}</p>
                               <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Awarded to Jamal Abna Co.</p>
@@ -112,16 +118,15 @@ export const ProcurementManager: React.FC = () => {
                      <div className="pt-6 border-t border-dashed border-slate-100">
                         <button 
                           onClick={() => {
-                            toast.success("Retrieving full system audit trail...");
-                            const actTab = document.querySelector('[data-tab="activities"]');
-                            if (actTab) (actTab as any).click();
+                            toast.success("Navigating to traceability audit gateway...");
+                            navigate('/reports', { state: { tab: 'traceability' } });
                           }} 
                           className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all"
                         >
                           {t('view_audit_trail')}
                         </button>
                      </div>
-                 </div>
+                  </div>
               </div>
             )}
             
