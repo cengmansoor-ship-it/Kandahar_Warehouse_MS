@@ -42,7 +42,7 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
   };
 
   const getGrandTotal = (items: any[]) => {
-    return items.reduce((acc, item) => acc + (item.unitPrice * item.qty), 0);
+    return items.reduce((acc, item) => acc + ((Number(item.unitPrice) || 0) * (Number(item.qty) || 0)), 0);
   };
 
   return (
@@ -119,13 +119,13 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
                             </div>
 
                             <div className="space-y-3">
-                               {q.items.map((item: any, i: number) => (
+                               {Array.isArray(q.items) && q.items.map((item: any, i: number) => (
                                  <div key={i} className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
                                     <div className="text-xs font-bold text-slate-600">
                                       {item.name} <span className="text-[10px] text-slate-400 font-medium">({item.qty})</span>
                                     </div>
                                     <div className="text-xs font-black text-slate-900">
-                                      {item.unitPrice.toLocaleString()} AFN
+                                      {(Number(item.unitPrice) || 0).toLocaleString()} AFN
                                     </div>
                                  </div>
                                ))}
@@ -136,7 +136,7 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
                             <div className="flex justify-between items-end">
                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Grand Total</span>
                                <span className="text-2xl font-black text-[#0F8F7F] tracking-tighter">
-                                 {getGrandTotal(q.items).toLocaleString()} <span className="text-sm">AFN</span>
+                                 {getGrandTotal(q.items || []).toLocaleString()} <span className="text-sm">AFN</span>
                                </span>
                             </div>
                             

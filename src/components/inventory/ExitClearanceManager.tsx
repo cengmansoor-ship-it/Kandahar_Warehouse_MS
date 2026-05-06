@@ -34,7 +34,7 @@ export const ExitClearanceManager = () => {
     try {
       setLoading(true);
       const res = await inventoryService.getItems();
-      setItems(res.data);
+      setItems(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       toast.error(t('failed_load_inventory'));
     } finally {
@@ -97,7 +97,7 @@ export const ExitClearanceManager = () => {
                   className="w-full bg-slate-50 border-none rounded-2xl py-4.5 pl-14 pr-6 text-xs font-bold outline-none focus:ring-4 focus:ring-red-500/5 transition-all appearance-none"
                 >
                   <option key="default" value="">Choose item...</option>
-                  {items.filter(i => i.quantity > 0).map(item => (
+                  {(Array.isArray(items) ? items : []).filter(i => i.quantity > 0).map(item => (
                     <option key={item.id} value={item.item_code}>{item.name} ({item.quantity} available)</option>
                   ))}
                 </select>

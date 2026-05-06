@@ -110,25 +110,22 @@ app.get("/api/analytics/forecast", (req, res) => {
 });
 
 // --- Database Helper ---
+let dbCache: any = null;
+
 function getDb() {
+  if (dbCache) return dbCache;
   try {
+    let db: any;
     if (!fs.existsSync(DB_FILE)) {
-      const initial = { 
+      db = { 
         items: [
           { id: '1', name: 'Printing Paper A4', item_code: '22301', category: 'Stationery', quantity: 500, unit: 'BOX', location: 'Zone A-01', status: 'In Stock', department: 'Engineering' },
           { id: '2', name: 'Engine Oil 10W40', item_code: '22601', category: 'Fuel', quantity: 50, unit: 'LTR', location: 'Cold Storage', status: 'In Stock', department: 'Engineering' },
           { id: '3', name: 'Microscope Slides', item_code: '22700', category: 'Laboratory', quantity: 200, unit: 'PKT', location: 'Lab A', status: 'In Stock', department: 'Medicine' },
-          { id: '4', name: 'Lab Coats', item_code: '22704', category: 'Clothing', quantity: 5, unit: 'PCS', location: 'Lab B', status: 'Low Stock', department: 'Medicine' },
-          { id: '5', name: 'Calculatory Devices', item_code: '22701', category: 'Electronics', quantity: 150, unit: 'UNIT', location: 'Zone C', status: 'In Stock', department: 'Engineering' },
-          { id: '6', name: 'Server Rack', item_code: '22701', category: 'Electronics', quantity: 2, unit: 'UNIT', location: 'Data Center', status: 'Low Stock', department: 'Computer Science' },
-          { id: '7', name: 'Fertilizer Samples', item_code: '22700', category: 'Agricultural', quantity: 80, unit: 'KG', location: 'Silo 1', status: 'In Stock', department: 'Agriculture' },
-          { id: '8', name: 'Keyboard Mechanical', item_code: '22701', category: 'Electronics', quantity: 120, unit: 'PCS', location: 'Lab IT', status: 'In Stock', department: 'Computer Science' }
+          { id: '4', name: 'Lab Coats', item_code: '22704', category: 'Clothing', quantity: 5, unit: 'PCS', location: 'Lab B', status: 'Low Stock', department: 'Medicine' }
         ], 
         receivings: [
-          { id: 'R1', date: new Date(Date.now() - 3600000).toISOString(), item_code: '22301', item_name: 'Printing Paper A4', quantity: 100, supplier: 'Kabul Stationers', received_by: 'Ahmed', status: 'COMPLETED' },
-          { id: 'R2', date: new Date(Date.now() - 7200000).toISOString(), item_code: '22601', item_name: 'Engine Oil 10W40', quantity: 200, supplier: 'Petro Supply', received_by: 'Jan', status: 'COMPLETED' },
-          { id: 'R3', date: new Date(Date.now() - 86400000).toISOString(), item_code: '22700', item_name: 'Microscope Slides', quantity: 50, supplier: 'MediLab Co', received_by: 'Karim', status: 'COMPLETED' },
-          { id: 'R4', date: new Date(Date.now() - 172800000).toISOString(), item_code: '22701', item_name: 'Server Rack', quantity: 1, supplier: 'IT Solutions', received_by: 'Nadir', status: 'COMPLETED' }
+          { id: 'R1', date: new Date().toISOString(), item_code: '22301', item_name: 'Printing Paper A4', quantity: 100, supplier: 'Kabul Stationers', received_by: 'Ahmed', status: 'COMPLETED' }
         ], 
         requests: [], 
         tenders: [], 
@@ -137,157 +134,60 @@ function getDb() {
         trash: [],
         notifications: [],
         stock_transactions: [],
-        codes: [
-          {
-            bab: "220",
-            name: "Travel & Allowance (سفریه او امتیازات)",
-            fasls: [
-              {
-                code: "221",
-                name: "Allowances (امتیازات)",
-                items: [
-                  { code: "22100", name: "Domestic Allowance (امتياز داخلی)" },
-                  { code: "22101", name: "International Allowance (امتياز بين المللی)" },
-                  { code: "22102", name: "Domestic Travel (سفریه داخلی)" },
-                  { code: "22103", name: "International Travel (سفریه خارجی)" },
-                  { code: "22104", name: "Uniformed Domestic Allowance (سفريه داخلی کارندان يونبفورم)" },
-                  { code: "22105", name: "Travel Advance (پيشکی های سفريه)" }
-                ]
-              },
-              {
-                code: "223",
-                name: "Contract Services (خدمات قراردادي)",
-                items: [
-                  { code: "22300", name: "Public Relations & Advertising (خدمات اشتهازی تبلغاتی اجتماعی)" },
-                  { code: "22301", name: "Printing (مطبع)" },
-                  { code: "22302", name: "Accounting & Audit (تفتيش و محاسبه)" },
-                  { code: "22303", name: "Engineering & Design (انجنری و ډيزان)" },
-                  { code: "22304", name: "Security Services (خدماتی امنيتی)" },
-                  { code: "22305", name: "Freight & Handling (کرايه و جابجاشدن)" },
-                  { code: "22306", name: "Training & Seminars (سمنارها و کورس های اموزيشی)" },
-                  { code: "22307", name: "Development Consulting (بوديجه انکشافی و شرکت های مشورتی)" },
-                  { code: "22308", name: "Individual Consultants (بوديجه انکشافی مشاورين انفرادی)" },
-                  { code: "22309", name: "NGO Development Services (انکشافی خدمات موسسات غير دولتی)" },
-                  { code: "22310", name: "Project Management (بوديجه انکشافی اداره پروژه)" },
-                  { code: "22311", name: "Development Admin Fee (نکشافی فيس های اداری)" }
-                ]
-              },
-              {
-                code: "226",
-                name: "Fuel (روغنیات)",
-                items: [
-                  { code: "22601", name: "Fuel Vehicles (روغنيات)" },
-                  { code: "22602", name: "Gas (ګاز)" },
-                  { code: "22603", name: "Domestic Fuel (روغنيات داخلی)" }
-                ]
-              },
-              {
-                code: "227",
-                name: "Tools & Materials (سامان و لوازم)",
-                items: [
-                  { code: "22700", name: "Medical & Laboratory (طبی و البراتوار)" },
-                  { code: "22701", name: "Office Equipment & Supplies (تجهزات و تدارکات دفتری)" },
-                  { code: "22702", name: "Household & Kitchen (منزل و اشپزهانه)" },
-                  { code: "22703", name: "Education & Recreational (مواد تعلمی و تفريحی)" },
-                  { code: "22704", name: "Clothing (لباس)" },
-                  { code: "22705", name: "Furniture (فرنيچر)" },
-                  { code: "22706", name: "Valuable Papers (اسناد و اوراق)" },
-                  { code: "22707", name: "Agriculture Tools (سامان و لوازم زراعتی)" },
-                  { code: "22708", name: "Military Equipment (تجهزات و لوارم نظامی)" },
-                  { code: "22709", name: "Gifts (تحايف)" }
-                ]
-              }
-            ]
-          },
-          {
-            bab: "222",
-            name: "Food (غذا)",
-            fasls: [
-              {
-                code: "222",
-                name: "Food Items",
-                items: [
-                  { code: "22201", name: "Food - Non Salary (غذا - بدون معاش)" },
-                  { code: "22202", name: "Advance of Food (پيشکي هاي غذا بدون معاش)" }
-                ]
-              }
-            ]
-          }
-        ],
+        codes: [],
         faculties: [
-          { id: 'f1', name: "Medicine", image: "https://images.unsplash.com/photo-1576091160550-217359f48866?w=200&h=200&fit=crop", count: 12 },
-          { id: 'f2', name: "Computer Science", image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=200&h=200&fit=crop", count: 8 },
-          { id: 'f3', name: "Engineering", image: "https://images.unsplash.com/photo-1581094724018-0902f5a8987b?w=200&h=200&fit=crop", count: 15 },
-          { id: 'f4', name: "Agriculture", image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=200&h=200&fit=crop", count: 5 },
-          { id: 'f5', name: "Economics", image: "https://images.unsplash.com/photo-1454165833767-027508496b4c?w=200&h=200&fit=crop", count: 7 },
+          { id: 'f1', name: "Medicine", count: 12 },
+          { id: 'f2', name: "Computer Science", count: 8 },
+          { id: 'f3', name: "Engineering", count: 15 }
+        ],
+        departments: [
+          { id: 'd1', name: 'Internal Medicine', facultyId: 'f1' },
+          { id: 'd2', name: 'Software Engineering', facultyId: 'f2' },
+          { id: 'd3', name: 'Civil Engineering', facultyId: 'f3' }
+        ],
+        adminUnits: [
+          { id: 'a1', name: 'Directorate of Finance' },
+          { id: 'a2', name: 'Human Resources' }
         ],
         personnel: [
-          { id: 'p1', faculty: "Medicine", name: "Dr. Ahmad Shah", image: "https://i.pravatar.cc/150?u=ahmad", item: "Microscope X1", date: "2024-05-01", exists: true },
-          { id: 'p2', faculty: "Medicine", name: "Dr. Laila Jan", image: "https://i.pravatar.cc/150?u=laila", item: "None", date: "N/A", exists: true },
-          { id: 'p3', faculty: "Computer Science", name: "Eng. Mustafa", image: "https://i.pravatar.cc/150?u=mustafa", item: "Server Rack", date: "2024-04-28", exists: true },
+          { id: 'p1', name: 'Enayatullah Mansoor', jobTitle: 'Lecturer', facultyId: 'f3', departmentId: 'd3', idNumber: '3456' }
         ],
+        allocations: [],
         users: [{ 
-          id: 'admin', 
-          name: 'System Admin',
-          email: 'admin@kandahar.edu.af', 
-          password: bcrypt.hashSync("admin123", 10),
-          role: 'Admin',
-          profileImage: null 
+          id: 'admin', name: 'System Admin', email: 'admin@kandahar.edu.af', 
+          password: bcrypt.hashSync("admin123", 10), role: 'Admin', profileImage: null 
         }]
       };
-      fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
-      return initial;
+      fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+      dbCache = db;
+      return db;
     }
-    const data = fs.readFileSync(DB_FILE, "utf-8");
-    const db = JSON.parse(data || '{"items":[], "receivings":[], "requests":[], "tenders":[], "quotations":[], "orders":[], "trash":[], "notifications":[], "users":[], "faculties":[], "personnel":[], "adminUnits":[], "departments":[], "allocations":[]}');
     
-    // Ensure all collections exist
-    db.allocations = db.allocations || [];
-    db.faculties = db.faculties || [];
-    db.personnel = db.personnel || [];
-    db.adminUnits = db.adminUnits || [];
-    db.departments = db.departments || [];
-    db.trash = db.trash || [];
-    if (db.trash && db.trash.length > 0) {
-      const now = Date.now();
-      const initialLength = db.trash.length;
-      db.trash = db.trash.filter((t: any) => {
-        if (!t.trashDate) return true;
-        const trashDate = new Date(t.trashDate).getTime();
-        return (now - trashDate) < (30 * 24 * 60 * 60 * 1000); // 30 days
-      });
-      if (db.trash.length !== initialLength) {
-        saveDb(db);
-        console.log(`[TRASH CLEANUP] Purged ${initialLength - db.trash.length} expired items.`);
+    const data = fs.readFileSync(DB_FILE, "utf-8");
+    db = JSON.parse(data || '{}');
+    
+    // Ensure all collections exist as arrays
+    const collections = [
+      'items', 'receivings', 'requests', 'tenders', 'quotations', 'orders', 
+      'trash', 'notifications', 'stock_transactions', 'codes', 'faculties', 
+      'personnel', 'users', 'allocations', 'sent_emails', 'adminUnits', 'departments'
+    ];
+    
+    collections.forEach(key => {
+      if (!Array.isArray(db[key])) {
+        db[key] = [];
       }
+    });
+
+    // Repair Admin if missing
+    if (!db.users.some((u: any) => u.email === 'admin@kandahar.edu.af')) {
+      db.users.push({
+        id: 'admin', name: 'System Admin', email: 'admin@kandahar.edu.af', 
+        password: bcrypt.hashSync("admin123", 10), role: 'Admin', profileImage: null
+      });
     }
 
-    // Repair/Sync Admin User (Self-healing)
-    const adminIndex = db.users.findIndex((u: any) => u.email === 'admin@kandahar.edu.af');
-    if (adminIndex === -1) {
-      db.users.push({
-        id: 'admin',
-        name: 'System Admin',
-        email: 'admin@kandahar.edu.af',
-        password: bcrypt.hashSync("admin123", 10),
-        role: 'Admin',
-        profileImage: null
-      });
-      saveDb(db);
-    } else {
-      // Force update password for the admin user to ensure "admin123" works
-      const admin = db.users[adminIndex];
-      if (!admin.password || admin.password.length < 20) {
-        admin.password = bcrypt.hashSync("admin123", 10);
-        admin.role = 'Admin';
-        saveDb(db);
-      }
-    }
-    
-    // Ensure faculties and personnel exist
-    if (!db.faculties) db.faculties = [];
-    if (!db.personnel) db.personnel = [];
-    
+    dbCache = db;
     return db;
   } catch (error) {
     console.error("Database read error:", error);
@@ -307,15 +207,25 @@ function getDb() {
       departments: [],
       allocations: [],
       codes: []
-    };
+    } as any;
   }
 }
 
+let lastPersistentSave = 0;
+const PERSIST_THROTTLE_MS = 3000;
+
 function saveDb(data: any) {
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.error("Database save error:", error);
+  dbCache = data;
+  const now = Date.now();
+  if (now - lastPersistentSave > PERSIST_THROTTLE_MS) {
+    lastPersistentSave = now;
+    setTimeout(() => {
+      try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(dbCache, null, 2));
+      } catch (error) {
+        console.error("Database save error:", error);
+      }
+    }, 100);
   }
 }
 
@@ -363,6 +273,42 @@ app.post("/api/auth/login", async (req, res) => {
   );
 
   res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+});
+
+app.post("/api/auth/forgot-password", async (req, res) => {
+  const { email } = req.body;
+  const db = getDb();
+  
+  const user = db.users.find((u: any) => u.email === email);
+  if (!user) {
+    return res.status(404).json({ error: "Email not found in our records." });
+  }
+
+  // Simulate sending reset link
+  console.log(`[AUTH] Password reset link requested for: ${email}`);
+  
+  if (process.env.MAIL_USER && process.env.MAIL_PASS) {
+     try {
+       await getTransporter().sendMail({
+         from: `"Kandahar University WMS" <${process.env.MAIL_USER}>`,
+         to: email,
+         subject: "Password Reset Request",
+         html: `
+           <div style="font-family: sans-serif; padding: 20px;">
+             <h2>Password Reset Request</h2>
+             <p>Hello ${user.name},</p>
+             <p>We received a request to reset your password. Use the code below to log in, then change your password in settings:</p>
+             <div style="background: #f1f1f1; padding: 10px; font-size: 20px; font-weight: bold; letter-spacing: 5px; text-align: center;">RESET123</div>
+             <p>If you didn't request this, please ignore this email.</p>
+           </div>
+         `
+       });
+     } catch (e) {
+       console.error("Forgot password email failed:", e);
+     }
+  }
+
+  res.json({ success: true, message: "A recovery email has been sent to your inbox." });
 });
 
 app.get("/api/health", (req, res) => {
@@ -415,7 +361,7 @@ app.post("/api/items/:id/trash", (req, res) => {
   db.trash.push({
     ...item,
     trashId: randomUUID(),
-    deletedAt: new Date().toISOString(),
+    trashDate: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     originalModule: 'inventory',
     reason: req.body.reason || "System Cleanup"
@@ -436,36 +382,116 @@ app.get("/api/reports/inventory", (req, res) => {
   });
 });
 
+// --- Settings API ---
+app.get("/api/settings", (req, res) => {
+  const db = getDb();
+  res.json(db.settings || {});
+});
+
+app.post("/api/settings", (req, res) => {
+  const db = getDb();
+  db.settings = { ...(db.settings || {}), ...req.body };
+  saveDb(db);
+  res.json(db.settings);
+});
+
 // --- Email API ---
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.MAIL_USER || "your_email@gmail.com",
-    pass: process.env.MAIL_PASS || "your_app_password"
-  }
+function getTransporter() {
+  const db = getDb();
+  const mailUser = db.settings?.mailUser || process.env.MAIL_USER || "your_email@gmail.com";
+  const mailPass = db.settings?.mailPass || process.env.MAIL_PASS || "your_app_password";
+  
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: mailUser,
+      pass: mailPass
+    }
+  });
+}
+
+app.get("/api/emails", (req, res) => {
+  const db = getDb();
+  res.json(db.sent_emails || []);
 });
 
 app.post("/api/send-email", async (req, res) => {
-  const { to, subject, text, html } = req.body;
+  const { to, subject, text, html, requestId, type } = req.body;
+  const db = getDb();
+  const mailUser = db.settings?.mailUser || process.env.MAIL_USER;
+  const mailPass = db.settings?.mailPass || process.env.MAIL_PASS;
 
-  if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
-    console.warn("Email credentials not configured in environment variables.");
-  }
+  let success = false;
+  let errorMsg = null;
+  let simulated = true;
 
   try {
-    await transporter.sendMail({
-      from: process.env.MAIL_USER || "your_email@gmail.com",
+    const isRealReady = mailUser && 
+                       mailPass && 
+                       mailPass !== "your_app_password" &&
+                       mailUser.includes('@');
+
+    if (isRealReady) {
+      simulated = false;
+      const transporter = getTransporter();
+      try {
+        await getTransporter().sendMail({
+          from: `"Kandahar University Logistics" <${mailUser}>`,
+          to,
+          bcc: mailUser,
+          subject,
+          text,
+          html: html || text
+        });
+        success = true;
+      } catch (e: any) {
+        success = false;
+        errorMsg = e.message;
+        console.error("Mail server error:", e);
+      }
+    } else {
+      // Simulation
+      console.log(`[SIMULATED EMAIL] To: ${to}, Subject: ${subject}`);
+      success = true; 
+      if (!to || !to.includes('@')) {
+        success = false;
+        errorMsg = "Recipient address validation failed";
+      }
+    }
+
+    const emailLog = {
+      id: randomUUID(),
       to,
       subject,
       text,
-      html: html || text
-    });
+      html: html || text,
+      requestId,
+      type: type || 'procurement',
+      status: success ? 'Sent' : 'Failed',
+      simulated: simulated,
+      error: errorMsg,
+      timestamp: new Date().toISOString()
+    };
 
-    res.json({ success: true });
-  } catch (err: any) {
-    console.error("Email sending failed:", err);
-    res.status(500).json({ error: err.message || "Failed to send email" });
+    if (!db.sent_emails) db.sent_emails = [];
+    db.sent_emails.unshift(emailLog);
+    if (db.sent_emails.length > 50) db.sent_emails.pop();
+    
+    saveDb(db);
+    res.json({ ...emailLog, success, simulated });
+  } catch (error) {
+    res.status(500).json({ error: "System failure in email module" });
   }
+});
+
+app.patch("/api/emails/:id", (req, res) => {
+  const db = getDb();
+  const index = db.sent_emails.findIndex((e: any) => e.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: "Email log not found" });
+  
+  db.sent_emails[index] = { ...db.sent_emails[index], ...req.body };
+  saveDb(db);
+  res.json(db.sent_emails[index]);
 });
 
 // --- Receiving API ---
@@ -702,7 +728,7 @@ app.post("/api/notifications/sms", async (req, res) => {
   if (process.env.MAIL_USER && process.env.MAIL_PASS) {
     try {
       const isLikelyEmail = to && to.includes('@');
-      await transporter.sendMail({
+      await getTransporter().sendMail({
         from: `"KDRU WMS" <${process.env.MAIL_USER}>`,
         to: isLikelyEmail ? to : process.env.MAIL_USER, 
         subject: isLikelyEmail ? `WMS Notification` : `SMS Notification Forward: ${to}`,
@@ -938,7 +964,15 @@ app.delete("/api/departments/:id", (req, res) => {
 
 app.get("/api/personnel", (req, res) => {
   const db = getDb();
-  res.json(db.personnel || []);
+  const allocations = db.allocations || [];
+  
+  // Calculate dynamic itemsCount for each person
+  const personnelWithCounts = (db.personnel || []).map((p: any) => {
+    const pCount = allocations.filter((a: any) => a.personId === p.id).reduce((sum: number, a: any) => sum + (Number(a.quantity) || 0), 0);
+    return { ...p, itemsCount: pCount };
+  });
+  
+  res.json(personnelWithCounts);
 });
 
 app.post("/api/personnel", (req, res) => {
@@ -1104,100 +1138,6 @@ app.delete("/api/notifications", (req, res) => {
   res.json({ success: true });
 });
 
-// --- Traceability (Faculties & Personnel) API ---
-app.get("/api/faculties", (req, res) => {
-  const db = getDb();
-  res.json(db.faculties || []);
-});
-
-app.post("/api/faculties", (req, res) => {
-  const db = getDb();
-  if (!db.faculties) db.faculties = [];
-  const newFaculty = { ...req.body, count: req.body.count || 0 };
-  db.faculties.push(newFaculty);
-  saveDb(db);
-  res.json(newFaculty);
-});
-
-app.patch("/api/faculties/:id", (req, res) => {
-  const db = getDb();
-  const index = db.faculties.findIndex((f: any) => f.id === req.params.id || f.name === req.params.id);
-  if (index === -1) return res.status(404).json({ error: "Faculty not found" });
-  db.faculties[index] = { ...db.faculties[index], ...req.body };
-  saveDb(db);
-  res.json(db.faculties[index]);
-});
-
-app.delete("/api/faculties/:id", (req, res) => {
-  const db = getDb();
-  const index = db.faculties.findIndex((f: any) => f.id === req.params.id || f.name === req.params.id);
-  if (index === -1) return res.status(404).json({ error: "Faculty not found" });
-  
-  db.faculties[index].isDeleted = true;
-  db.trash.push({
-    ...db.faculties[index],
-    trashId: randomUUID(),
-    trashDate: new Date().toISOString(),
-    originalModule: 'faculties',
-    reason: "Administrative Deletion"
-  });
-  saveDb(db);
-  res.json({ success: true });
-});
-
-app.get("/api/personnel", (req, res) => {
-  const db = getDb();
-  res.json(db.personnel || []);
-});
-
-app.post("/api/personnel", (req, res) => {
-  const db = getDb();
-  if (!db.personnel) db.personnel = [];
-  const newPerson = { id: randomUUID(), ...req.body };
-  db.personnel.push(newPerson);
-  
-  // Update faculty count
-  if (db.faculties) {
-    const faculty = db.faculties.find((f: any) => f.name === newPerson.faculty);
-    if (faculty) faculty.count = (faculty.count || 0) + 1;
-  }
-  
-  saveDb(db);
-  res.json(newPerson);
-});
-
-app.patch("/api/personnel/:id", (req, res) => {
-  const db = getDb();
-  const index = db.personnel.findIndex((p: any) => p.id === req.params.id);
-  if (index === -1) return res.status(404).json({ error: "Personnel not found" });
-  db.personnel[index] = { ...db.personnel[index], ...req.body };
-  saveDb(db);
-  res.json(db.personnel[index]);
-});
-
-app.delete("/api/personnel/:id", (req, res) => {
-  const db = getDb();
-  const index = db.personnel.findIndex((p: any) => p.id === req.params.id);
-  if (index === -1) return res.status(404).json({ error: "Personnel not found" });
-  
-  db.personnel[index].isDeleted = true;
-  const person = db.personnel[index];
-  
-  // Update faculty count
-  const faculty = db.faculties.find((f: any) => f.id === person.facultyId || f.name === person.faculty);
-  if (faculty) faculty.count = Math.max(0, (faculty.count || 0) - 1);
-
-  db.trash.push({
-    ...person,
-    trashId: randomUUID(),
-    trashDate: new Date().toISOString(),
-    originalModule: 'personnel',
-    reason: "Staff Departure / Cleanup"
-  });
-  saveDb(db);
-  res.json({ success: true });
-});
-
 // --- Settings & User API ---
 app.get("/api/users", (req, res) => {
   const db = getDb();
@@ -1256,7 +1196,12 @@ app.get("/api/procurement/requests", (req, res) => {
 
 app.get("/api/procurement/tenders", (req, res) => {
   const db = getDb();
-  res.json(db.tenders.filter((t: any) => !t.isDeleted));
+  const { requestId } = req.query;
+  let list = db.tenders.filter((t: any) => !t.isDeleted);
+  if (requestId) {
+    list = list.filter((t: any) => t.requestId === requestId);
+  }
+  res.json(list);
 });
 
 app.post("/api/procurement/tenders", (req, res) => {
@@ -1278,6 +1223,7 @@ app.post("/api/procurement/tenders", (req, res) => {
     };
 
     request.status = "TENDER_CREATED";
+    request.progress = 50;
     db.tenders.push(newTender);
     saveDb(db);
     res.json(newTender);
@@ -1388,7 +1334,17 @@ app.post("/api/procurement/select-winner", (req, res) => {
   });
 
   const tender = db.tenders.find((t: any) => t.id === tenderId);
-  if (tender) tender.status = "WINNER_SELECTED";
+  if (tender) {
+    tender.status = "WINNER_SELECTED";
+    // Sync with request
+    if (tender.requestId) {
+      const relatedReq = db.requests.find((r: any) => r.id === tender.requestId);
+      if (relatedReq) {
+        relatedReq.status = "WINNER_SELECTED";
+        relatedReq.progress = 75; // 75% for comparison completion
+      }
+    }
+  }
 
   const winQ = db.quotations.find(q => q.id === quotationId);
   const newOrder = {
@@ -1410,6 +1366,31 @@ app.post("/api/procurement/select-winner", (req, res) => {
 app.get("/api/procurement/orders", (req, res) => {
   const db = getDb();
   res.json(db.orders.filter((o: any) => !o.isDeleted));
+});
+
+app.post("/api/procurement/orders", (req, res) => {
+  const db = getDb();
+  const order = {
+    id: randomUUID(),
+    createdAt: new Date().toISOString(),
+    isDeleted: false,
+    ...req.body
+  };
+  
+  if (!db.orders) db.orders = [];
+  db.orders.push(order);
+  
+  // Sync with request if requestId is provided
+  if (order.requestId) {
+    const relatedReq = db.requests.find((r: any) => r.id === order.requestId);
+    if (relatedReq) {
+      relatedReq.status = "Delivered"; // Or stay in a final state
+      relatedReq.progress = 100;
+    }
+  }
+
+  saveDb(db);
+  res.json(order);
 });
 
 app.patch("/api/procurement/orders/:id", (req, res) => {
@@ -1690,6 +1671,70 @@ function cleanupTrash() {
 
 // Run cleanup every hour
 setInterval(cleanupTrash, 60 * 60 * 1000);
+
+// --- Dashboard API ---
+app.get("/api/dashboard/stats", (req, res) => {
+  const db = getDb();
+  const items = db.items || [];
+  const requests = db.requests || [];
+  const tenders = db.tenders || [];
+  const lowStockCount = items.filter((i: any) => i.status === 'Low Stock' || i.quantity < 10).length;
+  const totalQty = items.reduce((sum: number, i: any) => sum + (Number(i.quantity) || 0), 0);
+
+  res.json({
+    totalStock: totalQty,
+    pendingRequests: requests.filter((r: any) => ['PENDING', 'Pending'].includes(r.status)).length,
+    lowStock: lowStockCount,
+    activeTenders: tenders.filter((t: any) => t.status === 'OPEN').length
+  });
+});
+
+app.get("/api/dashboard/activities", (req, res) => {
+  const db = getDb();
+  const activities: any[] = [];
+
+  // From Receivings
+  (db.receivings || []).slice(-5).forEach((r: any) => {
+    activities.push({
+      id: `rec-${r.id}`,
+      type: 'receiving',
+      title: `Received: ${r.item_name || r.item_code}`,
+      description: `Source: ${r.supplier} | Qty: ${r.quantity}`,
+      timestamp: r.date || r.createdAt || new Date().toISOString(),
+      icon: 'package'
+    });
+  });
+
+  // From Requests
+  (db.requests || []).slice(-5).forEach((r: any) => {
+    activities.push({
+      id: `req-${r.id}`,
+      type: 'request',
+      title: `New Request: ${r.itemName}`,
+      description: `Requester: ${r.requesterName} | Status: ${r.status}`,
+      timestamp: r.timestamp || r.createdAt || new Date().toISOString(),
+      icon: 'file-text'
+    });
+  });
+
+  // From Allocations
+  (db.allocations || []).slice(-5).forEach((a: any) => {
+    const person = (db.personnel || []).find((p: any) => p.id === a.personId);
+    activities.push({
+      id: `alloc-${a.id}`,
+      type: 'allocation',
+      title: `Asset Allocated`,
+      description: `To: ${person?.name || 'Someone'} | Qty: ${a.quantity}`,
+      timestamp: a.timestamp || a.date || new Date().toISOString(),
+      icon: 'user-plus'
+    });
+  });
+
+  // Sort by timestamp desc
+  activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  res.json(activities.slice(0, 10));
+});
 
 // --- Vite Integration ---
 async function startServer() {

@@ -24,6 +24,7 @@ import { Package, TrendingUp, AlertTriangle, FileCheck, ArrowRight } from 'lucid
 import { User, UserRole } from './types';
 import { RoleManagement } from './pages/RoleManagement';
 import SystemGuide from './pages/SystemGuide';
+import PurchaseOrderView from './components/procurement/PurchaseOrderView';
 import { Toaster } from 'sonner';
 import { cn } from './lib/utils';
 
@@ -39,6 +40,7 @@ function MainRoutes({ user, handleLogout }: { user: User, handleLogout: () => vo
         <Route path="/forecast" element={<ForecastModule />} />
         <Route path="/activities" element={<SystemActivities />} />
         <Route path="/procurement" element={<ProcurementManager />} />
+        <Route path="/procurement/order/:id" element={<PurchaseOrderView />} />
         <Route path="/reports" element={<ReportManager />} />
         <Route path="/trash" element={<TrashManager />} />
         <Route path="/settings" element={<SettingsManager />} />

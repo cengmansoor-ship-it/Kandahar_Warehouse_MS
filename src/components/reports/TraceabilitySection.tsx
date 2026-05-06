@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/src/lib/utils';
@@ -51,6 +51,15 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
     fetchBaseData();
   }, []);
 
+  useEffect(() => {
+    if (selectedPerson && personnel.length > 0) {
+      const updated = personnel.find(p => p.id === selectedPerson.id);
+      if (updated && (updated.itemsCount !== selectedPerson.itemsCount || updated.image !== selectedPerson.image)) {
+        setSelectedPerson(updated);
+      }
+    }
+  }, [personnel, selectedPerson]);
+
   const fetchBaseData = async () => {
     setLoading(true);
     try {
@@ -61,11 +70,11 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
         traceabilityService.getPersonnel(),
         inventoryService.getItems()
       ]);
-      setFaculties(facRes.data || []);
-      setAdminUnits(adminRes.data || []);
-      setDepartments(deptRes.data || []);
-      setPersonnel(perRes.data || []);
-      setItems(itemRes.data || []);
+      setFaculties(Array.isArray(facRes.data) ? facRes.data : []);
+      setAdminUnits(Array.isArray(adminRes.data) ? adminRes.data : []);
+      setDepartments(Array.isArray(deptRes.data) ? deptRes.data : []);
+      setPersonnel(Array.isArray(perRes.data) ? perRes.data : []);
+      setItems(Array.isArray(itemRes.data) ? itemRes.data : []);
     } catch (err) {
       toast.error("Failed to fetch traceability data");
     } finally {
@@ -174,19 +183,19 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
       XLSX.writeFile(wb, `${filename}.xlsx`);
       toast.success("Excel report generated successfully.");
     } else {
-      const doc = new jsPDF() as any;
+      const doc = new jsPDF();
       doc.setFontSize(18);
       doc.text(title, 14, 22);
       doc.setFontSize(10);
       doc.setTextColor(100);
       doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
       
-      doc.autoTable({
+      autoTable(doc, {
         startY: 35,
         head: [Object.keys(exportData[0])],
         body: exportData.map(obj => Object.values(obj)),
         theme: 'striped',
-        headStyles: { fillStyle: '#0F8F7F' }
+        headStyles: { fillColor: [15, 143, 127] }
       });
       doc.save(`${filename}.pdf`);
       toast.success("PDF report generated successfully.");
@@ -462,23 +471,46 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
   };
 
   const renderPersonnelDetails = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in zoom-in-95 duration-500">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in zoom-in-95 duration-500 no-print">
       <div className="lg:col-span-1 space-y-8">
         <div className="fintech-card p-10 bg-white text-center">
           <div className="relative w-40 h-40 mx-auto group">
             <div className="w-full h-full rounded-[40px] overflow-hidden border-8 border-slate-50 shadow-2xl relative">
               <img src={selectedPerson.image || `https://i.pravatar.cc/150?u=${selectedPerson.id}`} className="w-full h-full object-cover" />
             </div>
-            <button className="absolute -bottom-2 -right-2 w-12 h-12 bg-primary-teal text-white rounded-2xl flex items-center justify-center shadow-xl hover:scale-110 transition-transform">
+            <label className="absolute -bottom-2 -right-2 w-12 h-12 bg-primary-teal text-white rounded-2xl flex items-center justify-center shadow-xl hover:scale-110 transition-transform cursor-pointer">
               <Camera size={20} />
-            </button>
+              <input 
+                type="file" 
+                className="hidden" 
+                accept="image/*" 
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = async () => {
+                      const base64 = reader.result as string;
+                      try {
+                        await traceabilityService.updatePersonnel(selectedPerson.id, { image: base64 });
+                        setSelectedPerson({ ...selectedPerson, image: base64 });
+                        toast.success("Profile picture updated");
+                        fetchBaseData();
+                      } catch (err) {
+                        toast.error("Failed to update picture");
+                      }
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }} 
+              />
+            </label>
           </div>
           <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic mt-8">{selectedPerson.name}</h3>
           <p className="text-[10px] text-primary-teal font-black uppercase tracking-widest mt-2">{selectedPerson.jobTitle}</p>
           
           <button 
             onClick={() => setIsAllocationModalOpen(true)}
-            className="w-full mt-6 bg-slate-900 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all flex items-center justify-center gap-2 group"
+            className="w-full mt-6 bg-slate-900 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all flex items-center justify-center gap-2 group no-print"
           >
             <Plus size={16} className="group-hover:rotate-90 transition-transform" />
             Assign Item
@@ -535,12 +567,97 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
               )}
            </div>
         </div>
+
+        {/* Print-only Signatures */}
+        <div className="hidden print:grid grid-cols-2 gap-20 mt-20 pt-10 border-t border-slate-100">
+          <div className="text-start">
+            <div className="w-48 h-px bg-slate-900 mb-2" />
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-900 leading-none">Employee Signature</div>
+            <div className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-[0.2em]">{selectedPerson.name}</div>
+          </div>
+          <div className="text-end flex flex-col items-end">
+            <div className="w-48 h-px bg-slate-900 mb-2" />
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-900 leading-none">Director of Logistics</div>
+            <div className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-[0.2em]">Authorized Verification</div>
+          </div>
+        </div>
       </div>
     </div>
   );
 
-  return (
+   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Print-only University Header */}
+      <div className="hidden print:block mb-10 pb-6 border-b-2 border-slate-900 text-start">
+        <div className="flex justify-between items-end">
+          <div className="text-start">
+            <h1 className="text-3xl font-black uppercase tracking-tighter">Kandahar University</h1>
+            <p className="text-[12px] font-bold uppercase tracking-widest text-slate-500">Logistics & Asset Management Directorate</p>
+          </div>
+          <div className="text-end">
+            <div className="text-xl font-black uppercase italic">Personnel Liability Ledger</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Date Generated: {new Date().toLocaleDateString()}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Print-only Data for PERSONNEL_DETAILS */}
+      {level === 'PERSONNEL_DETAILS' && selectedPerson && (
+        <div className="hidden print:block space-y-12 mb-12">
+           <div className="flex justify-between items-start border-b-4 border-slate-900 pb-8">
+              <div className="flex gap-10 items-center">
+                 <div className="w-32 h-32 rounded-[32px] border-4 border-slate-900 overflow-hidden shadow-xl">
+                    <img src={selectedPerson.image || `https://i.pravatar.cc/150?u=${selectedPerson.id}`} className="w-full h-full object-cover" />
+                 </div>
+                 <div className="space-y-2">
+                    <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tight italic">{selectedPerson.name}</h2>
+                    <p className="text-sm font-black text-primary-teal uppercase tracking-[0.2em]">{selectedPerson.jobTitle}</p>
+                    <div className="flex items-center gap-6 mt-4">
+                       <div><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Employee ID</span><span className="text-lg font-black text-slate-900">{selectedPerson.idNumber || 'ID-KU-001'}</span></div>
+                       <div><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Work Email</span><span className="text-lg font-black text-slate-900 font-mono italic">{selectedPerson.email || 'staff@ku.edu'}</span></div>
+                    </div>
+                 </div>
+              </div>
+              <div className="bg-slate-900 text-white p-6 rounded-3xl text-center min-w-[200px]">
+                 <div className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Total Assets Held</div>
+                 <div className="text-5xl font-black">{selectedPerson.itemsCount || 0}</div>
+                 <div className="text-[8px] font-black uppercase tracking-[0.3em] mt-2 italic text-emerald-400">Verified Personnel Liability</div>
+              </div>
+           </div>
+
+           <div className="space-y-6">
+              <h3 className="text-xl font-black uppercase italic border-b-2 border-slate-900 pb-2">Complete Asset Allocation History</h3>
+              <table className="w-full border-collapse border-4 border-slate-900">
+                <thead>
+                  <tr className="bg-slate-900 text-white">
+                    <th className="p-4 text-start font-black uppercase tracking-widest text-[10px]">Date Recorded</th>
+                    <th className="p-4 text-start font-black uppercase tracking-widest text-[10px]">Item Description</th>
+                    <th className="p-4 text-center font-black uppercase tracking-widest text-[10px]">Qty</th>
+                    <th className="p-4 text-start font-black uppercase tracking-widest text-[10px]">Reference / Notes</th>
+                    <th className="p-4 text-center font-black uppercase tracking-widest text-[10px]">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="text-slate-900 font-bold">
+                  {personHistory.map((h, i) => (
+                    <tr key={i} className="border-b-2 border-slate-100">
+                      <td className="p-4 text-[11px] font-mono whitespace-nowrap">{new Date(h.timestamp).toLocaleString()}</td>
+                      <td className="p-4 text-sm font-black uppercase tracking-tight">{h.itemName}</td>
+                      <td className="p-4 text-center text-sm font-black">{h.quantity}</td>
+                      <td className="p-4 text-[10px] text-slate-500 italic max-w-xs">{h.notes || 'Official Allocation via System'}</td>
+                      <td className="p-4 text-center">
+                        <span className="text-[8px] font-black uppercase px-2 py-1 border border-emerald-500 text-emerald-600 rounded">Issued</span>
+                      </td>
+                    </tr>
+                  ))}
+                  {personHistory.length === 0 && (
+                    <tr><td colSpan={5} className="p-10 text-center text-slate-300 font-black uppercase text-sm tracking-[0.2em]">No history recorded in ledger</td></tr>
+                  )}
+                </tbody>
+              </table>
+           </div>
+        </div>
+      )}
+
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
         <div className="text-start flex-1">
           <div className="flex items-center gap-2 mb-2">
@@ -622,10 +739,44 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 no-print">
-         <StatWidget key="stat-units" label="Units Total" value={(totals.faculties + totals.adminUnits).toString()} icon={<Target size={18}/>} color="primary" />
-         <StatWidget key="stat-depts" label="Departments" value={departments.length.toString()} icon={<LayoutGrid size={18}/>} color="amber" />
-         <StatWidget key="stat-personnel" label="System Personnel" value={personnel.length.toString()} icon={<Users size={18}/>} color="slate" />
-         <StatWidget key="stat-assets" label="Allocated Assets" value={totals.items.toString()} icon={<Package size={18}/>} color="teal" />
+         <StatWidget 
+           key="stat-units" 
+           label="Units Total" 
+           value={(totals.faculties + totals.adminUnits).toString()} 
+           icon={<Target size={18}/>} 
+           color="primary" 
+           onClick={() => setLevel('ROOT')}
+         />
+         <StatWidget 
+           key="stat-depts" 
+           label="Departments" 
+           value={departments.length.toString()} 
+           icon={<LayoutGrid size={18}/>} 
+           color="amber" 
+           onClick={() => setLevel('FACULTIES_L1')}
+         />
+         <StatWidget 
+           key="stat-personnel" 
+           label="System Personnel" 
+           value={personnel.length.toString()} 
+           icon={<Users size={18}/>} 
+           color="slate" 
+           onClick={() => {
+             const input = document.querySelector('input[placeholder="Search Intelligence..."]') as HTMLInputElement;
+             if (input) {
+               input.focus();
+               toast.info("Filter personnel by name using the search intelligence bar");
+             }
+           }}
+         />
+         <StatWidget 
+           key="stat-assets" 
+           label="Allocated Assets" 
+           value={totals.items.toString()} 
+           icon={<Package size={18}/>} 
+           color="teal" 
+           onClick={() => navigate('/reports', { state: { tab: 'analytics' } })}
+         />
       </div>
 
       <main className="mt-8">
@@ -657,7 +808,11 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
           onSuccess={() => {
             setIsAllocationModalOpen(false);
             fetchBaseData();
-            if (selectedPerson) getPersonHistory(selectedPerson);
+            if (selectedPerson) {
+              getPersonHistory(selectedPerson);
+              // Update local selected person's itemsCount immediately if possible
+              // or let the next render handle it if we find the updated person in the list
+            }
             if (onRefresh) onRefresh();
           }}
         />
@@ -730,7 +885,7 @@ const ManualAllocationModal = ({ person, items, onClose, onSuccess }: any) => {
                   min="1"
                   required
                   value={formData.quantity}
-                  onChange={e => setFormData({...formData, quantity: parseInt(e.target.value)})}
+                  onChange={e => setFormData({...formData, quantity: parseInt(e.target.value) || 0})}
                   className="w-full bg-slate-50 border-none rounded-2xl p-4 text-xs font-bold focus:ring-4 focus:ring-primary-teal/5 outline-none text-black"
                 />
               </div>
@@ -779,7 +934,7 @@ const ManualAllocationModal = ({ person, items, onClose, onSuccess }: any) => {
   );
 };
 
-const StatWidget = ({ label, value, icon, color = "primary" }: any) => {
+const StatWidget = ({ label, value, icon, color = "primary", onClick }: any) => {
   const colors: any = {
     primary: "bg-blue-600 text-white shadow-blue-500/20",
     amber: "bg-amber-500 text-white shadow-amber-500/20",
@@ -787,7 +942,13 @@ const StatWidget = ({ label, value, icon, color = "primary" }: any) => {
     teal: "bg-primary-teal text-white shadow-primary-teal/20"
   };
   return (
-    <div className="fintech-card p-6 bg-white border border-slate-100 flex items-center gap-6 group hover:shadow-2xl transition-all">
+    <div 
+      onClick={onClick}
+      className={cn(
+        "fintech-card p-6 bg-white border border-slate-100 flex items-center gap-6 group hover:shadow-2xl transition-all",
+        onClick && "cursor-pointer active:scale-95"
+      )}
+    >
        <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform", colors[color])}>
          {icon}
        </div>
@@ -843,6 +1004,21 @@ const EntityModal = ({ type, item, parent, onClose, onSuccess }: any) => {
         else if (type === 'PERSONNEL') res = await traceabilityService.addPersonnel(dataToSubmit);
         
         createdPersonId = res?.data?.id;
+        
+        // Handle initial item assignment if checked
+        if (type === 'PERSONNEL' && assignItem && createdPersonId && allocationData.itemId) {
+          try {
+            await traceabilityService.manualAllocate({
+              ...allocationData,
+              personId: createdPersonId
+            });
+            toast.success("Initial item assigned");
+          } catch (allocErr) {
+            console.error("Initial allocation failed:", allocErr);
+            toast.error("Personnel created, but initial assignment failed");
+          }
+        }
+        
         toast.success("Created successfully");
       }
       onSuccess();
@@ -936,7 +1112,7 @@ const EntityModal = ({ type, item, parent, onClose, onSuccess }: any) => {
                         {items.map(i => <option key={i.id} value={i.id}>{i.name} ({i.item_code})</option>)}
                       </select>
                       <div className="grid grid-cols-2 gap-3">
-                        <input type="number" min="1" value={allocationData.quantity} onChange={e => setAllocationData({...allocationData, quantity: parseInt(e.target.value)})} className="w-full bg-white rounded-xl p-3 text-[10px] font-bold text-black border-none outline-none focus:ring-0" placeholder="Qty" />
+                        <input type="number" min="1" value={allocationData.quantity} onChange={e => setAllocationData({...allocationData, quantity: parseInt(e.target.value) || 0})} className="w-full bg-white rounded-xl p-3 text-[10px] font-bold text-black border-none outline-none focus:ring-0" placeholder="Qty" />
                         <input type="date" value={allocationData.date} onChange={e => setAllocationData({...allocationData, date: e.target.value})} className="w-full bg-white rounded-xl p-3 text-[10px] font-bold text-black border-none outline-none focus:ring-0" />
                       </div>
                    </div>

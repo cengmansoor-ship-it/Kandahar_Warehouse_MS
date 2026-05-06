@@ -42,7 +42,7 @@ export const RoleManagement = () => {
     try {
       setLoading(true);
       const res = await userService.getUsers();
-      setUsers(res.data || []);
+      setUsers(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       toast.error("Failed to load users");
     } finally {

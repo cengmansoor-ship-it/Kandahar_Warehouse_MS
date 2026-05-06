@@ -21,18 +21,27 @@ import { toast } from 'sonner';
 import { cn } from '@/src/lib/utils';
 import * as XLSX from 'xlsx';
 import api, { analyticsService } from '@/src/services/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { LabelList } from 'recharts';
 import { ReportFilterModal } from './ReportFilterModal';
 import { TraceabilitySection } from './TraceabilitySection';
 import { ForecastingSection } from './ForecastingSection';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const COLORS = ['#0F8F7F', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export const ReportManager = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('analytics');
+
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab);
+    }
+  }, [location.state]);
   const [loading, setLoading] = useState(true);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filterType, setFilterType] = useState<'excel' | 'pdf' | 'print'>('print');
@@ -138,6 +147,7 @@ export const ReportManager = () => {
       return;
     }
 
+    const currentSection = filters.section !== 'All' ? filters.section : activeTab;
     const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
     const uniLogo = localStorage.getItem('doc_logo_university') || "https://upload.wikimedia.org/wikipedia/en/2/23/Kandahar_University_Logo.png";
     const govLogo = localStorage.getItem('doc_logo_ministry') || "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Flag_of_the_Taliban.svg/1024px-Flag_of_the_Taliban.svg.png";
@@ -145,13 +155,13 @@ export const ReportManager = () => {
     printWindow.document.write(`
       <html dir="${i18n.dir()}">
         <head>
-          <title>KDRU Official Report</title>
+          <title>KDRU Official Report - ${currentSection.toUpperCase()}</title>
           ${styles}
           <style>
              @media print {
               .no-print { display: none !important; }
               body { background: white; padding: 0 !important; margin: 20mm; }
-              .fintech-card { border: 1px solid #e2e8f0; box-shadow: none !important; page-break-inside: avoid; }
+              .fintech-card { border: 1px solid #e2e8f0 !important; box-shadow: none !important; page-break-inside: avoid; }
             }
             body { font-family: 'Inter', sans-serif; background: #fff; }
             .header-table { width: 100%; border-bottom: 2px solid #000; margin-bottom: 30px; padding-bottom: 20px; }
@@ -168,7 +178,7 @@ export const ReportManager = () => {
                 <div style="font-size: 16px;">د افغانستان اسلامي امارت</div>
                 <div style="font-size: 14px;">د لوړو زده کړو وزارت</div>
                 <div style="font-size: 14px;">کندهار پوهنتون</div>
-                <div style="font-size: 18px; margin-top: 10px; color: #0F8F7F;">OFFICIAL ANALYTICS REPORT</div>
+                <div style="font-size: 18px; margin-top: 10px; color: #0F8F7F;">OFFICIAL ${currentSection.toUpperCase()} REPORT</div>
               </td>
               <td width="20%" style="text-align: right;"><img src="${govLogo}" class="logo" /></td>
             </tr>
@@ -177,14 +187,16 @@ export const ReportManager = () => {
           <div class="report-meta">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
               <div>FACULTY: ${filters.faculty}</div>
+              <div>DEPARTMENT: ${filters.department || 'All'}</div>
               <div>PERSONNEL: ${filters.person}</div>
               <div>RANGE: ${filters.fromDate} TO ${filters.toDate}</div>
+              <div>SECTION: ${currentSection.toUpperCase()}</div>
               <div>GENERATED: ${new Date().toLocaleString()}</div>
             </div>
           </div>
 
           <div id="print-content">
-            ${document.querySelector(`#tab-${activeTab}`)?.innerHTML || document.querySelector('main')?.innerHTML || 'No report content available'}
+            ${document.querySelector(`#tab-${currentSection}`)?.innerHTML || document.querySelector('main')?.innerHTML || 'No report content available'}
           </div>
 
           <script>
@@ -211,25 +223,50 @@ export const ReportManager = () => {
       handlePrint(filters);
     } else if (filterType === 'excel') {
       let dataToExport: any[] = [];
-      if (activeTab === 'needs') dataToExport = annualNeeds;
-      else if (activeTab === 'analytics') dataToExport = allocation;
-      else if (activeTab === 'forecasting') dataToExport = forecast;
-      else if (activeTab === 'traceability') {
+      if (activeTab === 'needs') {
+        dataToExport = annualNeeds.map(item => ({
+          'Item Name': item.name,
+          'Code': item.item_code,
+          'Stock': item.current_stock,
+          'Annual Need': item.estimated_annual_consumption,
+          'Gap': item.recommended_purchase
+        }));
+      } else if (activeTab === 'analytics') {
+        dataToExport = allocation.map(a => ({
+          'Faculty': a.faculty,
+          'Total Value': a.total_value,
+          'Items': a.items_count
+        }));
+      } else if (activeTab === 'forecasting') {
+        dataToExport = forecast.map(f => ({
+          'Month': f.month || f.period,
+          'Projected Demand': f.projected,
+          'Actual Consumption': f.actual || 0
+        }));
+      } else if (activeTab === 'traceability') {
         dataToExport = personnel.map(p => ({
-          Name: p.name,
-          Faculty: p.faculty,
-          Department: p.department || 'N/A',
-          Assigned_Item: p.item,
-          Last_Request: p.date,
-          Status: p.exists ? 'Active' : 'Missing'
+          'Name': p.name,
+          'Faculty': p.faculty,
+          'Department': p.department || 'N/A',
+          'Assigned Item': p.item,
+          'Assignment Date': p.date,
+          'Status': p.exists ? 'Active' : 'Missing'
         }));
       }
 
       // Apply faculty filter if not "All"
       if (filters.faculty !== 'All') {
         dataToExport = dataToExport.filter(item => 
-          (item.faculty && item.faculty.includes(filters.faculty)) || 
-          (item.Faculty && item.Faculty.includes(filters.faculty))
+          (item.faculty && String(item.faculty).includes(filters.faculty)) || 
+          (item.Faculty && String(item.Faculty).includes(filters.faculty))
+        );
+      }
+
+      // Apply department filter
+      if (filters.department && filters.department !== 'All') {
+        dataToExport = dataToExport.filter(item => 
+          (item.department && String(item.department).includes(filters.department)) || 
+          (item.Department && String(item.Department).includes(filters.department))
         );
       }
 
@@ -250,61 +287,85 @@ export const ReportManager = () => {
       XLSX.utils.book_append_sheet(wb, ws, "Report");
       XLSX.writeFile(wb, `KDRU_WMS_Report_${activeTab}_${new Date().getTime()}.xlsx`);
     } else if (filterType === 'pdf') {
-      import('jspdf').then(({ default: jsPDF }) => {
-        import('jspdf-autotable').then(() => {
-          const doc = new jsPDF('landscape') as any;
-          const uniLogo = localStorage.getItem('doc_logo_university') || "https://upload.wikimedia.org/wikipedia/en/2/23/Kandahar_University_Logo.png";
-          
-          doc.setFontSize(22);
-          doc.setTextColor(15, 143, 127);
-          doc.text(`Kandahar University WMS Official Report`, 14, 20);
-          
-          doc.setFontSize(10);
-          doc.setTextColor(100);
-          doc.text(`Report Type: ${activeTab.toUpperCase()}`, 14, 30);
-          doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 35);
-          doc.text(`Faculty Filter: ${filters.faculty || 'All'}`, 14, 40);
-          
-          let dataToExport: any[] = [];
-          if (activeTab === 'needs') dataToExport = annualNeeds;
-          else if (activeTab === 'analytics') dataToExport = allocation;
-          else if (activeTab === 'forecasting') dataToExport = forecast;
-          else if (activeTab === 'traceability') {
-            dataToExport = personnel.map(p => ({
-              Name: p.name,
-              Faculty: p.faculty,
-              Department: p.department || 'N/A',
-              Item: p.item,
-              Date: p.date
-            }));
-          }
+      try {
+        const doc = new jsPDF('landscape');
+        const uniLogo = localStorage.getItem('doc_logo_university') || "https://upload.wikimedia.org/wikipedia/en/2/23/Kandahar_University_Logo.png";
+        
+        doc.setFontSize(22);
+        doc.setTextColor(15, 143, 127);
+        doc.text(`Kandahar University WMS Official Report`, 14, 20);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Report Type: ${activeTab.toUpperCase()}`, 14, 30);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 35);
+        doc.text(`Faculty: ${filters.faculty || 'All'} | Dept: ${filters.department || 'All'}`, 14, 40);
+        
+        let dataToExport: any[] = [];
+        if (activeTab === 'needs') {
+          dataToExport = annualNeeds.map(item => ({
+            'Item Detail': item.name,
+            'Stock': item.current_stock,
+            'Target': item.estimated_annual_consumption,
+            'Gap': item.recommended_purchase
+          }));
+        } else if (activeTab === 'analytics') {
+          dataToExport = allocation.map(a => ({
+            'Faculty': a.faculty,
+            'Value (AFN)': a.total_value,
+            'Items': a.items_count
+          }));
+        } else if (activeTab === 'forecasting') {
+          dataToExport = forecast.map(f => ({
+            'Month': f.month,
+            'Projected': f.projected,
+            'Actual': f.actual || 0
+          }));
+        } else if (activeTab === 'traceability') {
+          dataToExport = personnel.map(p => ({
+            'Name': p.name,
+            'Faculty': p.faculty,
+            'Department': p.department || 'N/A',
+            'Item': p.item,
+            'Date': p.date
+          }));
+        }
 
-          // Apply faculty filter
-          if (filters.faculty !== 'All') {
-            dataToExport = dataToExport.filter(item => 
-              (item.faculty && item.faculty.includes(filters.faculty)) || 
-              (item.Faculty && item.Faculty.includes(filters.faculty))
-            );
-          }
-          
-          if (dataToExport.length > 0) {
-            const headers = Object.keys(dataToExport[0]);
-            const rows = dataToExport.map((item: any) => Object.values(item));
-            doc.autoTable({
-              head: [headers],
-              body: rows,
-              startY: 50,
-              theme: 'grid',
-              headStyles: { fillColor: [15, 143, 127], textColor: [255, 255, 255], fontStyle: 'bold' },
-              alternateRowStyles: { fillColor: [245, 247, 250] },
-              margin: { top: 50 }
-            });
-          } else {
-            doc.text("No data found for the selected criteria.", 14, 60);
-          }
-          doc.save(`KDRU_Report_${activeTab}_${new Date().getTime()}.pdf`);
-        });
-      });
+        // Apply faculty filter
+        if (filters.faculty !== 'All') {
+          dataToExport = dataToExport.filter(item => 
+            (item.faculty && String(item.faculty).includes(filters.faculty)) || 
+            (item.Faculty && String(item.Faculty).includes(filters.faculty))
+          );
+        }
+
+        // Apply department filter
+        if (filters.department && filters.department !== 'All') {
+          dataToExport = dataToExport.filter(item => 
+            (item.department && String(item.department).includes(filters.department)) || 
+            (item.Department && String(item.Department).includes(filters.department))
+          );
+        }
+        
+        if (dataToExport.length > 0) {
+          const headers = Object.keys(dataToExport[0]);
+          const rows = dataToExport.map((item: any) => Object.values(item));
+          autoTable(doc, {
+            head: [headers],
+            body: rows,
+            startY: 50,
+            theme: 'grid',
+            headStyles: { fillColor: [15, 143, 127], textColor: [255, 255, 255], fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [245, 247, 250] },
+            margin: { top: 50 }
+          });
+        } else {
+          doc.text("No data found for the selected criteria.", 14, 60);
+        }
+        doc.save(`KDRU_Report_${activeTab}_${new Date().getTime()}.pdf`);
+      } catch (err) {
+        toast.error("Failed to generate PDF");
+      }
     }
   };
 

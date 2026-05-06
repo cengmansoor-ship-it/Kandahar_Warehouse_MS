@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Clock, User, FileText, ChevronRight, Activity } from 'lucide-react';
+import { Clock, User, FileText, ChevronRight, Activity, Trash2, Download } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { ConfirmModal } from '../ui/ConfirmModal';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface ActivityLog {
   id: string;
@@ -18,6 +21,7 @@ export const SystemActivities = () => {
   const isRtl = i18n.dir() === 'rtl';
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     fetch('/api/activities')
@@ -63,16 +67,55 @@ export const SystemActivities = () => {
     }
   };
 
-  const handleClearHistory = async () => {
-    if (!confirm("Are you sure you want to clear the entire audit history? This cannot be undone.")) return;
-    
+  const handleDownloadPDF = () => {
     try {
-      // In a real app we'd call an API
-      // await api.delete('/activities');
+      const doc = new jsPDF();
+      
+      doc.setFontSize(20);
+      doc.setTextColor(15, 143, 127);
+      doc.text("Kandahar University WMS", 14, 20);
+      doc.setFontSize(14);
+      doc.setTextColor(50);
+      doc.text("Full System Audit Trail", 14, 30);
+      
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 40);
+      
+      const tableData = activities.map(a => [
+        new Date(a.timestamp).toLocaleString(),
+        a.user,
+        a.action,
+        a.target,
+        a.type
+      ]);
+      
+      autoTable(doc, {
+        head: [['Timestamp', 'User', 'Action', 'Target', 'Type']],
+        body: tableData,
+        startY: 50,
+        theme: 'grid',
+        headStyles: { fillColor: [15, 143, 127] }
+      });
+      
+      doc.save(`KDRU_Audit_Full_${new Date().getTime()}.pdf`);
+      toast.success("Full historical report downloaded as PDF");
+    } catch (err) {
+      toast.error("Failed to generate PDF");
+    }
+  };
+
+  const handleClearHistory = async () => {
+    setShowConfirmModal(true);
+  };
+
+  const confirmClear = async () => {
+    try {
       setActivities([]);
       toast.success("Audit history cleared successfully");
     } catch (err) {
       toast.error("Failed to clear history");
+    } finally {
+      setShowConfirmModal(false);
     }
   };
 
@@ -149,9 +192,23 @@ export const SystemActivities = () => {
         </div>
         
         <div className="p-8 bg-slate-50/30 border-t border-slate-50 flex justify-center">
-           <button className="text-[10px] font-black text-primary-teal uppercase tracking-[0.2em] hover:underline">Download full historical report (PDF) →</button>
+           <button 
+             onClick={handleDownloadPDF}
+             className="text-[10px] font-black text-primary-teal uppercase tracking-[0.2em] hover:underline flex items-center gap-2"
+           >
+             <Download size={14} /> Download full historical report (PDF) →
+           </button>
         </div>
       </div>
+      
+      <ConfirmModal 
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={confirmClear}
+        title="Clear Audit History"
+        message="Are you sure you want to clear the entire audit history? This action is permanent and cannot be undone."
+        variant="danger"
+      />
     </div>
   );
 };

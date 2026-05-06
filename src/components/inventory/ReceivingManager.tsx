@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
+import { ConfirmModal } from '../ui/ConfirmModal';
 import { 
   Plus, 
   Search, 
@@ -110,7 +111,7 @@ export const ReceivingManager = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredReceivings = receivings.filter(rec => {
+  const filteredReceivings = (Array.isArray(receivings) ? receivings : []).filter(rec => {
     const searchStr = searchTerm.toLowerCase();
     return (
       rec.item_name?.toLowerCase().includes(searchStr) ||
@@ -199,19 +200,21 @@ export const ReceivingManager = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!id) {
-      toast.error("Invalid record ID");
-      return;
-    }
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
 
-    const confirmed = window.confirm(t('confirm_delete_record') || "Are you sure you want to delete this record?");
-    if (!confirmed) return;
+  const handleDeleteClick = (id: string) => {
+    setRecordToDelete(id);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!recordToDelete) return;
     
     try {
-      setLoadingId(id);
-      await api.delete(`/v1/receiving/${id}`);
-      setReceivings(prev => prev.filter(r => r.id !== id && r._id !== id));
+      setLoadingId(recordToDelete);
+      await api.delete(`/v1/receiving/${recordToDelete}`);
+      setReceivings(prev => prev.filter(r => r.id !== recordToDelete && r._id !== recordToDelete));
       toast.success(t('record_deleted') || "Record deleted successfully");
       fetchData();
     } catch (error: any) {
@@ -219,6 +222,8 @@ export const ReceivingManager = () => {
       toast.error(errorMsg);
     } finally {
       setLoadingId(null);
+      setRecordToDelete(null);
+      setShowConfirmModal(false);
     }
   };
 
@@ -331,12 +336,6 @@ export const ReceivingManager = () => {
           <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-4 uppercase italic leading-none">
             {t('receiving')}
           </h2>
-          <div className="flex items-center gap-3">
-            <div className="h-0.5 w-8 bg-primary-teal/30 rounded-full" />
-            <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest leading-none text-start">
-              {t('inbound_logistics')}
-            </p>
-          </div>
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
@@ -511,7 +510,7 @@ export const ReceivingManager = () => {
                               e.preventDefault();
                               e.stopPropagation();
                               const targetId = rec.id || rec._id;
-                              handleDelete(targetId);
+                              handleDeleteClick(targetId);
                             }} 
                             className={cn(
                               "p-3 rounded-xl transition-all pointer-events-auto shadow-sm relative z-10",
@@ -588,7 +587,7 @@ export const ReceivingManager = () => {
                           e.stopPropagation();
                           const targetId = rec.id || rec._id;
                           console.log("CRITICAL DELETE CLICK (Grid):", targetId);
-                          handleDelete(targetId);
+                          handleDeleteClick(targetId);
                         }} 
                         className={cn(
                           "p-3 rounded-xl transition-all pointer-events-auto border border-slate-100 shadow-sm relative z-0",
@@ -795,6 +794,14 @@ export const ReceivingManager = () => {
           </div>
         </div>
       )}
+      <ConfirmModal 
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={handleConfirmDelete}
+        title={t('confirm_delete') || 'Confirm Delete'}
+        message={t('confirm_delete_record_msg') || 'Are you sure you want to permanently remove this record? This action cannot be undone.'}
+        variant="danger"
+      />
     </div>
   );
 };

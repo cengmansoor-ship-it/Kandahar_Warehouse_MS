@@ -33,8 +33,16 @@ export const LoginManager = ({ onLogin }: { onLogin: (userData?: any) => void })
     e.preventDefault();
     
     if (isForgotPassword) {
-      toast.success(`${t('reset_link_sent')} ${email}`);
-      setIsForgotPassword(false);
+      try {
+        setIsLoading(true);
+        await authService.forgotPassword(email);
+        toast.success(t('reset_link_sent') || "Recovery email sent successfully");
+        setIsForgotPassword(false);
+      } catch (error: any) {
+        toast.error(error.response?.data?.error || "Failed to send reset link");
+      } finally {
+        setIsLoading(false);
+      }
       return;
     }
     if (!email || (!isForgotPassword && !password)) {

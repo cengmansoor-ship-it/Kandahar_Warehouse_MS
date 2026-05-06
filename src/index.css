@@ -5,9 +5,21 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --radius-4xl: 2rem;
-  --color-primary-teal: #0F8F7F;
+  --color-primary-teal: var(--primary-teal, #0F8F7F);
   --color-primary-light: #26A69A;
   --color-surface: #F1F4F8;
+}
+
+:root {
+  --primary-teal: #0F8F7F;
+}
+
+.dark {
+  --primary-teal: #0b0e11;
+}
+
+.comfort-mode {
+  --primary-teal: #efe7d5;
 }
 
 @layer base {
@@ -66,6 +78,110 @@
 
 .fintech-card {
   @apply bg-white rounded-4xl border border-slate-100 shadow-xl shadow-slate-200/40 transition-all hover:shadow-2xl hover:shadow-slate-200/60 overflow-hidden;
+}
+
+/* Theme Support */
+.dark body {
+  @apply bg-[#0b0e11] text-[#e3e6e8];
+}
+
+.dark .fintech-card {
+  @apply bg-[#15191c] border-slate-800/50 shadow-none hover:bg-[#1c2226];
+}
+
+.dark header, .dark .sidebar {
+  @apply bg-[#0b0e11] border-slate-800;
+}
+
+.comfort-mode header, .comfort-mode .sidebar {
+  @apply bg-[#e6dbbf] border-[#dfd4c0];
+}
+
+.comfort-mode .sidebar .text-white,
+.comfort-mode .sidebar .text-white\/70,
+.comfort-mode .sidebar .text-white\/60 {
+  @apply !text-[#433422] !border-[#dfd4c0];
+}
+
+.comfort-mode .sidebar .bg-white\/10,
+.comfort-mode .sidebar .bg-white\/20 {
+  @apply !bg-[#dfd4c0] !text-[#433422];
+}
+
+.comfort-mode .sidebar .shadow-2xl {
+  @apply !shadow-none !border-[#dfd4c0];
+}
+
+.dark .sidebar .text-white\/70 {
+  @apply !text-slate-400;
+}
+
+.dark .sidebar .bg-white\/10,
+.dark .sidebar .bg-white\/20 {
+  @apply !bg-white/5 !text-white;
+}
+
+.comfort-mode .sidebar::-webkit-scrollbar-track {
+  background: #e6dbbf;
+}
+
+.comfort-mode .sidebar::-webkit-scrollbar-thumb {
+  background: #dfd4c0;
+  border: 1px solid #e6dbbf;
+}
+
+.comfort-mode .sidebar,
+.comfort-mode .custom-scrollbar {
+  scrollbar-color: #dfd4c0 #e6dbbf;
+}
+
+.dark input, .dark select, .dark textarea {
+  @apply bg-[#1c2226] border-slate-700 text-white;
+}
+
+.dark .bg-slate-50 {
+  @apply bg-slate-900/50;
+}
+
+.dark .bg-white {
+  @apply bg-[#15191c];
+}
+
+.dark .text-slate-900 {
+  @apply text-white;
+}
+
+.dark .text-slate-600 {
+  @apply text-slate-300;
+}
+
+.dark .border-slate-100 {
+  @apply border-slate-800;
+}
+
+/* Comfort Mode (Eye Shield) */
+.comfort-mode body {
+  @apply bg-[#efe7d5] text-[#433422];
+}
+
+.comfort-mode .fintech-card {
+  @apply bg-[#f4ece0] border-[#dfd4c0] shadow-none;
+}
+
+.comfort-mode header {
+  @apply bg-[#efe7d5] border-[#dfd4c0];
+}
+
+.comfort-mode .bg-slate-50, .comfort-mode .bg-slate-100 {
+  @apply bg-[#e6dbbf];
+}
+
+.comfort-mode .text-slate-900 {
+  @apply text-[#433422];
+}
+
+.comfort-mode .text-slate-600 {
+  @apply text-[#5d4a36];
 }
 
 .glass-pill {

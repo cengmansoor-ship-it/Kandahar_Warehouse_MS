@@ -14,12 +14,15 @@ import {
   Tag,
   Package,
   List as ListIcon,
-  Trash2
+  Trash2,
+  Printer
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { toast } from 'sonner';
 import { ItemHierarchyModal } from '../inventory/ItemHierarchyModal';
+import { ConfirmModal } from '../ui/ConfirmModal';
 import api from '@/src/services/api';
 
 export const RequestManager = () => {
@@ -43,8 +46,8 @@ export const RequestManager = () => {
         api.get('/faculties'),
         api.get('/departments')
       ]);
-      setFaculties(facRes.data || []);
-      setDepartments(deptRes.data || []);
+      setFaculties(Array.isArray(facRes.data) ? facRes.data : []);
+      setDepartments(Array.isArray(deptRes.data) ? deptRes.data : []);
     } catch (error) {
       console.error("Failed to load support data", error);
     }
@@ -54,7 +57,7 @@ export const RequestManager = () => {
     try {
       setLoading(true);
       const res = await api.get('/requests'); // Direct call
-      setRequests(res.data || []);
+      setRequests(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       toast.error("Failed to load requests");
       console.error(error);
@@ -117,7 +120,28 @@ export const RequestManager = () => {
         items: [{ ...itemData, quantity: 1 }],
         approvalChain: approvers.filter(a => a.name.trim() !== '')
       };
-      await api.post('/requests', payload);
+      
+      const res = await api.post('/requests', payload);
+
+      // Send Confirmation Email
+      try {
+        const emailRes = await api.post('/send-email', {
+          to: requesterInfo.email,
+          subject: 'Request Received: Kandahar University Logistics',
+          text: `Hello ${requesterInfo.name},\nYour request for ${itemData.name} has been received and is currently under review.\nTracking ID: ${res.data.trackingId}\nThank you!`,
+          requestId: res.data.id,
+          type: 'confirmation'
+        });
+        
+        if (emailRes.data.simulated) {
+          toast.info("Notification Simulated", {
+            description: "To send real Gmail notifications, configure MAIL_USER and MAIL_PASS in Settings."
+          });
+        }
+      } catch (e) {
+        console.warn("Notification email failed to send", e);
+      }
+
       toast.success(`Request for ${itemData.name} submitted successfully`);
       setShowRequestModal(false);
       fetchRequests();
@@ -126,6 +150,12 @@ export const RequestManager = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const [showPrintOptions, setShowPrintOptions] = useState(false);
+
+  const handlePrintAll = () => {
+    window.print();
   };
 
   return (
@@ -344,13 +374,22 @@ export const RequestManager = () => {
             {t('requests_description')}
           </p>
         </div>
-        <button 
-          onClick={() => setShowRequestModal(true)}
-          className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary-teal text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-xl shadow-primary-teal/20"
-        >
-          <Plus size={18} />
-          {t('create_official_request')}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button 
+            onClick={handlePrintAll}
+            className="w-full sm:w-auto flex items-center justify-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10"
+          >
+            <Printer size={18} />
+            Print All
+          </button>
+          <button 
+            onClick={() => setShowRequestModal(true)}
+            className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary-teal text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-xl shadow-primary-teal/20"
+          >
+            <Plus size={18} />
+            {t('create_official_request')}
+          </button>
+        </div>
       </div>
 
       <div className="fintech-card p-4 lg:p-6 bg-white flex flex-col md:flex-row items-center gap-4 lg:gap-6">
@@ -393,6 +432,8 @@ import { smsService } from '@/src/services/smsService';
 
 const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ request, onUpdate }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   
   const stages = [
     { name: 'Request', threshold: 0, icon: FileText },
@@ -443,10 +484,22 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
               faculty: request.requesterFaculty,
               quantity: item.quantity || 1
             });
+            
+            // Send Ready for Pickup Email
+            if (request.requesterEmail) {
+                await api.post('/send-email', {
+                    to: request.requesterEmail,
+                    subject: 'Action Required: Item Ready for Pickup',
+                    text: `Hello ${request.requester},\nGood news! Your request for "${item.name}" has been processed and is ready for pickup at the logistics center.\n\nTracking ID: ${request.trackingId}\n\nPlease bring your official ID when collecting.`,
+                    requestId: request.id,
+                    type: 'ready'
+                });
+            }
+
             toast.success(`Inventory updated: ${item.name} stock reduced.`);
           } catch (distError) {
-            console.error("Stock reduction failed:", distError);
-            toast.error("Status updated but failed to adjust inventory levels.");
+            console.error("Post-approval workflow failure:", distError);
+            toast.error("Status updated but failed downstream processes.");
           }
         }
       }
@@ -463,18 +516,122 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to move this request to trash?")) return;
+    setShowConfirmModal(true);
+  };
+
+  const confirmDelete = async () => {
     try {
       await api.delete(`/requests/${request.id}`);
       toast.success("Request moved to trash");
       onUpdate();
     } catch (error) {
       toast.error("Failed to delete request");
+    } finally {
+      setShowConfirmModal(false);
     }
   };
 
+  const handlePrintRequest = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
+    
+    printWindow.document.write(`
+      <html dir="${t('lang_direction')}">
+        <head>
+          <title>Request - ${request.trackingId}</title>
+          ${styles}
+          <style>
+            @page { size: A4; margin: 20mm; }
+            body { padding: 40px; font-family: sans-serif; background: white !important; }
+            .no-print { display: none !important; }
+          </style>
+        </head>
+        <body class="bg-white">
+          <div class="max-w-4xl mx-auto p-10 border-4 border-slate-900 rounded-[40px] bg-white">
+            <div class="flex justify-between items-start mb-10 border-b-4 border-slate-900 pb-8">
+              <div class="text-start">
+                <h1 class="text-4xl font-black italic uppercase text-slate-900">Official Request</h1>
+                <p class="text-xs font-black uppercase tracking-widest text-slate-400 mt-2">Kandahar University Logistics System</p>
+              </div>
+              <div class="text-end">
+                <div class="bg-black text-white px-4 py-1 rounded-lg font-mono text-sm font-black tracking-widest mb-2">${request.trackingId}</div>
+                <div class="text-[10px] font-black uppercase text-slate-400">Date: ${new Date(request.createdAt).toLocaleDateString()}</div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-12 mb-12">
+               <div class="space-y-4">
+                  <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-primary-teal border-b border-primary-teal/20 pb-2">Requester Details</h3>
+                  <div class="space-y-2">
+                    <div class="text-xl font-black text-slate-900">${request.requester}</div>
+                    <div class="text-xs font-bold text-slate-500">${request.requesterEmail}</div>
+                    <div class="text-[10px] font-black uppercase text-slate-400 mt-2">${request.requesterFaculty} / ${request.requesterDepartment || 'N/A'}</div>
+                    <div class="text-[10px] font-black uppercase text-slate-400">${request.requesterRole}</div>
+                  </div>
+               </div>
+               <div class="space-y-4">
+                  <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-primary-teal border-b border-primary-teal/20 pb-2">Request Status</h3>
+                  <div class="space-y-2">
+                    <div class="text-2xl font-black text-slate-900">${request.status}</div>
+                    <div class="text-xs font-bold text-slate-500">Progress: ${request.progress}%</div>
+                  </div>
+               </div>
+            </div>
+
+            <div class="mb-12">
+               <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900 mb-4 bg-slate-50 p-3 rounded-xl">Requested Items</h3>
+               <table class="w-full text-start border-collapse">
+                 <thead>
+                   <tr class="border-b-2 border-slate-900">
+                     <th class="py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Description</th>
+                     <th class="py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Qty</th>
+                     <th class="py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Code</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   ${(request.items || []).map((item: any) => `
+                     <tr class="border-b border-slate-100">
+                       <td class="py-4 font-black text-slate-900 text-sm">${item.name}</td>
+                       <td class="py-4 font-black text-slate-900 text-sm text-center">${item.quantity || 1}</td>
+                       <td class="py-4 font-mono text-[10px] text-slate-400 text-center">${item.item_code || '---'}</td>
+                     </tr>
+                   `).join('')}
+                 </tbody>
+               </table>
+            </div>
+
+            ${request.approvalChain && request.approvalChain.length > 0 ? `
+              <div class="mt-12 pt-8 border-t-2 border-slate-100">
+                <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900 mb-8">Approval Chain Verification</h3>
+                <div class="grid grid-cols-3 gap-8">
+                  ${request.approvalChain.map((a: any) => `
+                    <div class="flex flex-col items-center">
+                      <div class="w-full h-24 border-2 border-slate-100 rounded-2xl mb-3 flex items-center justify-center">
+                        ${a.approved ? '<span class="text-[8px] font-black uppercase text-emerald-500 border border-emerald-500 px-2 py-1 rounded">Electronically Signed</span>' : '<span class="text-[8px] font-black uppercase text-slate-300">Pending Signature</span>'}
+                      </div>
+                      <div class="text-[10px] font-black text-slate-900 uppercase">${a.name}</div>
+                      <div class="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">${a.role}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            <div class="mt-20 pt-8 border-t border-slate-100 text-center">
+              <p class="text-[8px] font-black uppercase tracking-[0.4em] text-slate-300 italic">Kandahar University Logistics Hub • Digital Verification System</p>
+            </div>
+          </div>
+          <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const config = statusConfig[request.status] || statusConfig['Pending'];
-  const currentProgress = request.progress || 0;
+  const currentProgress = Number(request.progress) || 0;
 
   return (
     <div className="fintech-card p-8 bg-white group hover:shadow-2xl transition-all border border-slate-100">
@@ -519,11 +676,11 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
                     <div key={i} className="flex items-center gap-2 group/appr">
                       <button 
                         onClick={async () => {
-                          const newChain = [...request.approvalChain];
+                          const newChain = Array.isArray(request.approvalChain) ? [...request.approvalChain] : [];
                           newChain[i].approved = !newChain[i].approved;
                           
                           // Calculate new progress based on approvals
-                          const approvedCount = newChain.filter(a => a.approved).length;
+                          const approvedCount = newChain.filter((a: any) => a.approved).length;
                           const baseProgress = 0; // Request created
                           const approvalMax = 25;
                           const newProgress = Math.min(approvalMax, Math.round((approvedCount / newChain.length) * approvalMax));
@@ -627,18 +784,42 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
                </>
              )}
              <button 
+               onClick={handlePrintRequest}
+               className="w-14 h-14 bg-white text-slate-900 rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm flex items-center justify-center border border-slate-900"
+               title="Print Report"
+             >
+               <Printer size={20} />
+             </button>
+             <button 
                onClick={handleDelete}
                className="w-14 h-14 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all shadow-sm flex items-center justify-center border border-rose-100"
                title="Move to Trash"
              >
                <Trash2 size={20} />
              </button>
-             <button className={cn("w-14 h-14 bg-slate-50 text-slate-300 rounded-2xl hover:bg-primary-teal hover:text-white transition-all shadow-sm flex items-center justify-center border border-slate-100 group-hover:border-primary-teal", t('lang_direction') === 'rtl' && "rotate-180")}>
+             <button 
+               onClick={() => {
+                 let tab = 'tender';
+                 if (currentProgress >= 75) tab = 'comparison';
+                 if (currentProgress >= 100) tab = 'po';
+                 navigate('/procurement', { state: { tab, requestId: request.id } });
+               }}
+               className={cn("w-14 h-14 bg-slate-50 text-slate-300 rounded-2xl hover:bg-primary-teal hover:text-white transition-all shadow-sm flex items-center justify-center border border-slate-100 group-hover:border-primary-teal", t('lang_direction') === 'rtl' && "rotate-180")}
+             >
                <ChevronRight size={24} />
              </button>
           </div>
         </div>
       </div>
+      
+      <ConfirmModal 
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={confirmDelete}
+        title="Move to Trash"
+        message="Are you sure you want to move this request to the trash? It can be restored later."
+        variant="warning"
+      />
     </div>
   );
 }

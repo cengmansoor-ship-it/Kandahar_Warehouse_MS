@@ -8,7 +8,7 @@ import {
   ClipboardList
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { TenderForm } from './TenderForm';
 import { ComparisonForm } from './ComparisonForm';
@@ -17,7 +17,17 @@ import { PurchaseOrderForm } from './PurchaseOrderForm';
 export const ProcurementManager: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'tender' | 'comparison' | 'po'>('overview');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<'overview' | 'tender' | 'comparison' | 'po'>(() => {
+    if (location.state?.tab) return location.state.tab;
+    return 'overview';
+  });
+
+  React.useEffect(() => {
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab);
+    }
+  }, [location.state]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -130,9 +140,9 @@ export const ProcurementManager: React.FC = () => {
               </div>
             )}
             
-            {activeTab === 'tender' && <TenderForm />}
-            {activeTab === 'comparison' && <ComparisonForm />}
-            {activeTab === 'po' && <PurchaseOrderForm />}
+            {activeTab === 'tender' && <TenderForm requestId={location.state?.requestId} />}
+            {activeTab === 'comparison' && <ComparisonForm requestId={location.state?.requestId} />}
+            {activeTab === 'po' && <PurchaseOrderForm requestId={location.state?.requestId} />}
           </motion.div>
         </AnimatePresence>
       </div>

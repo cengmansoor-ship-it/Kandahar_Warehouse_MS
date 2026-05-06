@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Package, TrendingUp, AlertTriangle, FileCheck, ArrowRight } from 'lucide-react';
+import { Package, TrendingUp, AlertTriangle, FileCheck, ArrowRight, User as UserIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import api from '../services/api';
 
@@ -59,34 +59,22 @@ export default function Dashboard() {
   React.useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [invRes, reqRes, procRes, recRes] = await Promise.all([
-          api.get('/items'),
-          api.get('/requests'),
-          api.get('/procurement/tenders'),
-          api.get('/receivings')
+        const [statsRes, activitiesRes] = await Promise.all([
+          api.get('/dashboard/stats'),
+          api.get('/dashboard/activities')
         ]);
 
-        const items = invRes.data;
-        const lowStockCount = items.filter((i: any) => i.status === 'Low Stock' || i.quantity < 10).length;
-        const totalQty = items.reduce((sum: number, i: any) => sum + (Number(i.quantity) || 0), 0);
-
+        const statsData = statsRes.data || {};
         setStats({
-          totalStock: totalQty.toLocaleString(),
-          pendingRequests: reqRes.data.filter((r: any) => r.status === 'PENDING' || r.status === 'Pending').length.toString(),
-          lowStock: lowStockCount.toString(),
-          activeTenders: procRes.data.filter((t: any) => t.status === 'OPEN').length.toString()
+          totalStock: (statsData.totalStock || 0).toLocaleString(),
+          pendingRequests: (statsData.pendingRequests || 0).toString(),
+          lowStock: (statsData.lowStock || 0).toString(),
+          activeTenders: (statsData.activeTenders || 0).toString()
         });
 
-        setRecentActivities((recRes.data || []).map((r: any) => ({
-          ...r,
-          type: 'inventory',
-          id: r.id || r._id,
-          title: r.item_name || r.item_code || 'Inventory Movement',
-          description: `${r.supplier || r.src || 'Internal'} - ${r.quantity || 0} ${r.unit || 'PCS'}`,
-          timestamp: r.date || new Date(r.createdAt || Date.now()).toLocaleString()
-        })).slice(0, 6));
+        setRecentActivities(activitiesRes.data || []);
       } catch (e) {
-        console.error("Dashboard: Error fetching real-time stats", e);
+        console.error("Dashboard: Error fetching unified stats", e);
       }
     };
     fetchDashboardData();
@@ -174,7 +162,10 @@ export default function Dashboard() {
                 onClick={() => navigate('/receiving', { state: { highlightId: activity.id } })}
               >
                 <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 group-hover/item:border-primary-teal group-hover/item:bg-primary-teal/5 transition-all text-slate-400 group-hover/item:text-primary-teal">
-                  <Package size={20} />
+                  {activity.type === 'receiving' && <Package size={20} />}
+                  {activity.type === 'request' && <FileCheck size={20} />}
+                  {activity.type === 'allocation' && <UserIcon size={20} />}
+                  {!['receiving', 'request', 'allocation'].includes(activity.type) && <Package size={20} />}
                 </div>
                 <div className="flex flex-col justify-center text-start flex-1">
                   <div className="text-xs font-black text-slate-900 uppercase tracking-tight group-hover/item:text-primary-teal transition-colors text-start">{activity.title}</div>

@@ -102,6 +102,32 @@ const SystemGuide: React.FC = () => {
         ))}
       </div>
 
+      <section className="fintech-card p-12 bg-slate-50 border-2 border-slate-900 rounded-[44px]">
+        <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-8">University Engineer: Senior Q&A</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-start">
+           <div className="space-y-4">
+              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">Q1: How do we track Asset Depreciation?</h4>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">Answer: The system uses BAB/Fasl coding links. You can view the distribution history in the Traceability module to see how long an asset has been in use and its current assignment status.</p>
+           </div>
+           <div className="space-y-4">
+              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">Q2: How do we ensure procurement transparency?</h4>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">Answer: Every Purchase Order (PO) is linked to a Comparison Matrix, which requires at least 3 vendor quotations. This audit trail is stored in the system and can be exported as a PDF for government oversight.</p>
+           </div>
+           <div className="space-y-4">
+              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">Q3: What happens when an item reaches 0 stock?</h4>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">Answer: The AI-powered Forecasting module flags the item in the "Annual Needs Analysis" report, calculation the recommended purchase quantity based on historical consumption rates.</p>
+           </div>
+           <div className="space-y-4">
+              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">Q4: Can we track personnel asset liability?</h4>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">Answer: Yes. The "Traceability Ledger" provides a per-person report of all items assigned to them. When staff leave the university, the system generates an Exit Clearance report based on this ledger.</p>
+           </div>
+           <div className="space-y-4">
+              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">Q5: Why are emails not being received?</h4>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">Answer: By default, the system simulates email sending. To enable real delivery, you must configure a <b>Gmail App Password</b> (Settings / System Configuration). Use your university email and the 16-character app password from Google Security settings.</p>
+           </div>
+        </div>
+      </section>
+
       <section className="fintech-card p-12 bg-white flex flex-col lg:flex-row items-center justify-between gap-10 border-2 border-primary-teal/10">
          <div className="space-y-4 text-start">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">Need specific help?</h2>

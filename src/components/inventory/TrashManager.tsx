@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import api, { trashService } from '@/src/services/api';
 import { Trash2, RotateCcw, Search, Trash } from 'lucide-react';
+import { ConfirmModal } from '../ui/ConfirmModal';
 import { toast } from 'sonner';
 import { cn } from '@/src/lib/utils';
 
@@ -9,6 +10,8 @@ export const TrashManager = () => {
   const { t } = useTranslation();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTrash();
@@ -36,14 +39,21 @@ export const TrashManager = () => {
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (confirm("This action is permanent and cannot be undone. Proceed?")) {
-      try {
-        await api.delete(`/trash/permanent/${id}`);
-        fetchTrash();
-        toast.success("Item permanently erased");
-      } catch (error) {
-        toast.error("Failed to delete permanently");
-      }
+    setItemToDelete(id);
+    setShowConfirmModal(true);
+  };
+
+  const confirmPermanentDelete = async () => {
+    if (!itemToDelete) return;
+    try {
+      await api.delete(`/trash/permanent/${itemToDelete}`);
+      fetchTrash();
+      toast.success("Item permanently erased");
+    } catch (error) {
+      toast.error("Failed to delete permanently");
+    } finally {
+      setShowConfirmModal(false);
+      setItemToDelete(null);
     }
   };
 
@@ -107,11 +117,29 @@ export const TrashManager = () => {
                  </tr>
                ) : (
                  Array.isArray(items) && items.map((item) => (
-                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                     <td className="px-8 py-6 text-start">
-                       <div className="font-black text-slate-900">{item.name}</div>
-                       <div className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-widest">{item.item_code}</div>
-                     </td>
+                    <tr key={item.trashId || item.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-8 py-6 text-start">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-8 h-8 rounded-lg flex items-center justify-center text-[8px] font-black uppercase tracking-widest text-center",
+                            item.originalModule === 'inventory' ? "bg-blue-50 text-blue-600" :
+                            item.originalModule === 'receiving' ? "bg-emerald-50 text-emerald-600" :
+                            (item.originalModule === 'request' || item.originalModule === 'requests') ? "bg-purple-50 text-purple-600" :
+                            item.originalModule === 'tender' ? "bg-amber-50 text-amber-600" :
+                            "bg-slate-100 text-slate-500"
+                          )}>
+                             {((item.originalModule || 'item').slice(0, 3))}
+                          </div>
+                          <div className="text-start">
+                            <div className="font-black text-slate-900">
+                              {item.name || item.item_name || item.title || item.projectName || item.tenderNumber || item.poNumber || 'Unnamed Item'}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-widest whitespace-nowrap">
+                              {item.item_code || item.trackingId || (item.id && typeof item.id === 'string' && item.id.length > 8 ? item.id.slice(0, 8) : item.id) || 'No Code'} • {item.originalModule || 'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
                      <td className="px-8 py-6 text-start">
                         <div className="text-xs text-slate-600 font-medium">{new Date(item.trashDate).toLocaleDateString()}</div>
                      </td>
@@ -145,6 +173,18 @@ export const TrashManager = () => {
           </table>
         </div>
       </div>
+      
+      <ConfirmModal 
+        isOpen={showConfirmModal}
+        onClose={() => {
+          setShowConfirmModal(false);
+          setItemToDelete(null);
+        }}
+        onConfirm={confirmPermanentDelete}
+        title="Permanent Deletion"
+        message="This action is absolute and permanent. The data will be purged from the system forever. Are you sure?"
+        variant="danger"
+      />
     </div>
   );
 };

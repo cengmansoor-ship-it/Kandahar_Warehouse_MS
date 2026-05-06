@@ -79,7 +79,7 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ title, projectTi
           
           <div className="border-y-2 border-slate-900 py-4 mb-6 relative">
             <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 bg-white px-4 text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">Official Document</div>
-            <h1 className="text-2xl font-black tracking-tight text-black">{title}</h1>
+            <div className="text-2xl font-black tracking-tight text-black">{title}</div>
           </div>
           
           <div className="bg-slate-50 border-2 border-slate-900 text-black px-10 py-2 rounded-full inline-block shadow-xl shadow-slate-900/5">

@@ -1,381 +1,407 @@
-import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Printer, Download, Award, XCircle, Info, UserPlus, PlusCircle, Save, Trash2, Edit2 } from 'lucide-react';
-import { DocumentHeader } from './DocumentHeader';
-import api, { procurementService } from '@/src/services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Printer, 
+  Download, 
+  Save, 
+  Plus, 
+  Trash2,
+  CheckCircle2,
+  TrendingUp,
+  Award
+} from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import { EditableField } from '../ui/EditableField';
+import { useLocation } from 'react-router-dom';
+import { EditableField } from './EditableField';
+import { DocumentHeader } from './DocumentHeader';
+import { ProcurementTable } from './ProcurementTable';
+import ComparisonMatrix from './ComparisonMatrix';
+import api from '@/src/services/api';
 
-interface SupplierBid {
-  supplierId: string;
+interface SupplierPrice {
   supplierName: string;
-  unitPrices: number[];
-  totalPrices: number[];
-  grandTotal: number;
-  isWinner?: boolean;
+  unitPrice: number;
+  totalPrice: number;
 }
 
 interface Item {
-  id: number;
-  name: string;
+  id: string;
   description: string;
   quantity: number;
+  unit: string;
+  prices: SupplierPrice[];
+  winner?: string;
 }
 
-interface ComparisonFormProps {
-  data?: {
-    id?: string;
-    tenderId?: string;
-    projectTitle?: string;
-    procurementDescription?: string;
-    items?: Item[];
-    bids?: SupplierBid[];
-    boardMembers?: { name: string; position: string }[];
-  };
-  onSave?: (data: any) => void;
+interface ComparisonData {
+  id?: string;
+  requestId: string;
+  comparisonDate: string;
+  suppliers: string[];
+  items: Item[];
+  notes: string;
+  signatures: string[];
 }
 
-export const ComparisonForm: React.FC<ComparisonFormProps> = ({ 
-  data: initialData,
-  onSave
-}) => {
-  const { t } = useTranslation();
+export const ComparisonForm = () => {
+  const location = useLocation();
+  const requestId = location.state?.requestId;
   
-  // Advanced customization state
-  const [docMeta, setDocMeta] = useState({
-    title: 'د نرخ اخستنې میعارې مقایسوي پاڼه',
-    descLabel: 'تدارکاتي تشریح:',
-    itemHeader: 'د جنس نوم',
-    qtyHeader: 'مقدار',
-    winnerLabel: 'Winner / ګټونکی',
-    selectWinnerLabel: 'Select Winner',
-    decisionTitle: 'ملاحظات او پریکړه (Decision):',
-    signaturesTitle: 'د هیئت نوم',
-    positionTitle: 'وظیفه',
-    sealTitle: 'امضاء'
+  const [formData, setFormData] = useState<ComparisonData>({
+    requestId: requestId || '',
+    comparisonDate: new Date().toLocaleDateString(),
+    suppliers: ['Supplier A', 'Supplier B', 'Supplier C'],
+    items: [
+      { id: '1', description: 'Sample Item', quantity: 10, unit: 'Pcs', prices: [
+        { supplierName: 'Supplier A', unitPrice: 100, totalPrice: 1000 },
+        { supplierName: 'Supplier B', unitPrice: 110, totalPrice: 1100 },
+        { supplierName: 'Supplier C', unitPrice: 95, totalPrice: 950 }
+      ]}
+    ],
+    notes: 'Based on the comparison, Supplier C offers the best price for the current items.',
+    signatures: ['Finance Manager', 'Logistics Officer', 'Director']
   });
 
-  const defaultData = {
-    projectTitle: '',
-    procurementDescription: 'ددې پروژې په اړه د مختلفو شرکتونو نرخونه چې د پوهنتون هیئت لخوا راټول شوي دي په لاندې ډول سره دي.',
-    items: [],
-    bids: [],
-    boardMembers: [
-      { name: '', position: 'مالي او اداري معاون' },
-      { name: '', position: 'د تدارکاتو مدیر' },
-      { name: '', position: 'د محاسبې مدیر' }
-    ]
-  };
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showMatrix, setShowMatrix] = useState(false);
+  const [activeTender, setActiveTender] = useState<any>(null);
+  const componentRef = useRef<HTMLDivElement>(null);
 
-  const [formData, setFormData] = React.useState(initialData || defaultData);
-  const componentRef = React.useRef<HTMLDivElement>(null);
-  const [saving, setSaving] = React.useState(false);
+  useEffect(() => {
+    if (requestId) {
+      fetchComparisonData();
+    }
+  }, [requestId]);
 
-  React.useEffect(() => {
-    if (initialData) setFormData(initialData);
-  }, [initialData]);
-
-  const handleDownloadPDF = () => {
+  const fetchComparisonData = async () => {
     try {
-      const doc = new jsPDF('l', 'mm', 'a4') as any; // Landscape for wide matrix
-      doc.setFontSize(18);
-      doc.text("Comparison Matrix - Kandahar University", 148, 15, { align: 'center' });
-      
-      const head = [['#', 'Item', 'Qty']];
-      formData.bids?.forEach(bid => {
-        head[0].push(`${bid.supplierName} (Unit)`);
-        head[0].push(`${bid.supplierName} (Total)`);
-      });
+      setLoading(true);
+      // Fetch or derive from tender
+      const tenderRes = await api.get(`/procurement/tenders?requestId=${requestId}`);
+      if (tenderRes.data?.[0]) {
+        setActiveTender(tenderRes.data[0]);
+      }
 
-      const body = (formData.items || []).map((item, idx) => {
-        const row = [idx+1, item.name, item.quantity];
-        formData.bids?.forEach(bid => {
-          row.push(bid.unitPrices[idx]?.toLocaleString() || '0');
-          row.push(bid.totalPrices[idx]?.toLocaleString() || '0');
+      const res = await api.get(`/procurement/comparisons/${requestId}`);
+      if (res.data) {
+        setFormData({
+          ...res.data,
+          suppliers: Array.isArray(res.data.suppliers) ? res.data.suppliers : [],
+          items: Array.isArray(res.data.items) ? res.data.items : [],
+          signatures: Array.isArray(res.data.signatures) ? res.data.signatures : []
         });
-        return row;
-      });
-
-      doc.autoTable({
-        head: head,
-        body: body,
-        startY: 25,
-        theme: 'grid',
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [15, 143, 127] }
-      });
-
-      doc.save(`Comparison_${formData.projectTitle || 'Matrix'}.pdf`);
-      toast.success("PDF Downloaded");
-    } catch (err) {
-      toast.error("PDF generation failed");
+      } else {
+        // Try to fetch tender data to initialize
+        const tenderRes = await api.get(`/tenders?requestId=${requestId}`);
+        if (tenderRes.data?.[0]) {
+          const tender = tenderRes.data[0];
+          setFormData(prev => ({
+            ...prev,
+            items: Array.isArray(tender.items) ? tender.items.map((it: any) => ({
+              ...it,
+              prices: (prev.suppliers || []).map(s => ({ supplierName: s, unitPrice: 0, totalPrice: 0 }))
+            })) : []
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Fetch failed", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handlePrint = async () => {
-    if (!componentRef.current) return;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
-    printWindow.document.write(`
-      <html dir="rtl">
-        <head>
-          <title>Comparison Matrix</title>${styles}
-          <style>@page { size: A4 landscape; margin: 15mm; } body { padding: 20px; font-family: sans-serif; }</style>
-        </head>
-        <body>${componentRef.current.innerHTML}<script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); };</script></body>
-      </html>
-    `);
-    printWindow.document.close();
-  };
-
-  const updateUnitPrice = (supplierIdx: number, itemIdx: number, price: number) => {
-    const newBids = [...(formData.bids || [])];
-    const bid = { ...newBids[supplierIdx] };
-    const unitPrices = [...bid.unitPrices];
-    const totalPrices = [...bid.totalPrices];
-    unitPrices[itemIdx] = price;
-    const qty = formData.items?.[itemIdx]?.quantity || 0;
-    totalPrices[itemIdx] = price * qty;
-    bid.unitPrices = unitPrices;
-    bid.totalPrices = totalPrices;
-    bid.grandTotal = totalPrices.reduce((a, b) => a + b, 0);
-    newBids[supplierIdx] = bid;
-    setFormData({ ...formData, bids: newBids });
-  };
-
-  const setWinner = (supplierIdx: number) => {
-    const newBids = (formData.bids || []).map((bid, idx) => ({
-      ...bid,
-      isWinner: idx === supplierIdx
-    }));
-    setFormData({ ...formData, bids: newBids });
-  };
-
   const addSupplier = () => {
-    const newBids = [...(formData.bids || [])];
-    newBids.push({
-      supplierId: `s${Date.now()}`,
-      supplierName: `Supplier ${newBids.length + 1}`,
-      unitPrices: new Array(formData.items?.length || 0).fill(0),
-      totalPrices: new Array(formData.items?.length || 0).fill(0),
-      grandTotal: 0
-    });
-    setFormData({ ...formData, bids: newBids });
+    const name = `Supplier ${String.fromCharCode(65 + formData.suppliers.length)}`;
+    const newSuppliers = [...formData.suppliers, name];
+    const newItems = formData.items.map(item => ({
+      ...item,
+      prices: [...item.prices, { supplierName: name, unitPrice: 0, totalPrice: 0 }]
+    }));
+    setFormData({ ...formData, suppliers: newSuppliers, items: newItems });
   };
 
   const removeSupplier = (idx: number) => {
-    setFormData({ ...formData, bids: (formData.bids || []).filter((_, i) => i !== idx) });
-  };
-
-  const addItem = () => {
-    const newItems = [...(formData.items || [])];
-    newItems.push({ id: Date.now(), name: 'New Item', description: '', quantity: 1 });
-    const newBids = (formData.bids || []).map(bid => ({
-      ...bid,
-      unitPrices: [...bid.unitPrices, 0],
-      totalPrices: [...bid.totalPrices, 0]
+    const newSuppliers = formData.suppliers.filter((_, i) => i !== idx);
+    const newItems = formData.items.map(item => ({
+      ...item,
+      prices: item.prices.filter((_, i) => i !== idx)
     }));
-    setFormData({ ...formData, items: newItems, bids: newBids });
+    setFormData({ ...formData, suppliers: newSuppliers, items: newItems });
   };
 
-  const removeItem = (idx: number) => {
-     const newItems = (formData.items || []).filter((_, i) => i !== idx);
-     const newBids = (formData.bids || []).map(bid => ({
-        ...bid,
-        unitPrices: bid.unitPrices.filter((_, i) => i !== idx),
-        totalPrices: bid.totalPrices.filter((_, i) => i !== idx),
-        grandTotal: bid.totalPrices.filter((_, i) => i !== idx).reduce((a, b) => a + b, 0)
-     }));
-     setFormData({...formData, items: newItems, bids: newBids});
-  };
-
-  const handleAwardBid = async () => {
-    const winner = formData.bids?.find(b => b.isWinner);
-    if (!winner) return toast.error("Select a winner first");
-    setAwarding(true);
-    try {
-      await procurementService.selectWinner({
-        tenderId: formData.tenderId || formData.id,
-        quotationId: winner.supplierId,
-        supplierName: winner.supplierName,
-        items: formData.items?.map((item, idx) => ({
-          ...item,
-          unitPrice: winner.unitPrices[idx],
-          totalPrice: winner.totalPrices[idx]
-        }))
-      });
-      toast.success(`Success! Awarded to ${winner.supplierName}`);
-    } catch (e) { toast.error("Award failed"); }
-    finally { setAwarding(false); }
+  const updatePrice = (itemIdx: number, supplierIdx: number, val: number) => {
+    const newItems = [...formData.items];
+    const item = newItems[itemIdx];
+    item.prices[supplierIdx].unitPrice = val;
+    item.prices[supplierIdx].totalPrice = val * item.quantity;
+    setFormData({ ...formData, items: newItems });
   };
 
   const handleSave = async () => {
-    setSaving(true);
     try {
-      if (formData.id) {
-         await api.patch(`/procurement/quotations/${formData.id}`, formData);
-         toast.success("Updated Successfully");
-      } else {
-         const res = await api.post('/procurement/quotations', formData);
-         setFormData({...formData, id: res.data.id});
-         toast.success("Saved to Analysis");
+      setSaving(true);
+      await api.post('/procurement/comparisons', formData);
+      toast.success("Comparison Matrix saved successfully");
+      
+      // Update pipeline progress to 75%
+      if (requestId) {
+        await api.patch(`/requests/${requestId}`, { progress: 75, status: 'WINNER_SELECTED' });
       }
-      if (onSave) onSave(formData);
-    } catch (e) { toast.error("Save failed"); }
-    finally { setSaving(false); }
+    } catch (e) {
+      toast.error("Failed to save comparison");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const [awarding, setAwarding] = React.useState(false);
+  const addItem = () => {
+    const newItem: Item = {
+      id: Date.now().toString(),
+      description: '',
+      quantity: 1,
+      unit: '',
+      prices: formData.suppliers.map(s => ({ supplierName: s, unitPrice: 0, totalPrice: 0 }))
+    };
+    setFormData({ ...formData, items: [...formData.items, newItem] });
+  };
+
+  const removeItem = (idx: number) => {
+    const newItems = formData.items.filter((_, i) => i !== idx);
+    setFormData({ ...formData, items: newItems });
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleDownloadPDF = () => {
+    try {
+      const doc = new jsPDF('l', 'mm', 'a4');
+      
+      doc.setFontSize(22);
+      doc.setTextColor(15, 143, 127);
+      doc.text("Kandahar University - Comparison Matrix", 148, 20, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.setTextColor(0);
+      doc.text(`Tracking ID: ${requestId || 'N/A'}`, 14, 35);
+      doc.text(`Date: ${formData.comparisonDate}`, 14, 40);
+
+      const headers = ['#', 'Item Description', 'Unit', 'Qty', ...(formData.suppliers || [])];
+      const tableData = (formData.items || []).map((item, i) => [
+        i + 1,
+        item.description,
+        item.unit,
+        item.quantity,
+        ...(formData.suppliers || []).map((_, sIdx) => 
+          item.prices[sIdx] ? `${item.prices[sIdx].unitPrice.toLocaleString()} AFN` : '-'
+        )
+      ]);
+
+      autoTable(doc, {
+        head: [headers],
+        body: tableData,
+        startY: 50,
+        theme: 'grid',
+        headStyles: { fillColor: [15, 143, 127], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 8 },
+      });
+
+      doc.save(`Comparison-${requestId || 'Draft'}.pdf`);
+      toast.success("Comparison Matrix PDF exported");
+    } catch (err) {
+      toast.error("Failed to generate PDF");
+    }
+  };
+
+  if (loading) return <div className="flex items-center justify-center p-20 animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Loading Comparison Pipeline...</div>;
+
+  const columns = [
+    { header: '#', key: 'id', width: '40px', align: 'center' as const, render: (_: any, i: number) => i + 1 },
+    {
+      header: '',
+      key: 'actions',
+      width: '40px',
+      render: (_: any, i: number) => (
+        <button onClick={() => removeItem(i)} className="text-red-500 hover:text-red-700 p-1 no-print transition-colors">
+          <Trash2 size={14} />
+        </button>
+      )
+    },
+    { 
+      header: 'Description', 
+      key: 'description', 
+      width: '200px',
+      render: (row: Item, i: number) => (
+        <input 
+          value={row.description} 
+          onChange={(e) => {
+            const next = [...formData.items];
+            next[i].description = e.target.value;
+            setFormData({...formData, items: next});
+          }}
+          className="w-full bg-transparent border-0 font-black focus:ring-0 px-2"
+        />
+      )
+    },
+    { 
+      header: 'Qty', 
+      key: 'quantity', 
+      width: '60px', 
+      align: 'center' as const,
+      render: (row: Item, i: number) => (
+        <input 
+          type="number"
+          value={row.quantity} 
+          onChange={(e) => {
+            const next = [...formData.items];
+            const val = Number(e.target.value) || 0;
+            next[i].quantity = val;
+            next[i].prices = next[i].prices.map(p => ({ ...p, totalPrice: p.unitPrice * val }));
+            setFormData({...formData, items: next});
+          }}
+          className="w-full bg-transparent border-0 font-black text-center focus:ring-0"
+        />
+      )
+    },
+    ... (formData.suppliers || []).map((s, sIdx) => ({
+      header: (
+        <div className="flex flex-col items-center gap-1 group">
+          <EditableField 
+            value={s} 
+            onSave={(v) => {
+              const next = [...formData.suppliers];
+              next[sIdx] = v;
+              setFormData({...formData, suppliers: next});
+            }} 
+            className="text-center font-black"
+            isEditable={true}
+          />
+          <button 
+            onClick={() => removeSupplier(sIdx)}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-red-50 text-red-500 rounded hover:bg-red-500 hover:text-white no-print"
+            title="Remove Supplier"
+          >
+            <Trash2 size={10} />
+          </button>
+        </div>
+      ),
+      key: `supplier_${sIdx}`,
+      width: '120px',
+      align: 'center' as const,
+      render: (row: Item, i: number) => (
+        <div key={`${i}-${sIdx}`} className="flex flex-col gap-1 p-1">
+          <input 
+            type="number"
+            value={row.prices[sIdx]?.unitPrice || 0}
+            onChange={(e) => updatePrice(i, sIdx, Number(e.target.value))}
+            className="w-full bg-white border border-slate-200 text-[10px] p-1 text-center font-black focus:border-[#0F8F7F] outline-none rounded"
+          />
+          <div className="text-[9px] text-slate-400 font-bold">Total: {(row.prices[sIdx]?.totalPrice || 0).toLocaleString()}</div>
+        </div>
+      )
+    }))
+  ];
 
   return (
     <div className="flex flex-col items-center gap-6 p-4">
       <div 
         ref={componentRef}
         dir="rtl"
-        className="relative a4-page font-sans text-slate-900 border border-slate-200 bg-white shadow-2xl overflow-hidden"
+        className="relative a4-page font-sans text-slate-900 border-2 border-slate-900 bg-white shadow-2xl overflow-hidden"
       >
-        <div className="absolute -left-20 top-0 hidden xl:flex flex-col gap-4 no-print">
-          <button onClick={handlePrint} className="p-4 bg-white border border-slate-200 text-slate-900 rounded-2xl hover:bg-slate-50 transition-all shadow-xl hover:scale-110 active:scale-95"><Printer size={24} /></button>
-          <button onClick={handleDownloadPDF} className="p-4 bg-white border border-slate-200 text-emerald-600 rounded-2xl hover:bg-emerald-50 transition-all shadow-xl hover:scale-110 active:scale-95"><Download size={24} /></button>
-        </div>
 
-        <div className="absolute -right-20 top-0 hidden xl:flex flex-col gap-4 no-print">
-          <button onClick={handleSave} disabled={saving} className="p-4 bg-white border border-slate-200 text-sky-600 rounded-2xl hover:bg-sky-50 shadow-xl hover:scale-110 disabled:opacity-50"><Save size={24} /></button>
-          <button onClick={handleAwardBid} disabled={awarding} className="p-4 bg-white border border-slate-200 text-emerald-600 rounded-2xl hover:bg-emerald-50 shadow-xl hover:scale-110 disabled:opacity-50"><Award size={24} /></button>
-          <button onClick={addSupplier} className="p-4 bg-white border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 shadow-xl hover:scale-110"><UserPlus size={24} /></button>
-          <button onClick={addItem} className="p-4 bg-white border border-slate-200 text-slate-400 rounded-2xl hover:bg-slate-50 shadow-xl hover:scale-110"><PlusCircle size={24} /></button>
-        </div>
+        <div className="p-12">
+          <div className="flex justify-between items-center mb-8 no-print border-b border-slate-100 pb-4">
+             <div className="flex items-center gap-2">
+               <button onClick={() => window.print()} className="p-2 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-black/10">
+                 <Printer size={16} /> Print
+               </button>
+               <button onClick={handleDownloadPDF} className="p-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-rose-600/10">
+                 <Download size={16} /> Export PDF
+               </button>
+             </div>
+             <div className="flex items-center gap-2">
+                <button onClick={addItem} className="p-2 bg-slate-100 text-slate-900 rounded-xl hover:bg-slate-200 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4">
+                  <Plus size={16} /> Add Row
+                </button>
+                <button onClick={addSupplier} className="p-2 bg-emerald-100 text-emerald-900 rounded-xl hover:bg-emerald-200 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4">
+                  <Plus size={16} /> Add Vendor
+                </button>
+                <button onClick={handleSave} disabled={saving} className="p-2 bg-sky-600 text-white rounded-xl hover:bg-sky-700 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-sky-600/10 disabled:opacity-50">
+                  <Save size={16} /> {saving ? 'Saving...' : 'Save & Complete'}
+                </button>
+             </div>
+          </div>
 
-        <div className="flex xl:hidden gap-2 mb-6 no-print p-4">
-           <button onClick={handlePrint} className="flex-1 bg-slate-900 text-white py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[10px] uppercase transition-colors"><Printer size={16}/> Print</button>
-           <button onClick={handleDownloadPDF} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[10px] uppercase transition-colors"><Download size={16}/> PDF</button>
-           <button onClick={handleSave} className="flex-1 bg-sky-600 text-white py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[10px] uppercase transition-colors"><Save size={16}/> Save</button>
-        </div>
-
-        <div className="p-8">
+          {showMatrix && activeTender && (
+            <ComparisonMatrix 
+              tender={activeTender} 
+              onClose={() => setShowMatrix(false)} 
+              onSuccess={() => {
+                setShowMatrix(false);
+                fetchComparisonData(); // Refresh all data to show winner
+                toast.success("Tender Awarded! Pipeline progress updated to 75%.");
+              }} 
+            />
+          )}
           <DocumentHeader 
-            title={
-              <EditableField value={docMeta.title} onSave={(v) => setDocMeta({...docMeta, title: v})} className="text-center font-black" />
-            } 
-            projectTitle={
-              <input value={formData.projectTitle} placeholder="Enter Project Name..." onChange={(e) => setFormData({...formData, projectTitle: e.target.value})} className="bg-slate-50 border-0 text-center font-black text-lg focus:ring-2 focus:ring-emerald-500 rounded p-2 text-black w-full" />
-            } 
+            title={<div className="text-2xl font-black text-black">د نرخونو د مقایسې جدول (Comparison Matrix)</div>} 
+            projectTitle={requestId ? `Project Tracking ID: ${requestId}` : 'Vendor Analysis & Bid Evaluation'} 
           />
 
-          <div className="text-[11px] mb-4 p-4 bg-slate-50 border-2 border-slate-900 font-bold leading-relaxed rounded-xl shadow-inner">
-            <p className="flex items-center gap-2">
-              <EditableField value={docMeta.descLabel} onSave={(v) => setDocMeta({...docMeta, descLabel: v})} className="text-emerald-700 shrink-0 font-black" />
-              <input value={formData.procurementDescription} onChange={(e) => setFormData({...formData, procurementDescription: e.target.value})} className="bg-transparent border-0 focus:ring-0 w-full font-bold" />
-            </p>
-          </div>
-
-          <div className="w-full border-2 border-slate-900 mb-6 overflow-hidden rounded-xl shadow-lg">
-            <table className="w-full border-collapse text-[9px] text-center">
-              <thead>
-                <tr className="bg-slate-900 text-white">
-                  <th rowSpan={2} className="border-l border-slate-700 p-2 w-8">#</th>
-                  <th rowSpan={2} className="border-l border-slate-700 p-2 w-32 tracking-wider">
-                    <EditableField value={docMeta.itemHeader} onSave={(v) => setDocMeta({...docMeta, itemHeader: v})} />
-                  </th>
-                  <th rowSpan={2} className="border-l border-slate-700 p-2 w-10">
-                    <EditableField value={docMeta.qtyHeader} onSave={(v) => setDocMeta({...docMeta, qtyHeader: v})} />
-                  </th>
-                  {formData.bids?.map((bid, i) => (
-                    <th key={i} colSpan={2} className="border-l border-slate-700 p-2 bg-slate-800 relative group">
-                      <div className="flex items-center justify-between gap-1">
-                        <input value={bid.supplierName} onChange={(e) => {
-                          const newBids = [...(formData.bids || [])];
-                          newBids[i].supplierName = e.target.value;
-                          setFormData({...formData, bids: newBids});
-                        }} className="bg-transparent border-0 text-white font-black text-center w-full focus:ring-1 focus:ring-emerald-500" />
-                        <button onClick={() => removeSupplier(i)} className="text-red-400 group-hover:opacity-100 opacity-0 no-print transition-opacity"><Trash2 size={12}/></button>
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-                <tr className="bg-slate-700 text-white">
-                  {formData.bids?.map((_, i) => (
-                    <React.Fragment key={i}>
-                      <th className="border-l border-slate-600 p-1">واحد</th>
-                      <th className="border-l border-slate-600 p-1">مجموعه</th>
-                    </React.Fragment>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {formData.items?.map((item, itemIdx) => (
-                  <tr key={itemIdx} className="border-b border-slate-900 group">
-                    <td className="border-l border-slate-200 p-2 bg-slate-50 font-black relative">
-                       {itemIdx+1}
-                       <button onClick={() => removeItem(itemIdx)} className="absolute -right-2 top-2 text-red-500 opacity-0 group-hover:opacity-100 no-print transition-opacity"><Trash2 size={10}/></button>
-                    </td>
-                    <td className="border-l border-slate-200 p-1"><input value={item.name} onChange={(e) => { const n = [...(formData.items || [])]; n[itemIdx].name = e.target.value; setFormData({...formData, items: n})}} className="w-full bg-white border-0 text-center font-bold" /></td>
-                    <td className="border-l border-slate-200 p-1"><input type="number" value={item.quantity} onChange={(e) => {
-                      const v = parseFloat(e.target.value) || 0;
-                      const nI = [...(formData.items || [])]; nI[itemIdx].quantity = v;
-                      const nB = (formData.bids || []).map(b => {
-                        const up = b.unitPrices[itemIdx] || 0;
-                        const tp = [...b.totalPrices]; tp[itemIdx] = up*v;
-                        return { ...b, totalPrices: tp, grandTotal: tp.reduce((a, b) => a+b, 0) };
-                      });
-                      setFormData({...formData, items: nI, bids: nB});
-                    }} className="w-full bg-white border-0 text-center font-black" /></td>
-                    {formData.bids?.map((bid, bidIdx) => (
-                      <React.Fragment key={bidIdx}>
-                        <td className="border-l border-slate-100 p-1"><input type="number" value={bid.unitPrices[itemIdx] || 0} onChange={(e) => updateUnitPrice(bidIdx, itemIdx, parseFloat(e.target.value) || 0)} className="w-full bg-transparent border-0 text-center font-bold focus:ring-1 focus:ring-emerald-500" /></td>
-                        <td className="border-l border-slate-900 p-1 font-black bg-slate-50/50">{bid.totalPrices[itemIdx]?.toLocaleString()}</td>
-                      </React.Fragment>
-                    ))}
-                  </tr>
-                ))}
-                <tr className="bg-slate-900 text-white font-black h-12">
-                  <td colSpan={3} className="border-l border-slate-700 p-2 text-right pr-4 text-[10px] uppercase tracking-widest">Total Afghanis / ملموعي قیمت</td>
-                  {formData.bids?.map((bid, i) => (
-                    <td key={i} colSpan={2} className={`border-l border-slate-700 p-2 text-[12px] underline decoration-double ${bid.isWinner ? 'text-emerald-400 bg-emerald-950/30' : ''}`}>
-                      {bid.grandTotal.toLocaleString()}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="grid grid-cols-3 gap-0 mb-8 border-2 border-slate-900 divide-x-2 divide-slate-900 rounded-xl overflow-hidden shadow-md">
-             {formData.bids?.map((bid, i) => (
-               <button key={i} onClick={() => setWinner(i)} className={`p-4 flex flex-col items-center gap-2 transition-all group ${bid.isWinner ? 'bg-emerald-600 text-white' : 'bg-slate-50 opacity-60 hover:opacity-100'}`}>
-                  <span className={`text-[10px] font-black uppercase ${bid.isWinner ? 'text-white' : 'text-slate-900'}`}>{bid.supplierName}</span>
-                  {bid.isWinner ? <div className="flex items-center gap-1 font-black text-[10px] uppercase"><Award size={14}/> Winner / ګټونکی</div> : <div className="flex items-center gap-1 font-black text-[10px] text-slate-400"><XCircle size={14}/> Select Winner</div>}
-               </button>
-             ))}
-          </div>
-
-          <div className="p-4 border-2 border-slate-900 rounded-xl mb-8 bg-amber-50/30 text-[10px] text-justify space-y-2 border-dashed">
-             <div className="flex items-start gap-2 font-black"><Info size={16} className="text-amber-600 shrink-0 mt-0.5" /><span>ملاحظات او پریکړه (Decision):</span></div>
-             <p className="leading-relaxed">د تدارکاتي هیئت لخوا د ټولو شرکتونو نرخونه په دقت سره وڅیړل شول، چې په پایله کې <span className="font-black underline mx-1">{formData.bids?.find(b => b.isWinner)?.supplierName || '...'}</span> شرکت د ټیټ نرخ او د موادو د لوړ کیفیت په پام کې نیولو سره د دې پروژې ګټونکی اعلان شو.</p>
-          </div>
-
-          <div className="w-full border-2 border-slate-900 rounded-xl overflow-hidden shadow-sm">
-             <div className="grid grid-cols-3 bg-slate-900 text-white font-black text-[11px] text-center divide-x-2 divide-slate-700">
-                <div className="p-3">د هیئت نوم</div>
-                <div className="p-3">وظیفه</div>
-                <div className="p-3">امضاء</div>
+          <div className="flex justify-between items-center mb-8 border-y-2 border-slate-900 py-4 font-black">
+             <div className="flex gap-4">
+               <span>تاریخ:</span>
+               <input value={formData.comparisonDate} onChange={(e) => setFormData({...formData, comparisonDate: e.target.value})} className="border-b border-slate-900 w-32 px-1 focus:outline-none" />
              </div>
-             {formData.boardMembers?.map((member, i) => (
-               <div key={i} className="grid grid-cols-3 border-b border-slate-200 last:border-b-0 divide-x-2 divide-slate-200 text-center text-[10px] font-bold bg-white">
-                  <div className="p-1"><input value={member.name} onChange={(e) => { const n = [...(formData.boardMembers || [])]; n[i].name = e.target.value; setFormData({...formData, boardMembers: n})}} className="w-full bg-slate-50/50 border-0 text-center p-2 rounded" /></div>
-                  <div className="p-1"><input value={member.position} onChange={(e) => { const n = [...(formData.boardMembers || [])]; n[i].position = e.target.value; setFormData({...formData, boardMembers: n})}} className="w-full bg-slate-50/50 border-0 text-center p-2 rounded italic" /></div>
-                  <div className="p-2 h-14 flex items-center justify-center opacity-10 font-mono text-[8px] uppercase">Official Seal Area</div>
-               </div>
+             <div className="flex gap-2 items-center bg-slate-900 text-white px-4 py-1 rounded-full text-xs box-content">
+               <Award size={14} className="text-emerald-400" />
+               BEST VALUE PROCUREMENT
+             </div>
+          </div>
+
+          <div className="overflow-x-auto border-2 border-slate-900 rounded-xl">
+             <ProcurementTable columns={columns} data={formData.items} />
+          </div>
+
+          <div className="mt-8 p-8 bg-white border-2 border-slate-900 rounded-2xl shadow-lg relative overflow-hidden">
+             <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -z-10 opacity-50" />
+             <div className="flex items-center gap-3 mb-4 text-emerald-800 underline decoration-2 underline-offset-4">
+                <CheckCircle2 size={24} />
+                <span className="font-black text-lg">تحلیلي ملاحظات (Evaluation Notes)</span>
+             </div>
+             <textarea 
+               value={formData.notes} 
+               onChange={(e) => setFormData({...formData, notes: e.target.value})}
+               className="w-full h-32 bg-transparent border-0 focus:ring-0 text-[13px] leading-relaxed font-bold italic text-slate-600 resize-none"
+               placeholder="Write summary of comparison and recommended winner..."
+             />
+          </div>
+
+          <div className="mt-16 grid grid-cols-3 gap-8">
+             {(formData.signatures || []).map((role, i) => (
+                <div key={i} className="flex flex-col items-center">
+                   <div className="w-full h-32 border-2 border-slate-900 rounded-2xl mb-3 flex flex-col justify-center items-center bg-white shadow-sm relative group transition-all hover:bg-slate-50">
+                      <EditableField value={role} onSave={(v) => {
+                        const next = [...(formData.signatures || [])];
+                         next[i] = v;
+                         setFormData({...formData, signatures: next});
+                      }} className="text-[10px] font-black uppercase text-slate-400 tracking-widest text-center" isEditable={true} />
+                      <div className="mt-4 w-12 h-0.5 bg-slate-200" />
+                   </div>
+                   <span className="text-[9px] font-black text-slate-400">Signature & Date</span>
+                </div>
              ))}
           </div>
         </div>
 
-        <div className="mt-auto p-4 text-[7px] text-slate-400 flex justify-between border-t border-slate-100 italic bg-slate-50/30">
-           <span>Procurement System Engine • Kandahar University Digital Hub</span>
-           <span>Date: {new Date().toLocaleDateString('fa-AF')}</span>
+        <div className="mt-12 p-8 pt-4 pb-4 border-t-2 border-slate-900 flex justify-between items-center text-[10px] text-slate-500 font-black italic bg-slate-50">
+          <span>Official Logistics Document • Kandahar University</span>
+          <span>Matrix Verification ID: CM-{requestId?.slice(-4) || 'DRAFT'}</span>
         </div>
       </div>
     </div>

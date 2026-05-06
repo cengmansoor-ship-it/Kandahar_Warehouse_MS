@@ -23,12 +23,13 @@ import { cn } from '@/src/lib/utils';
 import { Link } from 'react-router-dom';
 
 import { toast } from 'sonner';
-import { userService } from '@/src/services/api';
+import { userService, api } from '@/src/services/api';
 import { User } from '@/src/types';
 
 export const SettingsManager = () => {
   const { t, i18n } = useTranslation();
   const [users, setUsers] = useState<User[]>([]);
+  const [emailSettings, setEmailSettings] = useState({ user: '', pass: '' });
   const [roles, setRoles] = useState([
     { label: t('role_system_admin'), count: 2, color: "bg-primary-teal" },
     { label: t('role_store_keeper'), count: 5, color: "bg-blue-500" },
@@ -37,17 +38,33 @@ export const SettingsManager = () => {
 
   useEffect(() => {
     fetchUsers();
+    fetchSettings();
   }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const res = await api.get('/settings');
+      if (res.data) {
+        setEmailSettings({
+          user: res.data.mailUser || '',
+          pass: res.data.mailPass || ''
+        });
+      }
+    } catch (e) {
+      console.error("Failed to fetch system settings", e);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
       const res = await userService.getUsers();
-      setUsers(res.data || []);
+      const userList = Array.isArray(res.data) ? res.data : [];
+      setUsers(userList);
       
       // Update role counts based on real data
-      const adminCount = res.data.filter((u: any) => u.role === 'SUPER_ADMIN' || u.role === 'ADMIN').length;
-      const storeCount = res.data.filter((u: any) => u.role === 'PROCUREMENT_OFFICER').length;
-      const staffCount = res.data.filter((u: any) => u.role === 'DEPARTMENT_USER').length;
+      const adminCount = userList.filter((u: any) => u.role === 'Super Admin' || u.role === 'Admin').length;
+      const storeCount = userList.filter((u: any) => u.role === 'Procurement Officer').length;
+      const staffCount = userList.filter((u: any) => u.role === 'Department User').length;
       
       setRoles([
         { label: t('role_system_admin'), count: adminCount, color: "bg-primary-teal" },
@@ -119,6 +136,18 @@ export const SettingsManager = () => {
 
   const handleSave = () => {
     toast.success(t('pref_saved'));
+  };
+
+  const handleSaveEmailSettings = async () => {
+    try {
+      await api.post('/settings', {
+        mailUser: emailSettings.user,
+        mailPass: emailSettings.pass
+      });
+      toast.success("System configuration updated successfully");
+    } catch (e) {
+      toast.error("Failed to update system configuration");
+    }
   };
 
   const handleAddRoleConfirm = () => {
@@ -275,6 +304,55 @@ export const SettingsManager = () => {
           </div>
         </section>
 
+        {/* System Configuration & Email */}
+        <section className="fintech-card p-6 lg:p-8 bg-white space-y-8">
+           <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                 <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+                   <Shield size={22} />
+                 </div>
+                 <div>
+                   <h3 className="text-lg font-black text-slate-900 leading-none">System Configuration</h3>
+                   <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1.5">Email & Services</p>
+                 </div>
+              </div>
+           </div>
+
+           <div className="space-y-6">
+              <div className="space-y-2 text-start">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gmail SMTP User</label>
+                 <input 
+                   type="email"
+                   value={emailSettings.user}
+                   onChange={(e) => setEmailSettings({...emailSettings, user: e.target.value})}
+                   placeholder="e.g. yourname@gmail.com"
+                   className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary-teal/20 transition-all font-mono" 
+                 />
+              </div>
+
+              <div className="space-y-2 text-start">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gmail App Password (16 Letters)</label>
+                 <input 
+                   type="password"
+                   value={emailSettings.pass}
+                   onChange={(e) => setEmailSettings({...emailSettings, pass: e.target.value})}
+                   placeholder="xxxx xxxx xxxx xxxx"
+                   className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary-teal/20 transition-all font-mono" 
+                 />
+                 <p className="text-[9px] text-slate-400 font-medium px-1">
+                   Generate this in Google Account / Security / 2-Step Verification / App Passwords.
+                 </p>
+              </div>
+
+              <button 
+                onClick={handleSaveEmailSettings}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg"
+              >
+                Apply System Config
+              </button>
+           </div>
+        </section>
+
         {/* SMS Notification System */}
         <section className="fintech-card p-6 lg:p-8 bg-white space-y-8">
            <div className="flex items-center justify-between">
@@ -415,13 +493,13 @@ export const SettingsManager = () => {
                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Quick User Management</h4>
                <div className="space-y-3">
                   {/* Real User List for Settings */}
-                  {users.slice(0, 3).map((u, i) => (
+                  {Array.isArray(users) && users.slice(0, 3).map((u, i) => (
                     <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-slate-400 text-[10px] font-black border border-slate-100">{u.name[0]}</div>
+                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-slate-400 text-[10px] font-black border border-slate-100">{u.name && u.name[0] ? u.name[0] : '?'}</div>
                           <div>
                              <div className="text-[10px] font-black text-slate-900 uppercase truncate max-w-[120px]">{u.name}</div>
-                             <div className="text-[8px] text-slate-400 font-bold uppercase">{u.role.replace('_', ' ')}</div>
+                             <div className="text-[8px] text-slate-400 font-bold uppercase">{u.role ? u.role.replace('_', ' ') : 'USER'}</div>
                           </div>
                        </div>
                        <div className="flex gap-1">

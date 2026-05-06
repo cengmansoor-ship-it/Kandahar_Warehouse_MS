@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
   AlertTriangle, 
@@ -29,9 +30,27 @@ export const ForecastModule = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedYear, setSelectedYear] = useState(2026);
 
+  const navigate = useNavigate();
+
   useEffect(() => {
     fetchData();
   }, [selectedYear]);
+
+  // KPI Actions
+  const handleConfidenceClick = () => {
+    toast.info("Navigating to System Audit Trail for methodology verification");
+    navigate('/activities');
+  };
+
+  const handleItemsTrackedClick = () => {
+    toast.info("Opening full inventory view");
+    navigate('/inventory');
+  };
+
+  const handleCriticalShortageClick = () => {
+    toast.info("Filtering inventory by critical stock levels");
+    navigate('/inventory', { state: { filter: 'low_stock' } });
+  };
 
   const fetchData = async () => {
     try {
@@ -41,7 +60,7 @@ export const ForecastModule = () => {
         api.get(`/forecast/yearly?year=${selectedYear}`)
       ]);
       setDashboard(dashRes.data);
-      setAllForecasts(yearlyRes.data);
+      setAllForecasts(Array.isArray(yearlyRes.data) ? yearlyRes.data : []);
     } catch (err) {
       toast.error("Failed to load forecasting data");
     } finally {
@@ -111,7 +130,10 @@ export const ForecastModule = () => {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="fintech-card p-8 bg-white border border-slate-100 relative overflow-hidden group">
+        <div 
+          onClick={handleConfidenceClick}
+          className="fintech-card p-8 bg-white border border-slate-100 relative overflow-hidden group cursor-pointer hover:shadow-2xl transition-all"
+        >
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
             <Zap size={60} />
           </div>
@@ -122,7 +144,10 @@ export const ForecastModule = () => {
           </div>
         </div>
 
-        <div className="fintech-card p-8 bg-white border border-slate-100 relative overflow-hidden group">
+        <div 
+          onClick={handleItemsTrackedClick}
+          className="fintech-card p-8 bg-white border border-slate-100 relative overflow-hidden group cursor-pointer hover:shadow-2xl transition-all"
+        >
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Items Tracked</p>
           <h4 className="text-4xl font-black text-slate-900 italic">{dashboard?.totalItemsForecasting || 0}</h4>
           <div className="mt-4 flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase tracking-widest">
@@ -130,7 +155,10 @@ export const ForecastModule = () => {
           </div>
         </div>
 
-        <div className="fintech-card p-8 bg-white border border-slate-100 relative overflow-hidden group border-l-4 border-l-amber-500">
+        <div 
+          onClick={handleCriticalShortageClick}
+          className="fintech-card p-8 bg-white border border-slate-100 relative overflow-hidden group border-l-4 border-l-amber-500 cursor-pointer hover:shadow-2xl transition-all"
+        >
           <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2">Critical Shortage</p>
           <h4 className="text-4xl font-black text-slate-900 italic">{dashboard?.criticalItemsCount || 0}</h4>
           <div className="mt-4 flex items-center gap-2 text-amber-500 font-bold text-[10px] uppercase tracking-widest">

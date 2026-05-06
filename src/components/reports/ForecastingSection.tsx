@@ -119,7 +119,7 @@ export const ForecastingSection: React.FC<{ data: any[] }> = ({ data }) => {
               <input 
                 type="number" 
                 value={windowSize} 
-                onChange={e => setWindowSize(Math.max(1, parseInt(e.target.value)))}
+                onChange={e => setWindowSize(Math.max(1, parseInt(e.target.value) || 1))}
                 className="w-12 bg-transparent text-[10px] font-black text-[#0F8F7F] outline-none"
               />
             </div>

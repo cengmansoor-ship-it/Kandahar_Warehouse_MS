@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
@@ -17,6 +17,7 @@ api.interceptors.request.use((config) => {
 
 export const authService = {
   login: (credentials: any) => api.post('/auth/login', credentials),
+  forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
 };
 
 export const inventoryService = {
@@ -68,6 +69,12 @@ export const notificationService = {
   getNotifications: () => api.get('/notifications'),
   clearNotifications: () => api.delete('/notifications'),
   sendSMS: (to: string, message: string) => api.post('/notifications/sms', { to, message }),
+};
+
+export const emailService = {
+  getEmails: () => api.get('/emails'),
+  sendEmail: (data: { to: string, subject: string, text: string, html?: string, requestId?: string, type?: string }) => api.post('/send-email', data),
+  updateEmail: (id: string, data: any) => api.patch(`/emails/${id}`, data),
 };
 
 export const analyticsService = {

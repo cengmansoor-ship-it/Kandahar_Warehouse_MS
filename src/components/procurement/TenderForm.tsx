@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { DocumentHeader } from './DocumentHeader';
 import { ProcurementTable } from './ProcurementTable';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { EditableField } from '../ui/EditableField';
 
 interface Item {
@@ -21,6 +21,7 @@ interface Item {
 }
 
 interface TenderFormProps {
+  requestId?: string;
   data?: {
     id?: string;
     issueNumber?: string;
@@ -37,6 +38,7 @@ interface TenderFormProps {
 }
 
 export const TenderForm: React.FC<TenderFormProps> = ({ 
+  requestId,
   data: initialData,
   isEditable = true,
   onSave
@@ -46,26 +48,38 @@ export const TenderForm: React.FC<TenderFormProps> = ({
   
   // Advanced customization state for labels (making the doc fully editable)
   const [docMeta, setDocMeta] = useState({
-    tenderTitle: t('tender_document')?.toUpperCase() || 'TENDER DOCUMENT',
-    subtitle: t('procurement_notice') || 'Official Procurement & Specifications Notice',
-    issuerLabel: t('issuer_details') || 'Issuer Information',
-    itemsLabel: t('items_specifications') || 'Detailed List of Requirements',
-    dateLabel: t('date') || 'Issue Date',
-    refLabel: t('ref_no') || 'Reference Code',
-    preparedByLabel: t('prepared_by') || 'Prepared By (Logistics Dept)',
-    approvedByLabel: t('approved_by') || 'Approved By (Chancellor Office)',
-    facultyLabel: t('faculty') || 'Assigned Faculty',
-    departmentLabel: t('department') || 'End-User Department'
+    tenderTitle: 'د استملاک فورم (Tender Acquisition)',
+    subtitle: 'تدارکاتي تشریح: ددې پروژې په اړه د مختلفو شرکتونو نرخونه چې د پوهنتون هیئت لخوا راټول شوي دي په لاندې ډول سره دي.',
+    issuerLabel: 'issuer_details',
+    issuerAddress: 'issuer_address',
+    itemsLabel: 'procurement_notice',
+    dateLabel: 'Date',
+    refLabel: 'ref_no',
+    signatureLabel: 'د تهیه کوونکي امضاء او مهر (Signature)',
+    boardHeading: 'امضاء، د نرخ اخیستنې " خریداری " هیئت',
+    boardMemberLabel: 'د هیئت نوم:',
+    decisionLabel: 'ملاحظات او پریکړه (Decision):',
+    decisionText: 'د تدارکاتي هیئت لخوا د ټولو شرکتونو نرخونه په دقت سره وڅیړل شول، چې په پایله کې ... شرکت د ټیټ نرخ او د موادو د لوړ کیفیت په پام کې نیولو سره د دې پروژې ګټونکی اعلان شو.',
+    // Table headers
+    hNum: 'شمیره',
+    hCode: 'کود (Chapter)',
+    hName: 'د جنس نوم',
+    hDesc: 'د جنس تخنيکي تشريح',
+    hUnit: 'واحد',
+    hQty: 'مقدار',
+    hPrice: 'د في واحد قيمت',
+    hTotal: 'مجموعې قیمت'
   });
 
   const defaultData = {
     issueNumber: '۱۴۴۵/ / ',
-    issueDate: new Date().toLocaleDateString('fa-AF'),
+    issueDate: new Date().toLocaleDateString('fa-AF', { year: 'numeric', month: 'numeric', day: 'numeric' }),
     issuerName: 'تدارکاتو عمومي مدیر',
     issuerAddress: 'کندهار پوهنتون',
     projectTitle: '',
     items: [],
-    boardMembers: ['', '', '']
+    boardMembers: ['Board Member 1', 'Board Member 2', 'Board Member 3'],
+    requestId: requestId
   };
 
   const [formData, setFormData] = React.useState(initialData || defaultData);
@@ -82,14 +96,8 @@ export const TenderForm: React.FC<TenderFormProps> = ({
   const handleDownloadPDF = () => {
     try {
       const doc = new jsPDF('p', 'mm', 'a4') as any;
-      
-      // Since it's Pashto/Dari, jspdf needs special fonts for direct text.
-      // For now, we use autotable and basic layout. 
-      // A better way for RTL complex docs in jspdf is using a font that supports it.
-      
       doc.setFontSize(20);
       doc.text("Kandahar University - Procurement Tender", 105, 20, { align: 'center' });
-      
       doc.setFontSize(14);
       doc.text(`Project: ${formData.projectTitle || 'N/A'}`, 20, 40);
       doc.text(`Issue No: ${formData.issueNumber}`, 20, 50);
@@ -102,11 +110,11 @@ export const TenderForm: React.FC<TenderFormProps> = ({
         item.description,
         item.unit,
         item.quantity,
-        item.unitPrice?.toLocaleString() || '0',
-        item.totalPrice?.toLocaleString() || '0'
+        (Number(item.unitPrice) || 0).toLocaleString(),
+        (Number(item.totalPrice) || 0).toLocaleString()
       ]);
 
-      doc.autoTable({
+      autoTable(doc, {
         head: [['#', 'Code', 'Item', 'Description', 'Unit', 'Qty', 'Unit Price', 'Total']],
         body: tableData,
         startY: 70,
@@ -187,10 +195,16 @@ export const TenderForm: React.FC<TenderFormProps> = ({
         await api.patch(`/procurement/tenders/${formData.id}`, payload);
         toast.success("Tender updated successfully");
       } else {
-        const res = await api.post('/procurement/tenders', { ...payload, requestId: (formData as any).requestId });
+        const res = await api.post('/procurement/tenders', { ...payload, requestId: (formData as any).requestId || requestId });
         setFormData({ ...formData, id: res.data.id });
         toast.success("New tender created and saved");
       }
+      
+      // Update pipeline progress to 50%
+      if (requestId || (formData as any).requestId) {
+        await api.patch(`/requests/${requestId || (formData as any).requestId}`, { progress: 50, status: 'TENDER_CREATED' });
+      }
+      
       if (onSave) onSave(formData);
     } catch (e) {
       toast.error("Save failed. Connection error.");
@@ -213,7 +227,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
   const addItem = () => {
     const newItems = [...(formData.items || [])];
     newItems.push({
-      id: Date.now(), // Dynamic ID
+      id: Date.now(),
       name: '',
       description: '',
       unit: '',
@@ -232,11 +246,11 @@ export const TenderForm: React.FC<TenderFormProps> = ({
 
   const columns = [
     { 
-      header: <EditableField value="شمیره" onSave={() => {}} isEditable={isEditable} />, 
+      header: <EditableField value={docMeta.hNum} onSave={(val) => setDocMeta({...docMeta, hNum: val})} isEditable={isEditable} />, 
       key: 'id', width: '50px', align: 'center' as const, render: (_:any, i:number) => i + 1 
     },
     {
-      header: <EditableField value="کود (Chapter)" onSave={() => {}} isEditable={isEditable} />,
+      header: <EditableField value={docMeta.hCode} onSave={(val) => setDocMeta({...docMeta, hCode: val})} isEditable={isEditable} />,
       key: 'code',
       width: '120px',
       render: (row: any, idx: number) => isEditable ? (
@@ -251,7 +265,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
       ) : row.code
     },
     { 
-      header: <EditableField value="د جنس نوم" onSave={() => {}} isEditable={isEditable} />, 
+      header: <EditableField value={docMeta.hName} onSave={(val) => setDocMeta({...docMeta, hName: val})} isEditable={isEditable} />, 
       key: 'name', 
       width: '180px',
       render: (row: Item, idx: number) => isEditable ? (
@@ -264,7 +278,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
       ) : row.name
     },
     { 
-      header: 'د جنس تخنيکي تشريح', 
+      header: <EditableField value={docMeta.hDesc} onSave={(val) => setDocMeta({...docMeta, hDesc: val})} isEditable={isEditable} />, 
       key: 'description', 
       width: '250px',
       render: (row: Item, idx: number) => isEditable ? (
@@ -278,7 +292,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
       ) : row.description
     },
     { 
-      header: 'واحد', 
+      header: <EditableField value={docMeta.hUnit} onSave={(val) => setDocMeta({...docMeta, hUnit: val})} isEditable={isEditable} />, 
       key: 'unit', 
       width: '80px', 
       align: 'center' as const,
@@ -291,7 +305,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
       ) : row.unit
     },
     { 
-      header: 'مقدار', 
+      header: <EditableField value={docMeta.hQty} onSave={(val) => setDocMeta({...docMeta, hQty: val})} isEditable={isEditable} />, 
       key: 'quantity', 
       width: '80px', 
       align: 'center' as const,
@@ -305,7 +319,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
       ) : row.quantity
     },
     { 
-      header: 'د في واحد قيمت', 
+      header: <EditableField value={docMeta.hPrice} onSave={(val) => setDocMeta({...docMeta, hPrice: val})} isEditable={isEditable} />, 
       key: 'unitPrice', 
       width: '100px', 
       align: 'center' as const,
@@ -316,14 +330,14 @@ export const TenderForm: React.FC<TenderFormProps> = ({
           onChange={(e) => updateItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
           className="w-full bg-white border-0 text-center focus:ring-1 focus:ring-emerald-500 rounded"
         />
-      ) : row.unitPrice?.toLocaleString()
+      ) : (Number(row.unitPrice) || 0).toLocaleString()
     },
     { 
-      header: <EditableField value="مجموعې قیمت" onSave={() => {}} isEditable={isEditable} />, 
+      header: <EditableField value={docMeta.hTotal} onSave={(val) => setDocMeta({...docMeta, hTotal: val})} isEditable={isEditable} />, 
       key: 'totalPrice', 
       width: '120px', 
       align: 'center' as const,
-      render: (row: Item) => (row.quantity * (row.unitPrice || 0)).toLocaleString()
+      render: (row: Item) => ((Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)).toLocaleString()
     },
     {
       header: '',
@@ -345,153 +359,108 @@ export const TenderForm: React.FC<TenderFormProps> = ({
       <div 
         ref={componentRef}
         dir="rtl"
-        className="relative a4-page font-sans text-slate-900 border border-slate-200 bg-white shadow-2xl overflow-hidden"
+        className="relative a4-page font-sans text-slate-900 border-2 border-slate-900 bg-white shadow-2xl overflow-hidden"
       >
-        {/* Floating Controls */}
-        <div className="absolute -left-20 top-0 hidden xl:flex flex-col gap-4 no-print">
-          <button 
-            onClick={handlePrint}
-            title="Print Document"
-            className="p-4 bg-white border border-slate-200 text-slate-900 rounded-2xl hover:bg-slate-50 transition-all shadow-xl hover:scale-110 active:scale-95"
-          >
-            <Printer size={24} />
-          </button>
-          <button 
-            onClick={handleDownloadPDF}
-            title="Download PDF"
-            className="p-4 bg-white border border-slate-200 text-emerald-600 rounded-2xl hover:bg-emerald-50 transition-all shadow-xl hover:scale-110 active:scale-95"
-          >
-            <Download size={24} />
-          </button>
-        </div>
 
-        <div className="absolute -right-20 top-0 hidden xl:flex flex-col gap-4 no-print">
-          {isEditable && (
-            <>
-              <button 
-                onClick={handleSaveToSystem}
-                disabled={saving}
-                title="Save & Persist"
-                className="p-4 bg-white border border-slate-200 text-[#0F8F7F] rounded-2xl hover:bg-emerald-50 transition-all shadow-xl hover:scale-110 active:scale-95 disabled:opacity-50"
-              >
-                <Save size={24} />
-              </button>
-              <button 
-                onClick={addItem}
-                title="Dynamically Add Item"
-                className="p-4 bg-white border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all shadow-xl hover:scale-110 active:scale-95"
-              >
-                <Plus size={24} />
-              </button>
-            </>
-          )}
-        </div>
+        <div className="p-12">
+          <div className="flex justify-between items-center mb-8 no-print border-b border-slate-100 pb-4">
+             <div className="flex items-center gap-2">
+               <button onClick={handlePrint} className="p-2 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-black/10">
+                 <Printer size={16} /> Print
+               </button>
+               <button onClick={handleDownloadPDF} className="p-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-rose-600/10">
+                 <Download size={16} /> Export PDF
+               </button>
+             </div>
+             <div className="flex items-center gap-2">
+                {isEditable && (
+                  <>
+                    <button onClick={addItem} className="p-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-emerald-500/10">
+                      <Plus size={16} /> Add Row
+                    </button>
+                    <button onClick={handleSaveToSystem} disabled={saving} className="p-2 bg-sky-600 text-white rounded-xl hover:bg-sky-700 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-sky-600/10 disabled:opacity-50">
+                      <Save size={16} /> {saving ? 'Saving...' : 'Save & Complete'}
+                    </button>
+                  </>
+                )}
+             </div>
+          </div>
 
-        {/* Mobile Controls */}
-        <div className="flex xl:hidden gap-2 mb-6 no-print w-full justify-center p-4">
-           <button onClick={handlePrint} className="flex-1 bg-slate-900 text-white py-3 rounded-xl flex items-center justify-center gap-2 font-black text-xs uppercase transition-colors hover:bg-black"><Printer size={16}/> Print</button>
-           <button onClick={handleDownloadPDF} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl flex items-center justify-center gap-2 font-black text-xs uppercase transition-colors hover:bg-emerald-700"><Download size={16}/> PDF</button>
-           {isEditable && <button onClick={handleSaveToSystem} className="flex-1 bg-[#0F8F7F] text-white py-3 rounded-xl flex items-center justify-center gap-2 font-black text-xs uppercase transition-colors hover:bg-[#0c7a6b]"><Save size={16}/> Save</button>}
-        </div>
-
-        <div className="p-[20mm]">
           <DocumentHeader 
-            title={
-              <EditableField 
-                value={docMeta.tenderTitle} 
-                onSave={(val) => setDocMeta({...docMeta, tenderTitle: val})}
-                className="text-2xl font-black tracking-tight text-black text-center"
-                isEditable={isEditable}
-              />
-            } 
-            projectTitle={isEditable ? (
-              <EditableField 
-                value={formData.projectTitle || ''} 
-                onSave={(val) => setFormData({...formData, projectTitle: val})}
-                className="w-full text-center font-black text-lg text-black"
-                placeholder="Enter Project Title..."
-                isEditable={isEditable}
-              />
-            ) : (formData.projectTitle || '')} 
+            title={<EditableField value={docMeta.tenderTitle} onSave={(val) => setDocMeta({...docMeta, tenderTitle: val})} className="text-2xl font-black tracking-tight text-black text-center" isEditable={isEditable} />} 
+            projectTitle={isEditable ? <EditableField value={formData.projectTitle || ''} onSave={(val) => setFormData({...formData, projectTitle: val})} className="w-full text-center font-black text-lg text-black" placeholder="Enter Project Title..." isEditable={isEditable} /> : (formData.projectTitle || '')} 
           />
 
-          <div className="grid grid-cols-2 gap-x-12 gap-y-4 mb-8 text-[12px] font-bold">
+          <div className="grid grid-cols-2 gap-x-12 gap-y-4 mb-8 text-[12px] font-black">
              {[
                { metaKey: 'refLabel', key: 'issueNumber' },
                { metaKey: 'dateLabel', key: 'issueDate' },
                { metaKey: 'issuerLabel', key: 'issuerName' },
-               { metaKey: 'issuerAddress', key: 'issuerAddress' } // repurposed issuerAddress label if needed, or just use issuerName
+               { metaKey: 'issuerAddress', key: 'issuerAddress' }
              ].map((field) => (
                <div key={field.key} className="flex gap-2 items-center">
-                 <EditableField 
-                    value={(docMeta as any)[field.metaKey] || field.metaKey}
-                    onSave={(val) => setDocMeta({...docMeta, [field.metaKey]: val})}
-                    className="shrink-0"
-                    isEditable={isEditable}
-                 />
+                 <EditableField value={(docMeta as any)[field.metaKey]} onSave={(val) => setDocMeta({...docMeta, [field.metaKey]: val})} className="shrink-0" isEditable={isEditable} />
                  {isEditable ? (
-                   <input 
-                     value={(formData as any)[field.key]} 
-                     onChange={(e) => setFormData({...formData, [field.key]: e.target.value})}
-                     className="border-b-2 border-slate-200 flex-1 bg-transparent focus:outline-none focus:border-emerald-500 transition-colors"
-                   />
+                   <input value={(formData as any)[field.key]} onChange={(e) => setFormData({...formData, [field.key]: e.target.value})} className="border-b-2 border-slate-900 flex-1 bg-transparent focus:outline-none focus:border-[#0F8F7F] transition-colors font-black h-8 px-2" />
                  ) : (
-                   <span className="border-b border-dotted border-slate-400 flex-1">{(formData as any)[field.key]}</span>
+                   <span className="border-b-2 border-slate-900 flex-1 h-8 flex items-end">{(formData as any)[field.key]}</span>
                  )}
                </div>
              ))}
           </div>
 
-          <div className="text-[11px] leading-relaxed mb-8 font-medium text-justify bg-slate-50 p-4 rounded-xl border border-slate-100">
-            <p>
-              <EditableField 
-                value={docMeta.subtitle} 
-                onSave={(val) => setDocMeta({...docMeta, subtitle: val})}
-                multiline
-                isEditable={isEditable}
-              />
-            </p>
+          <div className="text-[12px] leading-relaxed mb-6 font-bold text-justify bg-white p-6 rounded-xl border-2 border-slate-900">
+             <EditableField value={docMeta.subtitle} onSave={(val) => setDocMeta({...docMeta, subtitle: val})} multiline isEditable={isEditable} />
+          </div>
+
+          <div className="mb-4 text-start">
+             <EditableField value={docMeta.itemsLabel} onSave={(val) => setDocMeta({...docMeta, itemsLabel: val})} className="font-black text-slate-900 underline decoration-2 underline-offset-4" isEditable={isEditable} />
           </div>
 
           <ProcurementTable columns={columns} data={formData.items || []} />
 
-          <div className="grid grid-cols-2 gap-12 mt-16 text-[12px]">
-             <div className="space-y-10">
-                <div className="border-2 border-dashed border-slate-200 p-4 h-36 rounded-2xl flex flex-col justify-between items-center bg-slate-50/30">
-                  <span className="font-black text-[10px] uppercase text-slate-400">د تهیه کوونکي امضاء او مهر (Signature)</span>
-                </div>
-                <div className="flex flex-col gap-4 font-black">
-                   <div className="flex justify-between border-b border-slate-100 pb-2"><span>تاریخ:</span> <span>{formData.issueDate}</span></div>
-                   <span className="text-sm text-emerald-800">امضاء، د نرخ اخیستنې " خریداری " هیئت</span>
-                </div>
-             </div>
+          <div className="mt-12 p-8 bg-white rounded-2xl border-2 border-slate-900 space-y-4 text-start">
+             <EditableField value={docMeta.decisionLabel} onSave={(val) => setDocMeta({...docMeta, decisionLabel: val})} className="font-black text-slate-900 text-lg underline" isEditable={isEditable} />
+             <textarea 
+               value={docMeta.decisionText} 
+               onChange={(e) => setDocMeta({...docMeta, decisionText: e.target.value})}
+               className="w-full bg-transparent border-0 focus:ring-0 text-xs leading-relaxed text-slate-600 italic font-bold h-24 resize-none"
+             />
+          </div>
 
-             <div className="space-y-6 flex flex-col justify-end">
-                {formData.boardMembers?.map((member, idx) => (
-                  <div key={idx} className="flex gap-3 font-black items-center">
-                     <span className="w-24 shrink-0">د هیئت نوم:</span>
-                     {isEditable ? (
-                       <input 
-                          value={member}
-                          placeholder={`Board Member ${idx + 1}`}
-                          onChange={(e) => {
-                            const newMembers = [...(formData.boardMembers || [])];
-                            newMembers[idx] = e.target.value;
-                            setFormData({...formData, boardMembers: newMembers});
-                          }}
-                          className="border-b-2 border-slate-200 flex-1 bg-transparent focus:outline-none focus:border-emerald-500 transition-colors py-1"
-                       />
-                     ) : (
-                       <span className="border-b border-dotted border-slate-400 flex-1 py-1">{member}</span>
-                     )}
-                  </div>
-                ))}
-             </div>
+          <div className="grid grid-cols-2 gap-12 mt-16 text-[14px]">
+            <div className="space-y-6">
+              <div className="border-2 border-slate-900 p-6 h-48 rounded-2xl flex flex-col justify-between items-center bg-white shadow-md">
+                <EditableField value={docMeta.signatureLabel} onSave={(val) => setDocMeta({...docMeta, signatureLabel: val})} className="font-black text-[10px] uppercase text-slate-400 text-center" isEditable={isEditable} />
+                <div className="text-center font-black">
+                  <div className="text-lg">{formData.issuerName}</div>
+                  <div className="text-[10px] text-slate-500">{formData.issueDate}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-8">
+              <EditableField value={docMeta.boardHeading} onSave={(val) => setDocMeta({...docMeta, boardHeading: val})} className="text-lg font-black text-black underline mb-6" isEditable={isEditable} />
+              {formData.boardMembers?.map((member, idx) => (
+                <div key={idx} className="flex gap-3 font-black items-center">
+                   <EditableField value={docMeta.boardMemberLabel} onSave={(val) => setDocMeta({...docMeta, boardMemberLabel: val})} className="shrink-0" isEditable={isEditable} />
+                   {isEditable ? (
+                     <input value={member} placeholder={`Board Member ${idx + 1}`} onChange={(e) => {
+                        const newMembers = [...(formData.boardMembers || [])];
+                        newMembers[idx] = e.target.value;
+                        setFormData({...formData, boardMembers: newMembers});
+                     }} className="border-b-2 border-slate-900 flex-1 bg-transparent focus:outline-none focus:border-[#0F8F7F] transition-colors py-1 text-right h-8" />
+                   ) : (
+                     <span className="border-b-2 border-slate-900 flex-1 py-1 text-right h-8 flex items-end">{member}</span>
+                   )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="mt-8 pt-6 pb-6 text-[9px] text-slate-400 text-center border-t border-slate-100 italic">
-          KDRU-WMS Standard Procurement Engine • کندهار پوهنتون
+        <div className="mt-8 pt-8 pb-8 text-[10px] text-slate-500 text-center border-t-2 border-slate-900 font-black italic bg-slate-50">
+          Procurement System Engine • Kandahar University Digital Hub
         </div>
       </div>
     </div>

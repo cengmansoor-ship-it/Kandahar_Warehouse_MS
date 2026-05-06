@@ -16,6 +16,7 @@ import {
 import { cn } from '@/src/lib/utils';
 import { toast } from 'sonner';
 import { ItemHierarchyModal } from './ItemHierarchyModal';
+import { ConfirmModal } from '../ui/ConfirmModal';
 import api from '@/src/services/api';
 import { useLocation } from 'react-router-dom';
 
@@ -27,6 +28,8 @@ export const InventoryManager = () => {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -44,7 +47,7 @@ export const InventoryManager = () => {
     }
   }, [location.state]);
 
-  const filteredItems = items.filter(item => {
+  const filteredItems = (Array.isArray(items) ? items : []).filter(item => {
     const searchStr = searchTerm.toLowerCase();
     const matchesSearch = (
       item.name?.toLowerCase().includes(searchStr) ||
@@ -65,7 +68,7 @@ export const InventoryManager = () => {
     try {
       setLoading(true);
       const res = await inventoryService.getItems();
-      setItems(res.data);
+      setItems(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       toast.error(t('failed_load_inventory'));
       console.error(error);
@@ -88,13 +91,21 @@ export const InventoryManager = () => {
   };
 
   const handleMoveToTrash = async (id: string) => {
-    if (!window.confirm("Are you sure you want to move this item to trash?")) return;
+    setItemToDelete(id);
+    setShowConfirmModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
     try {
-      await api.post(`/items/${id}/trash`, { reason: "Manual Cleanup" });
+      await api.post(`/items/${itemToDelete}/trash`, { reason: "Manual Cleanup" });
       toast.success("Item moved to trash");
       fetchItems();
     } catch (error) {
       toast.error("Failed to move item to trash");
+    } finally {
+      setShowConfirmModal(false);
+      setItemToDelete(null);
     }
   };
 
@@ -324,6 +335,18 @@ export const InventoryManager = () => {
            </div>
         </div>
       )}
+
+      <ConfirmModal 
+        isOpen={showConfirmModal}
+        onClose={() => {
+          setShowConfirmModal(false);
+          setItemToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Move to Trash"
+        message="Are you sure you want to move this item to the trash? It can be restored later."
+        variant="warning"
+      />
     </div>
   );
 };

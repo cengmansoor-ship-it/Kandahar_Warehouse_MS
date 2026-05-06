@@ -1,0 +1,108 @@
+{
+  "items": [
+    {
+      "id": "1",
+      "name": "Printing Paper A4",
+      "item_code": "22301",
+      "category": "Stationery",
+      "quantity": 500,
+      "unit": "BOX",
+      "location": "Zone A-01",
+      "status": "In Stock",
+      "department": "Engineering"
+    },
+    {
+      "id": "2",
+      "name": "Engine Oil 10W40",
+      "item_code": "22601",
+      "category": "Fuel",
+      "quantity": 50,
+      "unit": "LTR",
+      "location": "Cold Storage",
+      "status": "In Stock",
+      "department": "Engineering"
+    },
+    {
+      "id": "3",
+      "name": "Microscope Slides",
+      "item_code": "22700",
+      "category": "Laboratory",
+      "quantity": 200,
+      "unit": "PKT",
+      "location": "Lab A",
+      "status": "In Stock",
+      "department": "Medicine"
+    },
+    {
+      "id": "4",
+      "name": "Lab Coats",
+      "item_code": "22704",
+      "category": "Clothing",
+      "quantity": 5,
+      "unit": "PCS",
+      "location": "Lab B",
+      "status": "Low Stock",
+      "department": "Medicine"
+    }
+  ],
+  "receivings": [
+    {
+      "id": "R1",
+      "date": "2026-05-06T01:48:05.378Z",
+      "item_code": "22301",
+      "item_name": "Printing Paper A4",
+      "quantity": 100,
+      "supplier": "Kabul Stationers",
+      "received_by": "Ahmed",
+      "status": "COMPLETED"
+    }
+  ],
+  "requests": [],
+  "tenders": [],
+  "quotations": [],
+  "orders": [],
+  "trash": [],
+  "notifications": [],
+  "stock_transactions": [],
+  "codes": [],
+  "faculties": [
+    {
+      "id": "f1",
+      "name": "Medicine",
+      "count": 12
+    },
+    {
+      "id": "f2",
+      "name": "Computer Science",
+      "count": 8
+    },
+    {
+      "id": "f3",
+      "name": "Engineering",
+      "count": 15
+    }
+  ],
+  "departments": [
+    { "id": "d1", "name": "Internal Medicine", "facultyId": "f1" },
+    { "id": "d2", "name": "Software Engineering", "facultyId": "f2" },
+    { "id": "d3", "name": "Civil Engineering", "facultyId": "f3" }
+  ],
+  "adminUnits": [
+    { "id": "a1", "name": "Directorate of Finance" },
+    { "id": "a2", "name": "Human Resources" }
+  ],
+  "personnel": [
+    { "id": "p1", "name": "Enayatullah Mansoor", "jobTitle": "Lecturer", "facultyId": "f3", "departmentId": "d3", "idNumber": "3456" }
+  ],
+  "allocations": [],
+  "users": [
+    {
+      "id": "admin",
+      "name": "System Admin",
+      "email": "admin@kandahar.edu.af",
+      "password": "$2b$10$JBk8zOkAhmU93kY7TdVX8eqq.3V3zf0uLm.7Hv2roMSGMyjxhHAQy",
+      "role": "Admin",
+      "profileImage": null
+    }
+  ]
+}

@@ -135,7 +135,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({ tender, onClose, onSucces
                            />
                         </td>
                         <td className="px-6 py-4 text-sm font-black text-slate-900">
-                           {(item.unitPrice * item.qty).toLocaleString()} AFN
+                           {((Number(item.unitPrice) || 0) * (Number(item.qty) || 0)).toLocaleString()} AFN
                         </td>
                       </tr>
                     ))}
@@ -144,7 +144,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({ tender, onClose, onSucces
                       <tr>
                         <td colSpan={4} className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Grand Total</td>
                         <td className="px-6 py-4 text-lg font-black text-slate-900">
-                           {itemPrices.reduce((acc: number, item: any) => acc + (item.unitPrice * item.qty), 0).toLocaleString()} AFN
+                           {(Array.isArray(itemPrices) ? itemPrices : []).reduce((acc: number, item: any) => acc + ((Number(item.unitPrice) || 0) * (Number(item.qty) || 0)), 0).toLocaleString()} AFN
                         </td>
                       </tr>
                    </tfoot>

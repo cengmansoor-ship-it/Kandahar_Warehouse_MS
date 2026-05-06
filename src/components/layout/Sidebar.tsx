@@ -95,7 +95,6 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout, user }: SidebarProp
     { id: 'receiving', label: t('receiving'), icon: Truck, path: '/receiving', permission: 'manage_receiving' },
     { id: 'requests', label: t('requests'), icon: FileText, path: '/requests', permission: 'manage_requests' },
     { id: 'procurement', label: t('procurement'), icon: ShoppingCart, path: '/procurement', permission: 'manage_procurement' },
-    { id: 'forecast', label: 'Forecasting', icon: Sparkles, path: '/forecast', permission: 'view_reports' },
     { id: 'reports', label: t('reports'), icon: BarChart3, path: '/reports', permission: 'view_reports' },
     { id: 'trash', label: t('trash_bin'), icon: Trash2, path: '/trash', permission: 'manage_inventory' },
     { id: 'settings', label: t('settings'), icon: Settings, path: '/settings', permission: 'manage_settings' },
@@ -116,7 +115,7 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout, user }: SidebarProp
       animate={{ width: collapsed ? '90px' : '280px' }}
       dir={isRtl ? 'rtl' : 'ltr'}
       className={cn(
-        "bg-[#0F8F7F] h-screen flex flex-col transition-all duration-500 overflow-hidden z-50 fixed lg:relative sidebar",
+        "bg-primary-teal h-screen flex flex-col transition-all duration-500 overflow-hidden z-50 fixed lg:relative sidebar",
         collapsed ? "w-[90px]" : "w-[280px]"
       )}
     >
