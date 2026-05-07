@@ -694,13 +694,8 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
           </h2>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center bg-white border border-slate-100 rounded-2xl p-1 shadow-sm">
-            <button onClick={handlePrint} className="p-3 text-slate-500 hover:bg-slate-50 rounded-xl transition-all" title="Print"><Printer size={16} /></button>
-            <div className="w-px h-4 bg-slate-200 mx-1" />
-            <button onClick={() => handleExport('excel')} className="p-3 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Excel"><FileSpreadsheet size={16} /></button>
-            <button onClick={() => handleExport('pdf')} className="p-3 text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="PDF"><Download size={16} /></button>
-          </div>
+        <div className="flex flex-wrap items-center gap-3 no-print">
+          {/* Print button removed as requested */}
 
           <div className="relative group">
             <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-[#0F8F7F] transition-colors" />

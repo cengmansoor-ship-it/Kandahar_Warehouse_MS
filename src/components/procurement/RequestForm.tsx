@@ -133,7 +133,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ onClose, onSuccess }) => {
                           required
                           type="number"
                           value={item.qty}
-                          onChange={(e) => updateItem(index, 'qty', parseInt(e.target.value))}
+                          onChange={(e) => updateItem(index, 'qty', parseInt(e.target.value) || 0)}
                           className="w-full p-3 bg-white border border-slate-100 rounded-xl font-bold text-sm"
                        />
                     </div>

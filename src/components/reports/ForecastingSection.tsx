@@ -30,10 +30,10 @@ export const ForecastingSection: React.FC<{ data: any[] }> = ({ data }) => {
       // Simple Moving Average
       for (let i = 0; i < futureCount; i++) {
         const lastN = results.slice(-windowSize);
-        const avg = lastN.reduce((acc, curr) => acc + (curr.actual || curr.projected || 0), 0) / windowSize;
+        const avg = lastN.reduce((acc, curr) => acc + (curr.actual || curr.projected || 0), 0) / (windowSize || 1);
         results.push({
           month: `Plan ${i + 1}`,
-          projected: Math.round(avg),
+          projected: Math.round(avg) || 0,
           isForecast: true
         });
       }
@@ -47,7 +47,7 @@ export const ForecastingSection: React.FC<{ data: any[] }> = ({ data }) => {
       for (let i = 0; i < futureCount; i++) {
         results.push({
           month: `Plan ${i + 1}`,
-          projected: Math.round(s),
+          projected: Math.round(s) || 0,
           isForecast: true
         });
       }
@@ -62,21 +62,26 @@ export const ForecastingSection: React.FC<{ data: any[] }> = ({ data }) => {
         sumX2 += i * i;
       });
 
-      const m = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-      const b = (sumY - m * sumX) / n;
+      const denominator = (n * sumX2 - sumX * sumX);
+      const m = denominator !== 0 ? (n * sumXY - sumX * sumY) / denominator : 0;
+      const b = (sumY - m * sumX) / (n || 1);
 
       for (let i = 0; i < futureCount; i++) {
         const x = n + i;
         const y = m * x + b;
         results.push({
           month: `Plan ${i + 1}`,
-          projected: Math.round(Math.max(0, y)),
+          projected: Math.round(Math.max(0, y)) || 0,
           isForecast: true
         });
       }
     }
 
-    setForecastData(results);
+    setForecastData(results.map(d => ({
+      ...d,
+      actual: isNaN(d.actual) ? 0 : d.actual,
+      projected: isNaN(d.projected) ? 0 : d.projected
+    })));
   };
 
   return (
@@ -253,6 +258,30 @@ export const ForecastingSection: React.FC<{ data: any[] }> = ({ data }) => {
           </div>
         </div>
       </div>
+      <div className="bg-white p-8 rounded-[32px] text-slate-900 space-y-6 border border-slate-100 shadow-sm">
+         <div className="flex items-center gap-3">
+            <Info size={20} className="text-[#0F8F7F]" />
+            <h4 className="text-sm font-black uppercase tracking-widest italic">Forecasting Methodology Disclosure</h4>
+         </div>
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-[11px]">
+            <div className="space-y-2 opacity-80 border-l border-slate-200 pl-6">
+               <span className="font-black text-[#0F8F7F] uppercase tracking-tighter">Moving Average</span>
+               <p className="leading-relaxed text-slate-600">F(t+1) = (A(t) + A(t-1) + ... + A(t-n+1)) / n. Calculates the unweighted mean of the last 'n' observations to smooth short-term fluctuations.</p>
+            </div>
+            <div className="space-y-2 opacity-80 border-l border-slate-200 pl-6">
+               <span className="font-black text-[#0F8F7F] uppercase tracking-tighter">Exp Smoothing</span>
+               <p className="leading-relaxed text-slate-600">S(t) = α * Y(t) + (1 - α) * S(t-1). Applies decreasing weights to older data points, prioritizing recent consumption trends for high-agility response.</p>
+            </div>
+            <div className="space-y-2 opacity-80 border-l border-slate-200 pl-6">
+               <span className="font-black text-[#0F8F7F] uppercase tracking-tighter">Linear Regression</span>
+               <p className="leading-relaxed text-slate-600">y = mx + c. Uses the Least Squares method to identify a trendline through historical data points, predicting future volume based on time-series trajectory.</p>
+            </div>
+         </div>
+         <div className="pt-4 border-t border-slate-100 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
+            Digital Procurement Engine • Kandahar University WMS Standard Formula Ver 2.4
+         </div>
+      </div>
+
     </div>
   );
 };

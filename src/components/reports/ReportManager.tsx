@@ -215,16 +215,38 @@ export const ReportManager = () => {
     printWindow.document.close();
   };
 
-  const executeExport = (filters: any) => {
-    toast.success(`Exporting ${filterType.toUpperCase()} for ${filters.faculty}...`);
+  const [filters, setFilters] = useState<any>({ faculty: 'All', department: 'All', fromDate: '', toDate: '' });
+
+  const filteredAllocation = Array.isArray(allocation) ? allocation.filter(a => {
+    const facultyMatch = filters.faculty === 'All' || a.faculty === filters.faculty;
+    const deptMatch = !filters.department || filters.department === 'All' || (a.department && a.department === filters.department);
+    return facultyMatch && deptMatch;
+  }) : [];
+
+  const filteredNeeds = Array.isArray(annualNeeds) ? annualNeeds.filter(item => {
+    const facultyMatch = filters.faculty === 'All' || (item.faculty && item.faculty === filters.faculty) || (item.Faculty && item.Faculty === filters.faculty);
+    const deptMatch = !filters.department || filters.department === 'All' || (item.department && item.department === filters.department) || (item.Department && item.Department === filters.department);
+    return facultyMatch && deptMatch;
+  }) : [];
+
+  const chartData = filteredAllocation.map(a => ({
+    name: a.faculty,
+    value: a.total_value,
+    items: a.items_count
+  }));
+
+  const executeExport = (newFilters: any) => {
+    setFilters(newFilters);
+    toast.success(`Filters applied for ${newFilters.faculty}...`);
     setShowFilterModal(false);
     
     if (filterType === 'print') {
-      handlePrint(filters);
+      handlePrint(newFilters);
     } else if (filterType === 'excel') {
+      // Internal filtering happens inside handleExcel... actually let's just use newFilters
       let dataToExport: any[] = [];
       if (activeTab === 'needs') {
-        dataToExport = annualNeeds.map(item => ({
+        dataToExport = filteredNeeds.map(item => ({
           'Item Name': item.name,
           'Code': item.item_code,
           'Stock': item.current_stock,
@@ -384,12 +406,6 @@ export const ReportManager = () => {
     setShowFilterModal(true);
   };
 
-  const chartData = Array.isArray(allocation) ? allocation.map(a => ({
-    name: a.faculty,
-    value: a.total_value,
-    items: a.items_count
-  })) : [];
-
   const categoryDistribution = [
     { name: 'IT Equipment', value: 45 },
     { name: 'Furniture', value: 25 },
@@ -398,7 +414,7 @@ export const ReportManager = () => {
   ];
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <h2 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">{t('reports')}</h2>
@@ -406,28 +422,51 @@ export const ReportManager = () => {
             {t('reports_description')}
           </p>
         </div>
-        <div className="flex flex-wrap gap-4 no-print">
-          <button 
-            onClick={exportToExcel}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-3 bg-white text-slate-900 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all border border-slate-100 shadow-sm"
-          >
-            <FileSpreadsheet size={18} />
-            {t('excel')}
-          </button>
-          <button 
-            onClick={exportToPDF}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-3 bg-white text-slate-900 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all border border-slate-100 shadow-sm"
-          >
-            <FilePdf size={18} />
-            {t('export_pdf')}
-          </button>
-          <button 
-            onClick={triggerPrint}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-3 bg-primary-teal text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-xl shadow-primary-teal/20"
-          >
-            <Printer size={18} />
-            {t('print')}
-          </button>
+        {/* Export buttons removed as requested */}
+      </div>
+
+      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 no-print">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
+          <div className="space-y-2 text-start">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('faculty')}</label>
+            <select 
+              value={filters.faculty}
+              onChange={(e) => setFilters({...filters, faculty: e.target.value})}
+              className="w-full bg-slate-50 border-none rounded-xl py-3 px-4 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all text-slate-700"
+            >
+              <option value="All">{t('all_faculties') || 'All Faculties'}</option>
+              {faculties.map(f => (
+                <option key={f.id} value={f.name}>{f.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2 text-start">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('department')}</label>
+            <select 
+              value={filters.department}
+              onChange={(e) => setFilters({...filters, department: e.target.value})}
+              className="w-full bg-slate-50 border-none rounded-xl py-3 px-4 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all text-slate-700"
+            >
+              <option value="All">{t('all_departments') || 'All Departments'}</option>
+              {/* Simple filter: show departments if they match faculty or show all if all */}
+              {Array.isArray(faculties) && faculties.find(f => f.name === filters.faculty)?.id ? (
+                // This would need a departments list which we don't have in state here yet
+                // But we can infer from traceability data or fetch it
+                <option value="Inferred">Filtered List...</option>
+              ) : null}
+              <option value="Information Technology">Information Technology</option>
+              <option value="Civil Engineering">Civil Engineering</option>
+              <option value="General Medicine">General Medicine</option>
+            </select>
+          </div>
+          <div className="lg:col-span-2 flex justify-end gap-3">
+             <button onClick={triggerPrint} className="flex items-center gap-2 bg-primary-teal text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-lg shadow-primary-teal/20">
+               <Printer size={14} /> {t('print')}
+             </button>
+             <button onClick={exportToExcel} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20">
+               <FileSpreadsheet size={14} /> {t('excel')}
+             </button>
+          </div>
         </div>
       </div>
 
@@ -466,19 +505,21 @@ export const ReportManager = () => {
                 <h3 className="font-black text-xl tracking-tight uppercase text-black">Faculties & Departments</h3>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {["Engineering", "Medicine", "Agriculture", "Computer Science", "Economics"].map((faculty) => (
+                {filteredAllocation.length > 0 ? filteredAllocation.map((item) => (
                   <button 
-                    key={faculty}
-                    onClick={() => navigate('/inventory', { state: { faculty } })}
+                    key={item.faculty}
+                    onClick={() => navigate('/inventory', { state: { faculty: item.faculty } })}
                     className="p-6 rounded-[24px] bg-slate-50 border border-slate-100 hover:bg-white hover:border-primary-teal hover:shadow-xl transition-all group text-start"
                   >
                     <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center mb-4 group-hover:bg-primary-teal transition-all shadow-sm">
                       <Users size={20} className="text-primary-teal group-hover:text-white" />
                     </div>
                     <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary-teal/60 mb-1">Explore</div>
-                    <div className="text-sm font-black tracking-tight text-slate-900">{t(`dept_${faculty.toLowerCase().replace(' ', '_')}`) || faculty}</div>
+                    <div className="text-sm font-black tracking-tight text-slate-900">{t(`dept_${item.faculty.toLowerCase().replace(' ', '_')}`) || item.faculty}</div>
                   </button>
-                ))}
+                )) : (
+                   <div className="col-span-full py-10 text-center text-slate-400 font-bold uppercase tracking-widest">No matching units found</div>
+                )}
               </div>
             </div>
 
@@ -600,7 +641,7 @@ export const ReportManager = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {Array.isArray(annualNeeds) && annualNeeds.map((item, idx) => (
+                    {filteredNeeds.map((item, idx) => (
                       <tr key={idx} className="group hover:bg-slate-50/50 transition-colors">
                         <td className="px-8 py-6 border-b border-slate-50">
                           <div className="flex items-center gap-4">

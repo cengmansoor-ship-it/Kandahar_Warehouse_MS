@@ -36,9 +36,21 @@ export const SettingsManager = () => {
     { label: t('role_faculty_staff'), count: 24, color: "bg-slate-400" },
   ]);
 
+  const [activities, setActivities] = useState<any[]>([]);
+
+  const fetchActivities = async () => {
+    try {
+      const res = await api.get('/activities');
+      setActivities(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      console.error("Failed to fetch activities", e);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchSettings();
+    fetchActivities();
   }, []);
 
   const fetchSettings = async () => {
@@ -166,17 +178,10 @@ export const SettingsManager = () => {
   };
 
   const changeLanguage = (lng: string) => {
-    console.log('Changing language to:', lng);
     i18n.changeLanguage(lng);
     document.documentElement.dir = i18n.dir();
     document.documentElement.lang = lng;
   };
-
-  const auditLogs = [
-    { id: 1, action: 'Stock Updated', user: 'Admin Official', time: '2 mins ago', type: 'update' },
-    { id: 2, action: 'New Request Approved', user: 'Store Master', time: '1 hour ago', type: 'create' },
-    { id: 3, action: 'User Login', user: 'Eng. Faculty Rep', time: '2 hours ago', type: 'auth' },
-  ];
 
   return (
     <div className="space-y-12">
@@ -426,15 +431,17 @@ export const SettingsManager = () => {
            </div>
            
            <div className="space-y-3 text-start">
-              {auditLogs.map((log) => (
-                <div key={log.id} className="p-4 bg-white rounded-2xl border-2 border-black flex items-center justify-between group hover:bg-slate-50 transition-all">
+              {activities.length === 0 ? (
+                <div className="py-10 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest italic">No activities recorded in ledger</div>
+              ) : activities.slice(0, 5).map((log, idx) => (
+                <div key={`${log.id}-${idx}`} className="p-4 bg-white rounded-2xl border-2 border-black flex items-center justify-between group hover:bg-slate-50 transition-all">
                    <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center text-white group-hover:scale-110 transition-transform">
                          <History size={14} />
                       </div>
                       <div className="text-start">
                          <div className="text-[10px] font-black uppercase tracking-wide text-black">{log.action}</div>
-                         <div className="text-[8px] text-black font-black uppercase italic mt-0.5">{log.user} • {log.time}</div>
+                         <div className="text-[8px] text-black font-black uppercase italic mt-0.5">{log.user} • {new Date(log.timestamp).toLocaleString()}</div>
                       </div>
                    </div>
                 </div>

@@ -340,21 +340,45 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
                           />
                        </div>
                     </div>
-                    <button 
-                       onClick={async () => {
-                         try {
-                           await emailService.updateEmail(editingEmail.id, editingEmail);
-                           toast.success("Draft updated successfully");
-                           setEditingEmail(null);
-                           fetchLogs();
-                         } catch (e) {
-                           toast.error("Failed to save changes");
-                         }
-                       }}
-                       className="w-full bg-slate-900 text-white py-5 rounded-[28px] text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all"
-                    >
-                      Save Refined Draft
-                    </button>
+                    <div className="flex gap-4">
+                       <button 
+                          onClick={async () => {
+                            try {
+                              await emailService.updateEmail(editingEmail.id, editingEmail);
+                              toast.success("Draft updated successfully");
+                              setEditingEmail(null);
+                              fetchLogs();
+                            } catch (e) {
+                              toast.error("Failed to save changes");
+                            }
+                          }}
+                          className="flex-1 bg-white border-2 border-slate-900 text-slate-900 py-5 rounded-[28px] text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
+                       >
+                         Save Draft
+                       </button>
+                       <button 
+                          onClick={async () => {
+                            const tId = toast.loading("Sending refined message...");
+                            try {
+                              await emailService.updateEmail(editingEmail.id, editingEmail);
+                              await emailService.sendEmail({
+                                to: editingEmail.to,
+                                subject: editingEmail.subject,
+                                body: editingEmail.text,
+                                recipientName: editingEmail.to.split('@')[0]
+                              });
+                              toast.success("Refined message dispatched!", { id: tId });
+                              setEditingEmail(null);
+                              fetchLogs();
+                            } catch (e) {
+                              toast.error("Dispatch failure", { id: tId });
+                            }
+                          }}
+                          className="flex-2 bg-slate-900 text-white py-5 rounded-[28px] text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all shadow-xl shadow-black/10"
+                       >
+                         Send Refined Now
+                       </button>
+                    </div>
                  </div>
                </div>
              )}

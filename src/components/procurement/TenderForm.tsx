@@ -68,7 +68,10 @@ export const TenderForm: React.FC<TenderFormProps> = ({
     hUnit: 'واحد',
     hQty: 'مقدار',
     hPrice: 'د في واحد قيمت',
-    hTotal: 'مجموعې قیمت'
+    hTotal: 'مجموعې قیمت',
+    footerLeft: 'تدارکاتو عمومي مدیر',
+    footerDate: '۱۴۰۵/۲/۱۷',
+    footerText: 'Procurement System Engine • Kandahar University Digital Hub'
   });
 
   const defaultData = {
@@ -83,6 +86,16 @@ export const TenderForm: React.FC<TenderFormProps> = ({
   };
 
   const [formData, setFormData] = React.useState(initialData || defaultData);
+  const [customColumns, setCustomColumns] = useState<any[]>([]);
+
+  const addColumn = () => {
+    let colName = prompt("Enter Column Name");
+    if (colName === null) return;
+    if (!colName) colName = `Col ${customColumns.length + 1}`;
+    setCustomColumns([...customColumns, { header: colName, key: colName.toLowerCase().replace(/\s/g, '_') }]);
+    toast.success(`Column "${colName}" added`);
+  };
+
   const componentRef = React.useRef<HTMLDivElement>(null);
   const [saving, setSaving] = React.useState(false);
   const [codes, setCodes] = React.useState<any[]>([]);
@@ -93,39 +106,50 @@ export const TenderForm: React.FC<TenderFormProps> = ({
     }
   }, [initialData]);
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     try {
-      const doc = new jsPDF('p', 'mm', 'a4') as any;
+      if (!componentRef.current) return;
+      toast.info("Tip: For best Pashto/Dari support, use the 'Print' button to Save as PDF.");
+      
+      const doc = new jsPDF('p', 'mm', 'a4');
+      
       doc.setFontSize(20);
-      doc.text("Kandahar University - Procurement Tender", 105, 20, { align: 'center' });
-      doc.setFontSize(14);
-      doc.text(`Project: ${formData.projectTitle || 'N/A'}`, 20, 40);
-      doc.text(`Issue No: ${formData.issueNumber}`, 20, 50);
-      doc.text(`Date: ${formData.issueDate}`, 20, 60);
+      doc.setTextColor(15, 143, 127);
+      doc.text("Kandahar University", 105, 20, { align: 'center' });
+      doc.text(docMeta.tenderTitle || "Tender Document", 105, 30, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Project: ${formData.projectTitle || 'N/A'}`, 14, 45);
+      doc.text(`Doc No: ${formData.issueNumber || '-'}`, 14, 50);
+      doc.text(`Date: ${formData.issueDate || '-'}`, 14, 55);
 
       const tableData = (formData.items || []).map((item, index) => [
         index + 1,
         item.code || '',
-        item.name,
-        item.description,
-        item.unit,
-        item.quantity,
+        item.name || '',
+        item.description || '',
+        item.unit || '',
+        item.quantity || 0,
         (Number(item.unitPrice) || 0).toLocaleString(),
-        (Number(item.totalPrice) || 0).toLocaleString()
+        ((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)).toLocaleString()
       ]);
 
+      const headers = [[docMeta.hNum, docMeta.hCode, docMeta.hName, docMeta.hDesc, docMeta.hUnit, docMeta.hQty, docMeta.hPrice, docMeta.hTotal]];
+
       autoTable(doc, {
-        head: [['#', 'Code', 'Item', 'Description', 'Unit', 'Qty', 'Unit Price', 'Total']],
+        head: headers,
         body: tableData,
-        startY: 70,
+        startY: 65,
         theme: 'grid',
-        headStyles: { fillColor: [15, 143, 127] }
+        styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: [15, 143, 127], textColor: [255, 255, 255] }
       });
 
-      doc.save(`Tender_${formData.issueNumber || 'draft'}.pdf`);
-      toast.success("PDF Generated Successfully");
+      doc.save(`Tender-${formData.issueNumber || 'Draft'}.pdf`);
+      toast.success("Tender PDF exported");
     } catch (err) {
-      console.error(err);
+      console.error("PDF Export Error:", err);
       toast.error("Failed to generate PDF");
     }
   };
@@ -260,7 +284,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
           className="w-full bg-white border-0 text-[10px] font-black focus:ring-1 focus:ring-emerald-500 rounded p-1 text-center"
         >
           <option value="">Select Code</option>
-          {codes.map(c => <option key={c.code} value={c.code}>{c.code} - {c.title}</option>)}
+          {codes.map((c, idx) => <option key={`${c.code}-${idx}`} value={c.code}>{c.code} - {c.title}</option>)}
         </select>
       ) : row.code
     },
@@ -354,6 +378,23 @@ export const TenderForm: React.FC<TenderFormProps> = ({
     }
   ];
 
+  const allColumns = React.useMemo(() => [
+    ...columns.slice(0, columns.length - 1),
+    ...customColumns.map(cc => ({
+       header: cc.header,
+       key: cc.key,
+       width: '100px',
+       render: (row: any, idx: number) => isEditable ? (
+         <input 
+           value={row[cc.key] || ''} 
+           onChange={(e) => updateItem(idx, cc.key, e.target.value)}
+           className="w-full bg-white border-0 text-[10px] font-black focus:ring-1 focus:ring-emerald-500 rounded p-1 text-center"
+         />
+       ) : row[cc.key]
+    })),
+    columns[columns.length - 1]
+  ], [columns, customColumns, formData.items, isEditable]);
+
   return (
     <div className="flex flex-col items-center gap-6 p-4">
       <div 
@@ -377,6 +418,9 @@ export const TenderForm: React.FC<TenderFormProps> = ({
                   <>
                     <button onClick={addItem} className="p-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-emerald-500/10">
                       <Plus size={16} /> Add Row
+                    </button>
+                    <button onClick={addColumn} className="p-2 bg-slate-100 text-slate-900 rounded-xl hover:bg-slate-200 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4">
+                      <Plus size={16} /> Add Column
                     </button>
                     <button onClick={handleSaveToSystem} disabled={saving} className="p-2 bg-sky-600 text-white rounded-xl hover:bg-sky-700 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-sky-600/10 disabled:opacity-50">
                       <Save size={16} /> {saving ? 'Saving...' : 'Save & Complete'}
@@ -417,7 +461,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
              <EditableField value={docMeta.itemsLabel} onSave={(val) => setDocMeta({...docMeta, itemsLabel: val})} className="font-black text-slate-900 underline decoration-2 underline-offset-4" isEditable={isEditable} />
           </div>
 
-          <ProcurementTable columns={columns} data={formData.items || []} />
+          <ProcurementTable columns={allColumns} data={formData.items || []} />
 
           <div className="mt-12 p-8 bg-white rounded-2xl border-2 border-slate-900 space-y-4 text-start">
              <EditableField value={docMeta.decisionLabel} onSave={(val) => setDocMeta({...docMeta, decisionLabel: val})} className="font-black text-slate-900 text-lg underline" isEditable={isEditable} />
@@ -433,8 +477,12 @@ export const TenderForm: React.FC<TenderFormProps> = ({
               <div className="border-2 border-slate-900 p-6 h-48 rounded-2xl flex flex-col justify-between items-center bg-white shadow-md">
                 <EditableField value={docMeta.signatureLabel} onSave={(val) => setDocMeta({...docMeta, signatureLabel: val})} className="font-black text-[10px] uppercase text-slate-400 text-center" isEditable={isEditable} />
                 <div className="text-center font-black">
-                  <div className="text-lg">{formData.issuerName}</div>
-                  <div className="text-[10px] text-slate-500">{formData.issueDate}</div>
+                  <div className="text-lg">
+                    <EditableField value={docMeta.footerLeft} onSave={(v) => setDocMeta({...docMeta, footerLeft: v})} isEditable={isEditable} />
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    <EditableField value={docMeta.footerDate} onSave={(v) => setDocMeta({...docMeta, footerDate: v})} isEditable={isEditable} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -460,7 +508,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
         </div>
 
         <div className="mt-8 pt-8 pb-8 text-[10px] text-slate-500 text-center border-t-2 border-slate-900 font-black italic bg-slate-50">
-          Procurement System Engine • Kandahar University Digital Hub
+          <EditableField value={docMeta.footerText} onSave={(v) => setDocMeta({...docMeta, footerText: v})} isEditable={isEditable} />
         </div>
       </div>
     </div>

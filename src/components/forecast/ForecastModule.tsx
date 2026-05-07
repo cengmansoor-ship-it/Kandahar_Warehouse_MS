@@ -168,7 +168,7 @@ export const ForecastModule = () => {
 
         <div className="fintech-card p-8 bg-white border border-slate-100 relative overflow-hidden group bg-primary-teal text-white">
           <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-2">Est. Procurement Need</p>
-          <h4 className="text-4xl font-black italic">{dashboard?.totalProcurementNeed?.toLocaleString() || 0}</h4>
+          <h4 className="text-4xl font-black italic">{(Number(dashboard?.totalProcurementNeed) || 0).toLocaleString()}</h4>
           <p className="mt-4 text-[10px] font-bold uppercase tracking-widest opacity-60">Total Units Required for 2026</p>
         </div>
       </div>
@@ -247,30 +247,30 @@ export const ForecastModule = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-[10px] font-bold uppercase tracking-wide">
-                   {filteredItems.map(item => (
-                     <tr key={item.itemId} className="hover:bg-slate-50/50 transition-colors">
+                   {filteredItems.map((item, idx) => (
+                     <tr key={`${item.itemId}-${idx}`} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-8 py-5">
                            <div className="font-black text-slate-900 italic tracking-tight">{item.itemName}</div>
                            <div className="text-slate-400 text-[9px]">Calculated via Linear Smoothing</div>
                         </td>
                         <td className="px-8 py-5 text-slate-600 font-mono">
-                           {item.currentStock} Units
+                           {(item.currentStock || 0).toLocaleString()} Units
                         </td>
                         <td className="px-8 py-5">
                            <span className={cn(
                              "px-3 py-1 rounded-lg border",
-                             item.growthRate > 0 ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-rose-50 text-rose-600 border-rose-100"
+                             (item.growthRate || 0) > 0 ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-rose-50 text-rose-600 border-rose-100"
                            )}>
-                             {item.growthRate > 0 ? '+' : ''}{(item.growthRate * 100).toFixed(1)}% p.a.
+                             {(item.growthRate || 0) > 0 ? '+' : ''}{((item.growthRate || 0) * 100).toFixed(1)}% p.a.
                            </span>
                         </td>
                         <td className="px-8 py-5 font-black text-slate-900 border-l border-slate-50">
-                           {Math.round(item.forecast).toLocaleString()}
+                           {(Math.round(item.forecast) || 0).toLocaleString()}
                         </td>
                         <td className="px-8 py-5">
                            {item.procurementRequired ? (
                              <div className="flex items-center gap-2 text-rose-500 font-black italic">
-                               <AlertTriangle size={14} /> Buy {item.purchaseRecommendation}
+                               <AlertTriangle size={14} /> Buy {(item.purchaseRecommendation || 0).toLocaleString()}
                              </div>
                            ) : (
                              <div className="flex items-center gap-2 text-emerald-500 font-black italic uppercase">

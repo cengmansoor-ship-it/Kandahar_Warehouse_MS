@@ -153,9 +153,57 @@ export const RequestManager = () => {
   };
 
   const [showPrintOptions, setShowPrintOptions] = useState(false);
+  const [printFilters, setPrintFilters] = useState({ from: '', to: '' });
 
   const handlePrintAll = () => {
     window.print();
+  };
+
+  const handlePrintRange = () => {
+    if (!printFilters.from || !printFilters.to) {
+      toast.error("Please select both dates");
+      return;
+    }
+    
+    const filtered = requests.filter(r => {
+      const date = new Date(r.createdAt).toISOString().split('T')[0];
+      return date >= printFilters.from && date <= printFilters.to;
+    });
+
+    if (filtered.length === 0) {
+      toast.error("No requests found in this range");
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
+    
+    const content = filtered.map(req => `
+      <div style="page-break-after: always; padding: 40px; border: 4px solid black; border-radius: 40px; margin-bottom: 40px;">
+        <h1 style="font-size: 24px; font-weight: 900; margin-bottom: 20px;">Request ID: ${req.trackingId}</h1>
+        <p><strong>Requester:</strong> ${req.requester}</p>
+        <p><strong>Status:</strong> ${req.status}</p>
+        <p><strong>Date:</strong> ${new Date(req.createdAt).toLocaleDateString()}</p>
+        <h3>Items:</h3>
+        <ul>
+          ${(req.items || []).map((i: any) => `<li>${i.name} (${i.quantity || 1})</li>`).join('')}
+        </ul>
+      </div>
+    `).join('');
+
+    printWindow.document.write(`
+      <html dir="${t('lang_direction')}">
+        <head><title>Batch Print</title>${styles}</head>
+        <body style="background: white !important;">
+          <div style="max-w-4xl mx-auto">${content}</div>
+          <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    setShowPrintOptions(false);
   };
 
   return (
@@ -375,13 +423,48 @@ export const RequestManager = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button 
-            onClick={handlePrintAll}
-            className="w-full sm:w-auto flex items-center justify-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10"
-          >
-            <Printer size={18} />
-            Print All
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setShowPrintOptions(!showPrintOptions)}
+              className="w-full sm:w-auto flex items-center justify-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10"
+            >
+              <Printer size={18} />
+              Print Options
+            </button>
+            {showPrintOptions && (
+              <div className="absolute top-full mt-2 left-0 z-50 bg-white border-2 border-slate-900 rounded-2xl p-4 shadow-2xl min-w-[300px] animate-in zoom-in-95 duration-200">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Print Date Range</h4>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    <input 
+                      type="date" 
+                      value={printFilters.from} 
+                      onChange={e => setPrintFilters({...printFilters, from: e.target.value})}
+                      className="w-full p-2 text-[10px] font-black border-2 border-slate-100 rounded-xl outline-none focus:border-slate-900 transition-colors" 
+                    />
+                    <input 
+                      type="date" 
+                      value={printFilters.to} 
+                      onChange={e => setPrintFilters({...printFilters, to: e.target.value})}
+                      className="w-full p-2 text-[10px] font-black border-2 border-slate-100 rounded-xl outline-none focus:border-slate-900 transition-colors" 
+                    />
+                  </div>
+                  <button 
+                    onClick={handlePrintRange}
+                    className="w-full py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-all"
+                  >
+                    Print Range
+                  </button>
+                  <button 
+                    onClick={handlePrintAll}
+                    className="w-full py-3 bg-slate-100 text-slate-900 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all"
+                  >
+                    Print All (Screen)
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <button 
             onClick={() => setShowRequestModal(true)}
             className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary-teal text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-xl shadow-primary-teal/20"

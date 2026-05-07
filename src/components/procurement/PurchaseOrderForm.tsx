@@ -84,6 +84,7 @@ export const PurchaseOrderForm = () => {
     entityInfoTitle: 'تدارکاتي اداره (Purchasing Entity)',
     contractorInfoTitle: 'داوطلب / بریا موندونکی (Bidder/Winner)',
     totalLabel: 'مجموعي قیمت (Total Amount)',
+    sealLabel: 'Official Certification Seal Area',
   });
 
   const componentRef = useRef<HTMLDivElement>(null);
@@ -128,46 +129,78 @@ export const PurchaseOrderForm = () => {
     }
   };
 
-  const handlePrint = () => window.print();
+  const [customColumns, setCustomColumns] = useState<any[]>([]);
+
+  const addColumn = () => {
+    let colName = prompt("Enter Column Name");
+    // Fallback if prompt is blocked or cancelled in some environments
+    if (colName === null) return; 
+    if (!colName) colName = `Col ${customColumns.length + 1}`;
+    
+    setCustomColumns([...customColumns, { header: colName, key: colName.toLowerCase().replace(/\s/g, '_') }]);
+    toast.success(`Column "${colName}" added to ledger`);
+  };
+
+  const handlePrint = async () => {
+    if (!componentRef.current) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
+    printWindow.document.write(`
+      <html dir="rtl">
+        <head><title>Purchase Order</title>${styles}<style>@page { size: A4; margin: 15mm; } body { padding: 20px; font-family: sans-serif; }</style></head>
+        <body style="background: white !important;">${componentRef.current.innerHTML}<script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); };</script></body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   const handleDownloadPDF = () => {
     try {
+      toast.info("Tip: For best Pashto/Dari text support, use the 'Print' button to Save as PDF.");
       const doc = new jsPDF('p', 'mm', 'a4');
-      
-      doc.setFontSize(22);
+       
+      doc.setFontSize(20);
       doc.setTextColor(15, 143, 127);
-      doc.text("Kandahar University - Purchase Order", 105, 20, { align: 'center' });
+      doc.text("Kandahar University", 105, 20, { align: 'center' });
+      doc.text("Purchase Order", 105, 30, { align: 'center' });
       
       doc.setFontSize(10);
-      doc.setTextColor(0);
-      doc.text(`PO Number: ${formData.poNumber}`, 14, 35);
-      doc.text(`Supplier: ${formData.supplierName}`, 14, 40);
-      doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 45);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`PO Number: ${formData.poNumber}`, 14, 45);
+      doc.text(`Date: ${formData.poDate}`, 14, 50);
+      doc.text(`Description: ${formData.procurementDescription?.substring(0, 50)}...`, 14, 55);
 
       const tableData = (formData.items || []).map((item, i) => [
         i + 1,
-        item.description,
-        item.quantity,
-        item.unit,
-        `${item.unitPrice.toLocaleString()} AFN`,
-        `${item.totalPrice.toLocaleString()} AFN`
+        item.description || '-',
+        item.quantity || 0,
+        item.unit || '-',
+        `${(Number(item.unitPrice) || 0).toLocaleString()} AFN`,
+        `${(Number(item.totalPrice) || 0).toLocaleString()} AFN`
       ]);
 
+      const headers = [['#', 'Description', 'Qty', 'Unit', 'Price', 'Total']];
+
       autoTable(doc, {
-        head: [['#', 'Description', 'Qty', 'Unit', 'Unit Price', 'Total']],
+        head: headers,
         body: tableData,
-        startY: 55,
+        startY: 65,
         theme: 'grid',
-        headStyles: { fillColor: [15, 143, 127], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [15, 143, 127], textColor: [255, 255, 255] }
       });
 
-      const finalY = (doc as any).lastAutoTable.cursor.y || 150;
-      doc.text(`Total Amount: ${ (formData.items?.reduce((a, b) => a + b.totalPrice, 0) || 0).toLocaleString() } AFN`, 14, finalY + 15);
+      const finalY = (doc as any).lastAutoTable?.finalY || 150;
+      doc.setFontSize(11);
+      doc.setTextColor(0);
+      doc.text(`Grand Total: ${grandTotal.toLocaleString()} AFN`, 140, finalY + 10);
 
-      doc.save(`PO-${formData.poNumber}.pdf`);
+      doc.save(`PO-${formData.poNumber || 'Draft'}.pdf`);
       toast.success("Purchase Order PDF exported");
     } catch (err) {
-      toast.error("Failed to generate PDF");
+      console.error("PDF Export Error:", err);
+      toast.error("Failed to generate PDF. Check console for details.");
     }
   };
 
@@ -192,7 +225,7 @@ export const PurchaseOrderForm = () => {
 
   const grandTotal = (formData.items || []).reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0);
 
-  const columns = [
+  const columns = React.useMemo(() => [
     { header: 'No', key: 'id', width: '40px', align: 'center' as const, render: (_: any, i: number) => i + 1 },
     { 
       header: 'Description', 
@@ -233,8 +266,24 @@ export const PurchaseOrderForm = () => {
       key: 'totalPrice', 
       width: '120px', 
       align: 'center' as const,
-      render: (row: Item) => (row.totalPrice || 0).toLocaleString()
+      render: (row: Item) => (Number(row.totalPrice) || 0).toLocaleString()
     },
+    ...customColumns.map(cc => ({
+      header: cc.header,
+      key: cc.key,
+      width: '100px',
+      render: (row: any, idx: number) => (
+        <input 
+          value={row[cc.key] || ''} 
+          onChange={(e) => {
+             const next = [...(formData.items || [])];
+             (next[idx] as any)[cc.key] = e.target.value;
+             setFormData({...formData, items: next});
+          }}
+          className="w-full bg-transparent border-0 font-black text-center focus:ring-0"
+        />
+      )
+    })),
     {
       header: '',
       key: 'actions',
@@ -243,17 +292,16 @@ export const PurchaseOrderForm = () => {
         <button onClick={() => removeItem(idx)} className="text-red-500 hover:text-red-700 p-1 no-print transition-colors"><Trash2 size={14} /></button>
       )
     }
-  ];
+  ], [formData.items, customColumns]);
 
   return (
-    <div className="flex flex-col items-center gap-6 p-4">
+    <div className="flex flex-col items-center gap-6 p-4 text-right" dir="rtl">
       <div 
         ref={componentRef}
-        dir="rtl"
         className="relative a4-page font-sans text-slate-900 border-2 border-slate-900 bg-white shadow-2xl overflow-hidden"
       >
 
-        <div className="p-12 text-right">
+        <div className="p-12">
           <div className="flex justify-between items-center mb-8 no-print border-b border-slate-100 pb-4">
              <div className="flex items-center gap-2">
                <button onClick={handlePrint} className="p-2 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-black/10">
@@ -264,6 +312,9 @@ export const PurchaseOrderForm = () => {
                </button>
              </div>
              <div className="flex items-center gap-2">
+                <button onClick={addColumn} className="p-2 bg-slate-100 text-slate-900 rounded-xl hover:bg-slate-200 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4">
+                  <Plus size={16} /> Add Column
+                </button>
                 <button onClick={addItem} className="p-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-emerald-500/10">
                   <Plus size={16} /> Add Row
                 </button>
@@ -282,29 +333,27 @@ export const PurchaseOrderForm = () => {
             } 
           />
 
-          <div className="text-[11px] mb-8 space-y-4 border-2 border-slate-900 p-8 font-black rounded-xl shadow-lg bg-white">
-             <div className="flex justify-between items-center">
-                 <div className="flex gap-8">
-                  <span className="flex items-center gap-2">
-                    <EditableField value={docMeta.orderNoLabel} onSave={(v) => setDocMeta({...docMeta, orderNoLabel: v})} className="shrink-0" />: 
-                    <input value={formData.poNumber} onChange={(e) => setFormData({...formData, poNumber: e.target.value})} className="border-b-2 border-slate-900 px-2 bg-transparent outline-none w-32 text-center font-black focus:border-[#0F8F7F]" />
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <EditableField value={docMeta.orderDateLabel} onSave={(v) => setDocMeta({...docMeta, orderDateLabel: v})} className="shrink-0" />: 
-                    <input value={formData.poDate} onChange={(e) => setFormData({...formData, poDate: e.target.value})} className="border-b-2 border-slate-900 px-2 bg-transparent outline-none w-40 text-center font-black focus:border-[#0F8F7F]" />
-                  </span>
-                </div>
-                <span className="flex items-center gap-2">
-                  <EditableField value={docMeta.equivalentLabel} onSave={(v) => setDocMeta({...docMeta, equivalentLabel: v})} className="shrink-0" />: 
-                  <input value={formData.equivalent} onChange={(e) => setFormData({...formData, equivalent: e.target.value})} className="border-b-2 border-slate-900 px-2 bg-transparent outline-none w-32 text-center font-black focus:border-[#0F8F7F]" />
-                </span>
-             </div>
-             <div className="pt-2">
-               <span className="flex flex-col gap-2 text-right">
-                 <EditableField value={docMeta.descLabel} onSave={(v) => setDocMeta({...docMeta, descLabel: v})} className="font-black text-emerald-800 text-sm" />
-                 <textarea value={formData.procurementDescription} onChange={(e) => setFormData({...formData, procurementDescription: e.target.value})} className="font-bold bg-white border-2 border-slate-900 focus:ring-1 focus:ring-emerald-500 rounded-xl w-full h-20 resize-none p-4 mt-1" />
-               </span>
-             </div>
+          <div className="text-[11px] mb-8 border-b-4 border-slate-900 pb-2 font-black bg-white">
+             <table className="w-full border-collapse">
+               <tbody>
+                  <tr className="border-b border-slate-100">
+                    <td className="p-3 text-slate-400 font-black uppercase text-[10px] text-start border-l border-slate-100"><EditableField value={docMeta.orderNoLabel} onSave={(v) => setDocMeta({...docMeta, orderNoLabel: v})} /></td>
+                    <td className="p-3 w-[200px] border-l border-slate-100"><input value={formData.poNumber} onChange={(e) => setFormData({...formData, poNumber: e.target.value})} className="w-full bg-transparent border-b border-slate-900 outline-none font-black text-center" /></td>
+                    <td className="p-3 text-slate-400 font-black uppercase text-[10px] flex items-center justify-start gap-2 pr-4 min-w-[120px] text-start border-l border-slate-100">
+                      <EditableField value={docMeta.equivalentLabel} onSave={(v) => setDocMeta({...docMeta, equivalentLabel: v})} />:
+                    </td>
+                    <td className="p-3 w-[200px]"><input value={formData.equivalent} onChange={(e) => setFormData({...formData, equivalent: e.target.value})} className="w-full bg-transparent border-b border-slate-900 outline-none font-black text-center" /></td>
+                  </tr>
+                  <tr className="border-b border-slate-100">
+                    <td className="p-3 text-slate-400 font-black uppercase text-[10px] text-start border-l border-slate-100"><EditableField value={docMeta.orderDateLabel} onSave={(v) => setDocMeta({...docMeta, orderDateLabel: v})} /></td>
+                    <td className="p-3 w-[200px] border-l border-slate-100"><input value={formData.poDate} onChange={(e) => setFormData({...formData, poDate: e.target.value})} className="w-full bg-transparent border-b border-slate-100 outline-none font-black text-center" /></td>
+                    <td className="p-3 text-slate-400 font-black uppercase text-[10px] flex items-center justify-start gap-2 pr-4 min-w-[120px] text-start border-l border-slate-100">
+                       <EditableField value={docMeta.descLabel} onSave={(v) => setDocMeta({...docMeta, descLabel: v})} />:
+                    </td>
+                    <td className="p-3 w-[200px]"><input value={formData.procurementDescription} onChange={(e) => setFormData({...formData, procurementDescription: e.target.value})} className="w-full bg-transparent border-b border-slate-100 outline-none font-black text-center" /></td>
+                  </tr>
+               </tbody>
+             </table>
           </div>
 
           <div className="grid grid-cols-2 gap-8 mb-10 text-[12px]">
@@ -358,7 +407,7 @@ export const PurchaseOrderForm = () => {
 
           <div className="mt-24 space-y-8">
              <div className="text-center font-black border-4 border-slate-900 py-6 uppercase tracking-[0.3em] bg-slate-50 rounded-2xl text-sm text-slate-400">
-                Official Certification Seal Area
+                <EditableField value={docMeta.sealLabel} onSave={(v) => setDocMeta({...docMeta, sealLabel: v})} isEditable={true} />
              </div>
           </div>
         </div>

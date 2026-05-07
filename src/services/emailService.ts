@@ -2,6 +2,7 @@
  * Mock Email Service for University Warehouse System
  */
 import { toast } from 'sonner';
+import api from './api';
 
 export interface EmailNotification {
   to: string;
@@ -12,23 +13,31 @@ export interface EmailNotification {
 
 class EmailService {
   /**
-   * Logic to simulate sending an email.
-   * In production, this would call a backend endpoint that uses SendGrid, Nodemailer, etc.
+   * Logic to send a real email via the backend.
    */
   async sendEmail({ to, subject, body, recipientName }: EmailNotification): Promise<boolean> {
     console.log(`[EmailService] Sending email to ${to}...`);
-    console.log(`[Subject] ${subject}`);
-    console.log(`[Body] ${body}`);
-
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        toast.success(`Email notification sent to ${recipientName} (${to})`, {
-          description: "Item availability confirmation forwarded.",
-          duration: 5000,
-        });
-        resolve(true);
-      }, 1500);
-    });
+    try {
+      await api.post('/send-email', {
+        to,
+        subject,
+        text: body,
+        html: `<div style="font-family: sans-serif; padding: 20px;">
+          <h2 style="color: #0F8F7F;">Kandahar University WMS Notification</h2>
+          <p>${body.replace(/\n/g, '<br>')}</p>
+        </div>`
+      });
+      
+      toast.success(`Email notification sent to ${recipientName} (${to})`, {
+        description: "Official record dispatched via University gateway.",
+        duration: 5000,
+      });
+      return true;
+    } catch (error) {
+      console.error('Email Dispatch Error:', error);
+      toast.error('Critical: Email gateway failure. Bill could not be sent.');
+      return false;
+    }
   }
 
   /**
