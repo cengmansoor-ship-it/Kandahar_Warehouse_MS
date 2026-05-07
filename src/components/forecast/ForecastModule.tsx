@@ -288,52 +288,52 @@ export const ForecastModule = () => {
 
         {/* Prediction Logic Panel */}
         <div className="space-y-6">
-          <div className="fintech-card p-8 bg-slate-900 text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
+          <div className="fintech-card p-8 bg-white border-2 border-slate-900 text-slate-900 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10 text-slate-900">
               <Calculator size={40} />
             </div>
-            <h3 className="text-lg font-black italic italic-none uppercase tracking-tighter mb-6">Prediction Engine</h3>
+            <h3 className="text-lg font-black italic uppercase tracking-tighter mb-6">Forecasting Methodology Disclosure</h3>
             
             <div className="space-y-6 text-sm">
               <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px] uppercase font-black tracking-widest text-white/50 border-b border-white/10 pb-2">
+                <div className="flex justify-between items-center text-[10px] uppercase font-black tracking-widest text-slate-400 border-b border-slate-100 pb-2">
                   <span>Method Algorithm</span>
                   <span className="text-primary-teal">Exponential Smoothing</span>
                 </div>
-                <p className="text-[10px] leading-relaxed text-white/80 font-medium">
+                <p className="text-[10px] leading-relaxed text-slate-600 font-medium">
                   We use weighted averages of past consumptions, with heavier weights on the most recent months to detect student-led demand shifts.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px] uppercase font-black tracking-widest text-white/50 border-b border-white/10 pb-2">
+                <div className="flex justify-between items-center text-[10px] uppercase font-black tracking-widest text-slate-400 border-b border-slate-100 pb-2">
                    <span>Growth Strategy</span>
                    <span className="text-primary-teal">Multi-Linear Regression</span>
                 </div>
-                <p className="text-[10px] leading-relaxed text-white/80 font-medium">
+                <p className="text-[10px] leading-relaxed text-slate-600 font-medium">
                   Calculates trend slopes by analyzing year-over-year faculty allocation patterns and department headcount growth.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px] uppercase font-black tracking-widest text-white/50 border-b border-white/10 pb-2">
+                <div className="flex justify-between items-center text-[10px] uppercase font-black tracking-widest text-slate-400 border-b border-slate-100 pb-2">
                    <span>Safety Protocol</span>
                    <span className="text-primary-teal">KDRU-S Margin</span>
                 </div>
-                <p className="text-[10px] leading-relaxed text-white/80 font-medium">
+                <p className="text-[10px] leading-relaxed text-slate-600 font-medium">
                   Automatically adds (Max Usage × Peak Lead Time) - (Avg) buffer to prevent stockouts during exam cycles.
                 </p>
               </div>
             </div>
 
-            <div className="mt-8 pt-8 border-t border-white/10">
-               <div className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
-                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-primary-teal">
+            <div className="mt-8 pt-8 border-t border-slate-100">
+               <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div className="w-10 h-10 rounded-xl bg-primary-teal/10 flex items-center justify-center text-primary-teal">
                     <Info size={20} />
                   </div>
                   <div className="flex-1 text-start">
-                    <p className="text-[9px] font-black uppercase text-white/40 mb-1">Data Health</p>
-                    <p className="text-[10px] font-black text-white italic tracking-tight uppercase leading-none">Healthy Ledger (100% Sync)</p>
+                    <p className="text-[9px] font-black uppercase text-slate-400 mb-1">Data Health</p>
+                    <p className="text-[10px] font-black text-slate-900 italic tracking-tight uppercase leading-none">Healthy Ledger (100% Sync)</p>
                   </div>
                </div>
             </div>

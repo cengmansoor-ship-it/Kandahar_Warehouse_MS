@@ -398,8 +398,19 @@ app.post("/api/settings", (req, res) => {
 // --- Email API ---
 function getTransporter() {
   const db = getDb();
-  const mailUser = db.settings?.mailUser || process.env.MAIL_USER || "your_email@gmail.com";
-  const mailPass = db.settings?.mailPass || process.env.MAIL_PASS || "your_app_password";
+  const settings = db.settings || {};
+  
+  // Use default config from mailConfigs if exists, otherwise fallback to legacy mailUser/mailPass
+  let mailUser = settings.mailUser || process.env.MAIL_USER || "your_email@gmail.com";
+  let mailPass = settings.mailPass || process.env.MAIL_PASS || "your_app_password";
+  
+  if (Array.isArray(settings.mailConfigs) && settings.mailConfigs.length > 0) {
+    const defaultConfig = settings.mailConfigs.find((c: any) => c.isDefault) || settings.mailConfigs[0];
+    if (defaultConfig) {
+      mailUser = defaultConfig.user;
+      mailPass = defaultConfig.pass;
+    }
+  }
   
   return nodemailer.createTransport({
     service: "gmail",
@@ -426,8 +437,8 @@ app.post("/api/send-email", async (req, res) => {
   let simulated = true;
 
   try {
-    const isRealReady = mailUser && 
-                       mailPass && 
+    const isRealReady = !!mailUser && 
+                       !!mailPass && 
                        mailPass !== "your_app_password" &&
                        mailUser.includes('@');
 
@@ -456,6 +467,8 @@ app.post("/api/send-email", async (req, res) => {
       if (!to || !to.includes('@')) {
         success = false;
         errorMsg = "Recipient address validation failed";
+      } else {
+        errorMsg = "System in Simulation Mode: Gmail credentials not fully configured in Settings. Please enter your Gmail and App Password.";
       }
     }
 

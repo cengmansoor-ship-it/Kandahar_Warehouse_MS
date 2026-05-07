@@ -207,57 +207,20 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
   };
 
   const renderRoot = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div 
-        onClick={() => setLevel('FACULTIES_L1')}
-        className="fintech-card p-10 bg-white group cursor-pointer hover:border-primary-teal transition-all relative overflow-hidden"
-      >
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary-teal/5 rounded-bl-[100px] -mr-10 -mt-10 group-hover:scale-125 transition-transform" />
-        <div className="w-16 h-16 bg-primary-teal rounded-3xl flex items-center justify-center text-white mb-8 shadow-xl shadow-primary-teal/20">
-          <Target size={32} />
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-white border-2 border-slate-100 rounded-[32px] p-8 shadow-xl">
+        <div className="flex items-center gap-4 mb-8">
+           <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
+           <h3 className="font-black text-xl text-slate-900 tracking-tight uppercase italic">{t('personnel_traceability_ledger')}</h3>
         </div>
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">University Faculties</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
-              Manage {totals.faculties} faculties and their internal academic departments.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 no-print">
-            <button 
-              onClick={(e) => { e.stopPropagation(); handleGovernanceClick(); }}
-              className="text-[8px] font-black uppercase tracking-widest text-primary-teal hover:underline"
-            >
-              Logistics Governance
-            </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); handleAuditTrailClick(); }}
-              className="text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900"
-            >
-              View Full Audit Trail
-            </button>
-          </div>
-        </div>
-        <div className="mt-8 flex items-center gap-2 text-primary-teal font-black text-[10px] uppercase tracking-widest">
-          Enter Gateway <ChevronRight size={14} />
-        </div>
-      </div>
-
-      <div 
-        onClick={() => setLevel('ADMIN_L1')}
-        className="fintech-card p-10 bg-white group cursor-pointer hover:border-slate-900 transition-all relative overflow-hidden"
-      >
-        <div className="absolute top-0 right-0 w-32 h-32 bg-slate-900/5 rounded-bl-[100px] -mr-10 -mt-10 group-hover:scale-125 transition-transform" />
-        <div className="w-16 h-16 bg-slate-900 rounded-3xl flex items-center justify-center text-white mb-8 shadow-xl shadow-slate-900/20">
-          <ShieldCheck size={32} />
-        </div>
-        <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">Administrative Section</h3>
-        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
-          Manage {totals.adminUnits} units, directorates, and administrative sections.
-        </p>
-        <div className="mt-8 flex items-center gap-2 text-slate-900 font-black text-[10px] uppercase tracking-widest">
-          Enter Gateway <ChevronRight size={14} />
-        </div>
+        <PersonnelTable 
+          data={personnel} 
+          onSelect={(p) => { 
+            setSelectedPerson(p); 
+            setLevel('PERSONNEL_DETAILS'); 
+            getPersonHistory(p); 
+          }} 
+        />
       </div>
     </div>
   );

@@ -120,7 +120,7 @@ export const ProcurementManager: React.FC = () => {
                             <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-[#0F8F7F] shadow-sm border border-slate-100 group-hover:bg-[#0F8F7F] group-hover:text-white transition-all"><Send size={20} /></div>
                             <div>
                               <p className="text-xs font-black text-slate-900 uppercase">PO #1404-0{i}</p>
-                              <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Awarded to Jamal Abna Co.</p>
+                              <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{t('awarded_to')} Jamal Abna Co.</p>
                             </div>
                          </div>
                        ))}

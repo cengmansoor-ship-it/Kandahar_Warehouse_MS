@@ -416,57 +416,25 @@ export const ReportManager = () => {
   return (
     <div className="space-y-8">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div>
+        <div className="text-start">
           <h2 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">{t('reports')}</h2>
-          <p className="text-slate-400 font-medium mt-1 uppercase text-[10px] tracking-widest leading-none text-start">
+          <p className="text-slate-400 font-medium mt-1 uppercase text-[10px] tracking-widest leading-none">
             {t('reports_description')}
           </p>
         </div>
-        {/* Export buttons removed as requested */}
-      </div>
-
-      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 no-print">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
-          <div className="space-y-2 text-start">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('faculty')}</label>
-            <select 
-              value={filters.faculty}
-              onChange={(e) => setFilters({...filters, faculty: e.target.value})}
-              className="w-full bg-slate-50 border-none rounded-xl py-3 px-4 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all text-slate-700"
-            >
-              <option value="All">{t('all_faculties') || 'All Faculties'}</option>
-              {faculties.map(f => (
-                <option key={f.id} value={f.name}>{f.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-2 text-start">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('department')}</label>
-            <select 
-              value={filters.department}
-              onChange={(e) => setFilters({...filters, department: e.target.value})}
-              className="w-full bg-slate-50 border-none rounded-xl py-3 px-4 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-primary-teal/5 transition-all text-slate-700"
-            >
-              <option value="All">{t('all_departments') || 'All Departments'}</option>
-              {/* Simple filter: show departments if they match faculty or show all if all */}
-              {Array.isArray(faculties) && faculties.find(f => f.name === filters.faculty)?.id ? (
-                // This would need a departments list which we don't have in state here yet
-                // But we can infer from traceability data or fetch it
-                <option value="Inferred">Filtered List...</option>
-              ) : null}
-              <option value="Information Technology">Information Technology</option>
-              <option value="Civil Engineering">Civil Engineering</option>
-              <option value="General Medicine">General Medicine</option>
-            </select>
-          </div>
-          <div className="lg:col-span-2 flex justify-end gap-3">
-             <button onClick={triggerPrint} className="flex items-center gap-2 bg-primary-teal text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-light transition-all shadow-lg shadow-primary-teal/20">
-               <Printer size={14} /> {t('print')}
-             </button>
-             <button onClick={exportToExcel} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20">
-               <FileSpreadsheet size={14} /> {t('excel')}
-             </button>
-          </div>
+        <div className="flex items-center gap-3 no-print">
+           <button 
+             onClick={triggerPrint} 
+             className="flex items-center gap-2 text-primary-teal px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal/5 transition-all"
+           >
+             <Printer size={16} /> {t('print')}
+           </button>
+           <button 
+             onClick={exportToExcel} 
+             className="flex items-center gap-2 text-slate-900 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-900/5 transition-all"
+           >
+             <FileSpreadsheet size={16} /> {t('excel')}
+           </button>
         </div>
       </div>
 

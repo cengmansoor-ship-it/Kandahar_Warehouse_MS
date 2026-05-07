@@ -17,7 +17,8 @@ import {
   Package,
   ArrowRight,
   Edit,
-  Trash2
+  Trash2,
+  Mail
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { Link } from 'react-router-dom';
@@ -30,6 +31,8 @@ export const SettingsManager = () => {
   const { t, i18n } = useTranslation();
   const [users, setUsers] = useState<User[]>([]);
   const [emailSettings, setEmailSettings] = useState({ user: '', pass: '' });
+  const [mailConfigs, setMailConfigs] = useState<any[]>([]);
+  const [editingMailConfig, setEditingMailConfig] = useState<any>(null);
   const [roles, setRoles] = useState([
     { label: t('role_system_admin'), count: 2, color: "bg-primary-teal" },
     { label: t('role_store_keeper'), count: 5, color: "bg-blue-500" },
@@ -61,6 +64,7 @@ export const SettingsManager = () => {
           user: res.data.mailUser || '',
           pass: res.data.mailPass || ''
         });
+        setMailConfigs(res.data.mailConfigs || []);
       }
     } catch (e) {
       console.error("Failed to fetch system settings", e);
@@ -152,13 +156,75 @@ export const SettingsManager = () => {
 
   const handleSaveEmailSettings = async () => {
     try {
+      const newConfig = {
+        id: editingMailConfig?.id || Math.random().toString(36).substr(2, 9),
+        user: emailSettings.user,
+        pass: emailSettings.pass,
+        isDefault: mailConfigs.length === 0 || editingMailConfig?.isDefault
+      };
+
+      let updatedConfigs;
+      if (editingMailConfig) {
+        updatedConfigs = mailConfigs.map(c => c.id === editingMailConfig.id ? newConfig : c);
+      } else {
+        // Prevent duplicate users
+        if (mailConfigs.some(c => c.user === newConfig.user)) {
+          toast.error("This email is already configured");
+          return;
+        }
+        updatedConfigs = [...mailConfigs, newConfig];
+      }
+
       await api.post('/settings', {
-        mailUser: emailSettings.user,
-        mailPass: emailSettings.pass
+        mailUser: newConfig.user,
+        mailPass: newConfig.pass,
+        mailConfigs: updatedConfigs
       });
+
+      setMailConfigs(updatedConfigs);
+      setEmailSettings({ user: '', pass: '' });
+      setEditingMailConfig(null);
       toast.success("System configuration updated successfully");
     } catch (e) {
       toast.error("Failed to update system configuration");
+    }
+  };
+
+  const handleDeleteMailConfig = async (id: string) => {
+    try {
+      const updatedConfigs = mailConfigs.filter(c => c.id !== id);
+      const remainingDefault = updatedConfigs.find(c => c.isDefault) || updatedConfigs[0];
+      
+      await api.post('/settings', {
+        mailUser: remainingDefault?.user || '',
+        mailPass: remainingDefault?.pass || '',
+        mailConfigs: updatedConfigs
+      });
+
+      setMailConfigs(updatedConfigs);
+      toast.success("Email configuration removed");
+    } catch (e) {
+      toast.error("Failed to remove configuration");
+    }
+  };
+
+  const handleSetDefaultMail = async (config: any) => {
+    try {
+      const updatedConfigs = mailConfigs.map(c => ({
+        ...c,
+        isDefault: c.id === config.id
+      }));
+
+      await api.post('/settings', {
+        mailUser: config.user,
+        mailPass: config.pass,
+        mailConfigs: updatedConfigs
+      });
+
+      setMailConfigs(updatedConfigs);
+      toast.success(`${config.user} set as primary`);
+    } catch (e) {
+      toast.error("Failed to update primary email");
     }
   };
 
@@ -324,37 +390,114 @@ export const SettingsManager = () => {
            </div>
 
            <div className="space-y-6">
-              <div className="space-y-2 text-start">
-                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gmail SMTP User</label>
-                 <input 
-                   type="email"
-                   value={emailSettings.user}
-                   onChange={(e) => setEmailSettings({...emailSettings, user: e.target.value})}
-                   placeholder="e.g. yourname@gmail.com"
-                   className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary-teal/20 transition-all font-mono" 
-                 />
+              {/* Existing Configs List */}
+              <div className="space-y-3">
+                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Configured Gmail Accounts</h4>
+                 {mailConfigs.length === 0 ? (
+                   <div className="p-4 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-center">
+                     <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">No accounts configured</p>
+                   </div>
+                 ) : (
+                   <div className="space-y-2">
+                     {mailConfigs.map((config) => (
+                       <div key={config.id} className={cn(
+                         "p-3 rounded-xl border flex items-center justify-between transition-all",
+                         config.isDefault ? "bg-primary-teal/5 border-primary-teal/20" : "bg-white border-slate-100"
+                       )}>
+                         <div className="flex items-center gap-3">
+                           <div className={cn(
+                             "w-8 h-8 rounded-lg flex items-center justify-center",
+                             config.isDefault? "bg-primary-teal text-white" : "bg-slate-100 text-slate-400"
+                           )}>
+                             <Mail size={14} />
+                           </div>
+                           <div>
+                             <p className="text-[10px] font-black text-slate-900 uppercase truncate max-w-[120px]">{config.user}</p>
+                             {config.isDefault && <span className="text-[7px] font-black text-primary-teal uppercase tracking-widest">Primary Account</span>}
+                           </div>
+                         </div>
+                           <div className="flex items-center gap-1">
+                             {!config.isDefault && (
+                               <button 
+                                 onClick={() => handleSetDefaultMail(config)}
+                                 className="p-2 text-slate-400 hover:text-primary-teal transition-all"
+                                 title="Set as Primary"
+                               >
+                                 <Activity size={14} />
+                               </button>
+                             )}
+                             <button 
+                               onClick={() => {
+                                 setEditingMailConfig(config);
+                                 setEmailSettings({ user: config.user, pass: config.pass });
+                               }}
+                               className="p-2 text-slate-400 hover:text-blue-500 transition-all"
+                             >
+                               <Edit size={14} />
+                             </button>
+                             <button 
+                               onClick={() => handleDeleteMailConfig(config.id)}
+                               className="p-2 text-slate-400 hover:text-red-500 transition-all"
+                             >
+                               <Trash2 size={14} />
+                             </button>
+                           </div>
+                       </div>
+                     ))}
+                   </div>
+                 )}
               </div>
 
-              <div className="space-y-2 text-start">
-                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gmail App Password (16 Letters)</label>
-                 <input 
-                   type="password"
-                   value={emailSettings.pass}
-                   onChange={(e) => setEmailSettings({...emailSettings, pass: e.target.value})}
-                   placeholder="xxxx xxxx xxxx xxxx"
-                   className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary-teal/20 transition-all font-mono" 
-                 />
-                 <p className="text-[9px] text-slate-400 font-medium px-1">
-                   Generate this in Google Account / Security / 2-Step Verification / App Passwords.
-                 </p>
-              </div>
+              <div className="border-t border-slate-100 pt-6 space-y-4">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  {editingMailConfig ? 'Edit Selected Account' : 'Configure New Gmail Account'}
+                </h4>
+                
+                <div className="space-y-2 text-start">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gmail SMTP User</label>
+                   <input 
+                     type="email"
+                     value={emailSettings.user}
+                     onChange={(e) => setEmailSettings({...emailSettings, user: e.target.value})}
+                     placeholder="e.g. yourname@gmail.com"
+                     className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary-teal/20 transition-all font-mono" 
+                   />
+                </div>
 
-              <button 
-                onClick={handleSaveEmailSettings}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg"
-              >
-                Apply System Config
-              </button>
+                <div className="space-y-2 text-start">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gmail App Password (16 Letters)</label>
+                   <input 
+                     type="password"
+                     value={emailSettings.pass}
+                     onChange={(e) => setEmailSettings({...emailSettings, pass: e.target.value})}
+                     placeholder="xxxx xxxx xxxx xxxx"
+                     className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary-teal/20 transition-all font-mono" 
+                   />
+                </div>
+
+                <div className="flex gap-2">
+                   <button 
+                     onClick={handleSaveEmailSettings}
+                     className={cn(
+                       "flex-2 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg",
+                       editingMailConfig ? "bg-primary-teal text-white" : "bg-slate-900 text-white"
+                     )}
+                   >
+                     {editingMailConfig ? 'Update Account' : 'Add Configuration'}
+                   </button>
+                   {editingMailConfig && (
+                     <button 
+                       onClick={() => {
+                         setEditingMailConfig(null);
+                         setEmailSettings({ user: '', pass: '' });
+                       }}
+                       className="flex-1 py-4 bg-slate-100 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200"
+                     >
+                       Cancel
+                     </button>
+                   )}
+                </div>
+              </div>
            </div>
         </section>
 

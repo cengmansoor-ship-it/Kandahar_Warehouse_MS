@@ -48,19 +48,20 @@ export const ComparisonForm = () => {
   const location = useLocation();
   const requestId = location.state?.requestId;
   
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<ComparisonData>({
     requestId: requestId || '',
     comparisonDate: new Date().toLocaleDateString(),
-    suppliers: ['Supplier A', 'Supplier B'],
+    suppliers: [t('supplier') + ' A', t('supplier') + ' B'],
     items: [],
-    notes: 'Based on the comparison, the following recommendation is made...',
-    signatures: ['Finance Manager', 'Logistics Officer', 'Director']
+    notes: t('comparison_initial_notes') || 'Based on the comparison, the following recommendation is made...',
+    signatures: [t('finance_manager'), t('logistics_officer'), t('director')]
   });
 
   const [docMeta, setDocMeta] = useState({
-    title: 'د نرخونو د مقایسې جدول (Comparison Matrix)',
-    subTitle: 'Vendor Analysis & Bid Evaluation',
-    evaluationLabel: 'BEST VALUE PROCUREMENT'
+    title: t('comparison_matrix_title'),
+    subTitle: t('vendor_analysis'),
+    evaluationLabel: t('best_value_procurement') 
   });
 
   const [loading, setLoading] = useState(false);
@@ -185,24 +186,19 @@ export const ComparisonForm = () => {
   const [customColumns, setCustomColumns] = useState<any[]>([]);
 
   const addColumn = () => {
-    const colName = prompt("Enter Column Name");
-    if (colName) {
-      setCustomColumns([...customColumns, { header: colName, key: colName.toLowerCase().replace(/\s/g, '_') }]);
-    }
+    const newColIndex = customColumns.length + 1;
+    const colName = `Column ${newColIndex}`;
+    const colKey = `custom_${Date.now()}_${newColIndex}`;
+    
+    setCustomColumns([...customColumns, { 
+      header: colName, 
+      key: colKey 
+    }]);
+    toast.success(`Added ${colName}`);
   };
 
-  const handlePrint = async () => {
-    if (!componentRef.current) return;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
-    printWindow.document.write(`
-      <html dir="rtl">
-        <head><title>Comparison Matrix</title>${styles}<style>@page { size: A4 landscape; margin: 15mm; } body { padding: 20px; font-family: sans-serif; }</style></head>
-        <body style="background: white !important;">${componentRef.current.innerHTML}<script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); };</script></body>
-      </html>
-    `);
-    printWindow.document.close();
+  const handlePrint = () => {
+    window.print();
   };
 
   const handleDownloadPDF = () => {
@@ -219,7 +215,7 @@ export const ComparisonForm = () => {
       doc.text(`Tracking ID: ${requestId || 'N/A'}`, 14, 35);
       doc.text(`Date: ${formData.comparisonDate}`, 14, 40);
 
-      const headers = ['#', 'Item Description', 'Unit', 'Qty', ...(formData.suppliers || [])];
+      const headers = ['#', 'Item Description', 'Unit', 'Qty', ...(formData.suppliers || []), ...customColumns.map(c => c.header)];
       const tableData = (formData.items || []).map((item, i) => [
         i + 1,
         item.description,
@@ -227,7 +223,8 @@ export const ComparisonForm = () => {
         item.quantity,
         ...(formData.suppliers || []).map((_, sIdx) => 
           item.prices[sIdx] ? `${item.prices[sIdx].unitPrice.toLocaleString()} AFN` : '-'
-        )
+        ),
+        ...customColumns.map(cc => (item as any)[cc.key] || '')
       ]);
 
       autoTable(doc, {
@@ -259,12 +256,12 @@ export const ComparisonForm = () => {
       )
     },
     { 
-      header: <EditableField value="Description" onSave={() => {}} />, 
+      header: <EditableField value={t('description')} onSave={() => {}} />, 
       key: 'description', 
       width: '200px',
       render: (row: Item, i: number) => (
         <input 
-          value={row.description} 
+          value={row.description || ''} 
           onChange={(e) => {
             const next = [...formData.items];
             next[i].description = e.target.value;
@@ -275,14 +272,14 @@ export const ComparisonForm = () => {
       )
     },
     { 
-      header: <EditableField value="Qty" onSave={() => {}} />, 
+      header: <EditableField value={t('quantity')} onSave={() => {}} />, 
       key: 'quantity', 
       width: '60px', 
       align: 'center' as const,
       render: (row: Item, i: number) => (
         <input 
           type="number"
-          value={row.quantity} 
+          value={row.quantity || 0} 
           onChange={(e) => {
             const next = [...formData.items];
             const val = Number(e.target.value) || 0;
@@ -366,9 +363,6 @@ export const ComparisonForm = () => {
                <button onClick={handlePrint} className="p-2 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-black/10">
                  <Printer size={16} /> Print
                </button>
-               <button onClick={handleDownloadPDF} className="p-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-rose-600/10">
-                 <Download size={16} /> Export PDF
-               </button>
              </div>
              <div className="flex items-center gap-2">
                 <button onClick={addItem} className="p-2 bg-slate-100 text-slate-900 rounded-xl hover:bg-slate-200 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4">
@@ -401,8 +395,8 @@ export const ComparisonForm = () => {
 
           <div className="flex justify-between items-center mb-8 border-y-2 border-slate-900 py-4 font-black">
              <div className="flex gap-4">
-               <span>تاریخ:</span>
-               <input value={formData.comparisonDate} onChange={(e) => setFormData({...formData, comparisonDate: e.target.value})} className="border-b border-slate-900 w-32 px-1 focus:outline-none bg-transparent" />
+               <span>{t('date')}:</span>
+               <input value={formData.comparisonDate || ''} onChange={(e) => setFormData({...formData, comparisonDate: e.target.value})} className="border-b border-slate-900 w-32 px-1 focus:outline-none bg-transparent" />
              </div>
              <div className="flex gap-2 items-center bg-slate-900 text-white px-4 py-1 rounded-full text-xs box-content">
                <Award size={14} className="text-emerald-400" />
@@ -418,10 +412,10 @@ export const ComparisonForm = () => {
              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -z-10 opacity-50" />
              <div className="flex items-center gap-3 mb-4 text-emerald-800 underline decoration-2 underline-offset-4">
                 <CheckCircle2 size={24} />
-                <span className="font-black text-lg">تحلیلي ملاحظات (Evaluation Notes)</span>
+                <span className="font-black text-lg">{t('evaluation_notes')}</span>
              </div>
              <textarea 
-               value={formData.notes} 
+               value={formData.notes || ''} 
                onChange={(e) => setFormData({...formData, notes: e.target.value})}
                className="w-full h-32 bg-transparent border-0 focus:ring-0 text-[13px] leading-relaxed font-bold italic text-slate-600 resize-none"
                placeholder="Write summary of comparison and recommended winner..."
@@ -432,7 +426,7 @@ export const ComparisonForm = () => {
              {(formData.signatures || []).map((role, i) => (
                 <div key={i} className="flex flex-col items-center">
                    <div className="w-full h-32 border-2 border-slate-900 rounded-2xl mb-3 flex flex-col justify-center items-center bg-white shadow-sm relative group transition-all hover:bg-slate-50">
-                      <EditableField value={role} onSave={(v) => {
+                      <EditableField value={role || ''} onSave={(v) => {
                         const next = [...(formData.signatures || [])];
                          next[i] = v;
                          setFormData({...formData, signatures: next});

@@ -112,13 +112,23 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout, user }: SidebarProp
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? '90px' : '280px' }}
+      animate={{ 
+        width: collapsed ? (window.innerWidth < 1024 ? '0px' : '90px') : '280px',
+        x: collapsed && window.innerWidth < 1024 ? (isRtl ? 100 : -100) + '%' : '0%'
+      }}
       dir={isRtl ? 'rtl' : 'ltr'}
       className={cn(
-        "bg-primary-teal h-screen flex flex-col transition-all duration-500 overflow-hidden z-50 fixed lg:relative sidebar",
-        collapsed ? "w-[90px]" : "w-[280px]"
+        "bg-primary-teal h-screen flex flex-col transition-all duration-500 overflow-hidden z-[100] fixed lg:relative sidebar shadow-2xl lg:shadow-none",
+        collapsed && "lg:w-[90px]"
       )}
     >
+      {/* Overlay for mobile when sidebar is open */}
+      {window.innerWidth < 1024 && !collapsed && (
+        <div 
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[-1]" 
+          onClick={() => setCollapsed(true)} 
+        />
+      )}
       <div className="p-6 flex items-center justify-between mb-8">
         {!collapsed && (
           <motion.div 

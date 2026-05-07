@@ -48,40 +48,40 @@ export const TenderForm: React.FC<TenderFormProps> = ({
   
   // Advanced customization state for labels (making the doc fully editable)
   const [docMeta, setDocMeta] = useState({
-    tenderTitle: 'د استملاک فورم (Tender Acquisition)',
-    subtitle: 'تدارکاتي تشریح: ددې پروژې په اړه د مختلفو شرکتونو نرخونه چې د پوهنتون هیئت لخوا راټول شوي دي په لاندې ډول سره دي.',
-    issuerLabel: 'issuer_details',
-    issuerAddress: 'issuer_address',
-    itemsLabel: 'procurement_notice',
-    dateLabel: 'Date',
-    refLabel: 'ref_no',
-    signatureLabel: 'د تهیه کوونکي امضاء او مهر (Signature)',
-    boardHeading: 'امضاء، د نرخ اخیستنې " خریداری " هیئت',
-    boardMemberLabel: 'د هیئت نوم:',
-    decisionLabel: 'ملاحظات او پریکړه (Decision):',
-    decisionText: 'د تدارکاتي هیئت لخوا د ټولو شرکتونو نرخونه په دقت سره وڅیړل شول، چې په پایله کې ... شرکت د ټیټ نرخ او د موادو د لوړ کیفیت په پام کې نیولو سره د دې پروژې ګټونکی اعلان شو.',
+    tenderTitle: t('tender_acquisition_title'),
+    subtitle: t('tender_subtitle'),
+    issuerLabel: t('issuer_details'),
+    issuerAddress: t('issuer_address'),
+    itemsLabel: t('procurement_notice'),
+    dateLabel: t('date'),
+    refLabel: t('reference'),
+    signatureLabel: t('signatures'),
+    boardHeading: t('tender_board_heading') || 'امضاء، د نرخ اخیستنې " خریداری " هیئت',
+    boardMemberLabel: t('board_member'),
+    decisionLabel: t('decision'),
+    decisionText: t('decision_text'),
     // Table headers
-    hNum: 'شمیره',
-    hCode: 'کود (Chapter)',
-    hName: 'د جنس نوم',
-    hDesc: 'د جنس تخنيکي تشريح',
-    hUnit: 'واحد',
-    hQty: 'مقدار',
-    hPrice: 'د في واحد قيمت',
-    hTotal: 'مجموعې قیمت',
-    footerLeft: 'تدارکاتو عمومي مدیر',
-    footerDate: '۱۴۰۵/۲/۱۷',
-    footerText: 'Procurement System Engine • Kandahar University Digital Hub'
+    hNum: t('number') || 'شمیره',
+    hCode: t('standard_id'),
+    hName: t('item_nomenclature'),
+    hDesc: t('description'),
+    hUnit: t('unit'),
+    hQty: t('quantity'),
+    hPrice: t('unit_price'),
+    hTotal: t('total_price'),
+    footerLeft: t('manager_title'),
+    footerDate: new Date().toLocaleDateString('fa-AF', { year: 'numeric', month: 'numeric', day: 'numeric' }),
+    footerText: t('university_digital_hub')
   });
 
   const defaultData = {
     issueNumber: '۱۴۴۵/ / ',
     issueDate: new Date().toLocaleDateString('fa-AF', { year: 'numeric', month: 'numeric', day: 'numeric' }),
-    issuerName: 'تدارکاتو عمومي مدیر',
-    issuerAddress: 'کندهار پوهنتون',
+    issuerName: t('manager_title'),
+    issuerAddress: t('kandahar'),
     projectTitle: '',
     items: [],
-    boardMembers: ['Board Member 1', 'Board Member 2', 'Board Member 3'],
+    boardMembers: [t('board_member') + ' 1', t('board_member') + ' 2', t('board_member') + ' 3'],
     requestId: requestId
   };
 
@@ -89,11 +89,15 @@ export const TenderForm: React.FC<TenderFormProps> = ({
   const [customColumns, setCustomColumns] = useState<any[]>([]);
 
   const addColumn = () => {
-    let colName = prompt("Enter Column Name");
-    if (colName === null) return;
-    if (!colName) colName = `Col ${customColumns.length + 1}`;
-    setCustomColumns([...customColumns, { header: colName, key: colName.toLowerCase().replace(/\s/g, '_') }]);
-    toast.success(`Column "${colName}" added`);
+    const newColIndex = customColumns.length + 1;
+    const colName = `Column ${newColIndex}`;
+    const colKey = `custom_${Date.now()}_${newColIndex}`;
+    
+    setCustomColumns([...customColumns, { 
+      header: colName, 
+      key: colKey 
+    }]);
+    toast.success(`Added ${colName}`);
   };
 
   const componentRef = React.useRef<HTMLDivElement>(null);
@@ -132,17 +136,22 @@ export const TenderForm: React.FC<TenderFormProps> = ({
         item.unit || '',
         item.quantity || 0,
         (Number(item.unitPrice) || 0).toLocaleString(),
-        ((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)).toLocaleString()
+        ((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)).toLocaleString(),
+        ...customColumns.map(cc => (item as any)[cc.key] || '')
       ]);
 
-      const headers = [[docMeta.hNum, docMeta.hCode, docMeta.hName, docMeta.hDesc, docMeta.hUnit, docMeta.hQty, docMeta.hPrice, docMeta.hTotal]];
+      const headers = [[
+        docMeta.hNum, docMeta.hCode, docMeta.hName, docMeta.hDesc, docMeta.hUnit, 
+        docMeta.hQty, docMeta.hPrice, docMeta.hTotal, 
+        ...customColumns.map(c => c.header)
+      ]];
 
       autoTable(doc, {
         head: headers,
         body: tableData,
         startY: 65,
         theme: 'grid',
-        styles: { fontSize: 7, cellPadding: 2 },
+        styles: { fontSize: 6, cellPadding: 1 },
         headStyles: { fillColor: [15, 143, 127], textColor: [255, 255, 255] }
       });
 
@@ -154,30 +163,8 @@ export const TenderForm: React.FC<TenderFormProps> = ({
     }
   };
 
-  const handlePrint = async () => {
-    if (!componentRef.current) return;
-    const isIframe = window.self !== window.top;
-    if (isIframe) {
-      toast.info("For best printing quality, please open the app in a new tab.");
-    }
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
-    const content = componentRef.current.innerHTML;
-
-    printWindow.document.write(`
-      <html dir="rtl">
-        <head>
-          <title>${formData.projectTitle || 'Tender'}</title>
-          ${styles}
-          <style>@page { size: A4; margin: 20mm; } body { padding: 40px; font-family: sans-serif; }</style>
-        </head>
-        <body>${content}<script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); };</script></body>
-      </html>
-    `);
-    printWindow.document.close();
+  const handlePrint = () => {
+    window.print();
   };
 
   React.useEffect(() => {
@@ -294,7 +281,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
       width: '180px',
       render: (row: Item, idx: number) => isEditable ? (
         <input 
-          value={row.name} 
+          value={row.name || ''} 
           onChange={(e) => updateItem(idx, 'name', e.target.value)}
           placeholder="Enter item name..."
           className="w-full bg-white border-0 focus:ring-1 focus:ring-emerald-500 rounded p-1 text-right"
@@ -307,7 +294,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
       width: '250px',
       render: (row: Item, idx: number) => isEditable ? (
         <textarea 
-          value={row.description} 
+          value={row.description || ''} 
           onChange={(e) => updateItem(idx, 'description', e.target.value)}
           placeholder="Specifications..."
           className="w-full bg-white border-0 focus:ring-1 focus:ring-emerald-500 rounded p-1 text-right text-[10px] resize-none"
@@ -322,7 +309,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
       align: 'center' as const,
       render: (row: Item, idx: number) => isEditable ? (
         <input 
-          value={row.unit} 
+          value={row.unit || ''} 
           onChange={(e) => updateItem(idx, 'unit', e.target.value)}
           className="w-full bg-white border-0 text-center focus:ring-1 focus:ring-emerald-500 rounded"
         />
@@ -336,7 +323,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
       render: (row: Item, idx: number) => isEditable ? (
         <input 
           type="number"
-          value={row.quantity} 
+          value={row.quantity || 0} 
           onChange={(e) => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
           className="w-full bg-white border-0 text-center focus:ring-1 focus:ring-emerald-500 rounded"
         />
@@ -409,9 +396,6 @@ export const TenderForm: React.FC<TenderFormProps> = ({
                <button onClick={handlePrint} className="p-2 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-black/10">
                  <Printer size={16} /> Print
                </button>
-               <button onClick={handleDownloadPDF} className="p-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-rose-600/10">
-                 <Download size={16} /> Export PDF
-               </button>
              </div>
              <div className="flex items-center gap-2">
                 {isEditable && (
@@ -445,7 +429,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
                <div key={field.key} className="flex gap-2 items-center">
                  <EditableField value={(docMeta as any)[field.metaKey]} onSave={(val) => setDocMeta({...docMeta, [field.metaKey]: val})} className="shrink-0" isEditable={isEditable} />
                  {isEditable ? (
-                   <input value={(formData as any)[field.key]} onChange={(e) => setFormData({...formData, [field.key]: e.target.value})} className="border-b-2 border-slate-900 flex-1 bg-transparent focus:outline-none focus:border-[#0F8F7F] transition-colors font-black h-8 px-2" />
+                   <input value={(formData as any)[field.key] || ''} onChange={(e) => setFormData({...formData, [field.key]: e.target.value})} className="border-b-2 border-slate-900 flex-1 bg-transparent focus:outline-none focus:border-[#0F8F7F] transition-colors font-black h-8 px-2" />
                  ) : (
                    <span className="border-b-2 border-slate-900 flex-1 h-8 flex items-end">{(formData as any)[field.key]}</span>
                  )}
@@ -466,7 +450,7 @@ export const TenderForm: React.FC<TenderFormProps> = ({
           <div className="mt-12 p-8 bg-white rounded-2xl border-2 border-slate-900 space-y-4 text-start">
              <EditableField value={docMeta.decisionLabel} onSave={(val) => setDocMeta({...docMeta, decisionLabel: val})} className="font-black text-slate-900 text-lg underline" isEditable={isEditable} />
              <textarea 
-               value={docMeta.decisionText} 
+               value={docMeta.decisionText || ''} 
                onChange={(e) => setDocMeta({...docMeta, decisionText: e.target.value})}
                className="w-full bg-transparent border-0 focus:ring-0 text-xs leading-relaxed text-slate-600 italic font-bold h-24 resize-none"
              />
@@ -491,15 +475,15 @@ export const TenderForm: React.FC<TenderFormProps> = ({
               <EditableField value={docMeta.boardHeading} onSave={(val) => setDocMeta({...docMeta, boardHeading: val})} className="text-lg font-black text-black underline mb-6" isEditable={isEditable} />
               {formData.boardMembers?.map((member, idx) => (
                 <div key={idx} className="flex gap-3 font-black items-center">
-                   <EditableField value={docMeta.boardMemberLabel} onSave={(val) => setDocMeta({...docMeta, boardMemberLabel: val})} className="shrink-0" isEditable={isEditable} />
+                   <EditableField value={docMeta.boardMemberLabel || ''} onSave={(val) => setDocMeta({...docMeta, boardMemberLabel: val})} className="shrink-0" isEditable={isEditable} />
                    {isEditable ? (
-                     <input value={member} placeholder={`Board Member ${idx + 1}`} onChange={(e) => {
+                     <input value={member || ''} placeholder={`Board Member ${idx + 1}`} onChange={(e) => {
                         const newMembers = [...(formData.boardMembers || [])];
                         newMembers[idx] = e.target.value;
                         setFormData({...formData, boardMembers: newMembers});
                      }} className="border-b-2 border-slate-900 flex-1 bg-transparent focus:outline-none focus:border-[#0F8F7F] transition-colors py-1 text-right h-8" />
                    ) : (
-                     <span className="border-b-2 border-slate-900 flex-1 py-1 text-right h-8 flex items-end">{member}</span>
+                     <span className="border-b-2 border-slate-900 flex-1 py-1 text-right h-8 flex items-end">{member || ''}</span>
                    )}
                 </div>
               ))}

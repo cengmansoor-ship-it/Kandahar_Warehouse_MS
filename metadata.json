@@ -1,6 +1,6 @@
 {
-  "name": "KDRU Warehouse Management System",
-  "description": "Kandahar University General Warehouse, Inventory & Procurement Management System (د کندهار پوهنتون عمومي ګدام، موجودي، او تدارکاتو مدیریت سیستم). A production-ready ERP for university logistics.",
+  "name": "Enterprise Nexus - Advanced Management System",
+  "description": "An advanced, production-ready enterprise management system with modern UI/UX, secure authentication, role-based access control, optimized database design, professional error handling, reporting, and scalable code organization.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

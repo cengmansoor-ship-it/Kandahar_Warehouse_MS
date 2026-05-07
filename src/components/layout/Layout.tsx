@@ -19,7 +19,7 @@ interface LayoutProps {
 }
 
 export const Layout = ({ children, onLogout, user }: LayoutProps) => {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(window.innerWidth < 1024);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [sentEmails, setSentEmails] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -42,6 +42,12 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  useEffect(() => {
+    if (window.innerWidth < 1024) {
+      setCollapsed(true);
+    }
+  }, [location.pathname]);
 
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === 'rtl';
@@ -148,7 +154,7 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
                   : "bg-red-50 text-red-600 border-red-100 animate-pulse"
               )}>
                  <div className={cn("w-1.5 h-1.5 rounded-full", isOnline ? "bg-emerald-500" : "bg-red-500")} />
-                 {isOnline ? 'Online' : 'Offline'}
+                 {isOnline ? t('status_online') : t('status_offline')}
               </div>
             </div>
           </div>
@@ -364,8 +370,9 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
                               await emailService.sendEmail({
                                 to: editingEmail.to,
                                 subject: editingEmail.subject,
-                                body: editingEmail.text,
-                                recipientName: editingEmail.to.split('@')[0]
+                                text: editingEmail.text,
+                                requestId: editingEmail.requestId,
+                                type: editingEmail.type
                               });
                               toast.success("Refined message dispatched!", { id: tId });
                               setEditingEmail(null);

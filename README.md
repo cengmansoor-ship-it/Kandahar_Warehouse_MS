@@ -1,20 +1,29 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Advanced Enterprise Management System
 
-# Run and deploy your AI Studio app
+An advanced, production-ready final year project designed as a real-world enterprise management system with modern UI/UX, secure authentication, role-based access control, optimized database structure, analytics, reporting, and scalable full-stack architecture.
 
-This contains everything you need to run your app locally.
+## Overview
 
-View your app in AI Studio: https://ai.studio/apps/8f986bdd-fc57-4564-be2c-27959105f733
+This project represents one of the most important milestones in my academic and professional journey. It was developed as a final year project with the goal of solving real-world management challenges through a modern, secure, scalable, and user-friendly software system.
 
-## Run Locally
+Unlike a basic academic project, this system is designed with professional software engineering standards, including:
+- **Clean Architecture**: Separation of concerns between UI, business logic, and data layers.
+- **Enterprise UI/UX**: A high-density, professional dashboard built with React and Tailwind CSS.
+- **Role-Based Access Control (RBAC)**: Fine-grained permissions for Admins, Managers, and Staff.
+- **Real-time Pipeline Tracking**: Visual procurement flow from request to final purchase order.
+- **Advanced Reporting**: Dynamic data visualization and traceability reports with export capabilities.
+- **Production-Ready Practices**: Comprehensive error handling, data validation, and responsive design.
 
-**Prerequisites:**  Node.js
+The main purpose of this project is to demonstrate strong full-stack development skills, system design understanding, database management knowledge, and the ability to build practical software solutions that can be used in real organizations.
 
+## Technical Stack
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- **Frontend**: React 18, TypeScript, Tailwind CSS, Lucide Icons
+- **Backend/Integration**: Node.js, Express (Internal API patterns)
+- **State Management**: React Hooks & Context API
+- **Animations**: Framer Motion
+- **Tooling**: Vite, ESLint, TypeScript
+
+---
+
+Built with passion and dedication for my Final Year Project.

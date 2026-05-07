@@ -883,8 +883,8 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
              <button 
                onClick={() => {
                  let tab = 'tender';
-                 if (currentProgress >= 75) tab = 'comparison';
-                 if (currentProgress >= 100) tab = 'po';
+                 if (currentProgress >= 50 || request.status === 'TENDER_CREATED') tab = 'comparison';
+                 if (currentProgress >= 75 || request.status === 'WINNER_SELECTED') tab = 'po';
                  navigate('/procurement', { state: { tab, requestId: request.id } });
                }}
                className={cn("w-14 h-14 bg-slate-50 text-slate-300 rounded-2xl hover:bg-primary-teal hover:text-white transition-all shadow-sm flex items-center justify-center border border-slate-100 group-hover:border-primary-teal", t('lang_direction') === 'rtl' && "rotate-180")}

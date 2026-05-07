@@ -51,40 +51,41 @@ export const PurchaseOrderForm = () => {
   const location = useLocation();
   const requestId = location.state?.requestId;
   
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<POData>({
     requestId: requestId || '',
     poNumber: `PO-${Date.now().toString().slice(-6)}`,
     poDate: new Date().toLocaleDateString(),
     equivalent: '1000',
-    procurementDescription: 'General Procurement for Department Needs',
+    procurementDescription: t('procurement_description_initial') || 'General Procurement for Department Needs',
     entityInfo: {
-      name: 'Kandahar University Logistics Dept',
-      address: 'Kandahar, Afghanistan',
+      name: t('kandahar') + ' ' + t('logistics_dept') || 'Kandahar University Logistics Dept',
+      address: t('kandahar_address') || 'Kandahar, Afghanistan',
       email: 'logistics@kdru.edu.af'
     },
     handlerInfo: {
-      name: 'John Doe',
-      position: 'Procurement Specialist',
-      phone: '+93 700 000 000'
+      name: '',
+      position: t('job_title'),
+      phone: '+93 '
     },
     items: [
-      { id: '1', description: 'Sample Item', quantity: 1, unit: 'Pcs', unitPrice: 0, totalPrice: 0 }
+      { id: '1', description: t('sample_item'), quantity: 1, unit: 'Pcs', unitPrice: 0, totalPrice: 0 }
     ],
-    terms: '1. Delivery within 15 days.\n2. Payment after inspection.\n3. Goods must match technical specifications.'
+    terms: t('delivery_terms_default') || '1. Delivery within 15 days.\n2. Payment after inspection.\n3. Goods must match technical specifications.'
   });
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [docMeta, setDocMeta] = useState({
-    poTitle: 'د اخیستلو امر / Purchase Order',
-    orderNoLabel: 'د امر شمېره',
-    orderDateLabel: 'تاریخ',
-    equivalentLabel: 'معادل',
-    descLabel: 'د تدارکاتو تشریح (Description)',
-    entityInfoTitle: 'تدارکاتي اداره (Purchasing Entity)',
-    contractorInfoTitle: 'داوطلب / بریا موندونکی (Bidder/Winner)',
-    totalLabel: 'مجموعي قیمت (Total Amount)',
-    sealLabel: 'Official Certification Seal Area',
+    poTitle: t('purchase_order'),
+    orderNoLabel: t('order_number'),
+    orderDateLabel: t('date'),
+    equivalentLabel: t('equivalent'),
+    descLabel: t('description'),
+    entityInfoTitle: t('purchasing_entity'),
+    contractorInfoTitle: t('bidder_winner'),
+    totalLabel: t('total_amount'),
+    sealLabel: t('seal_area'),
   });
 
   const componentRef = useRef<HTMLDivElement>(null);
@@ -132,27 +133,19 @@ export const PurchaseOrderForm = () => {
   const [customColumns, setCustomColumns] = useState<any[]>([]);
 
   const addColumn = () => {
-    let colName = prompt("Enter Column Name");
-    // Fallback if prompt is blocked or cancelled in some environments
-    if (colName === null) return; 
-    if (!colName) colName = `Col ${customColumns.length + 1}`;
+    const newColIndex = customColumns.length + 1;
+    const colName = `Column ${newColIndex}`;
+    const colKey = `custom_${Date.now()}_${newColIndex}`;
     
-    setCustomColumns([...customColumns, { header: colName, key: colName.toLowerCase().replace(/\s/g, '_') }]);
-    toast.success(`Column "${colName}" added to ledger`);
+    setCustomColumns([...customColumns, { 
+      header: colName, 
+      key: colKey 
+    }]);
+    toast.success(`Added ${colName}`);
   };
 
-  const handlePrint = async () => {
-    if (!componentRef.current) return;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
-    printWindow.document.write(`
-      <html dir="rtl">
-        <head><title>Purchase Order</title>${styles}<style>@page { size: A4; margin: 15mm; } body { padding: 20px; font-family: sans-serif; }</style></head>
-        <body style="background: white !important;">${componentRef.current.innerHTML}<script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); };</script></body>
-      </html>
-    `);
-    printWindow.document.close();
+  const handlePrint = () => {
+    window.print();
   };
 
   const handleDownloadPDF = () => {
@@ -177,17 +170,18 @@ export const PurchaseOrderForm = () => {
         item.quantity || 0,
         item.unit || '-',
         `${(Number(item.unitPrice) || 0).toLocaleString()} AFN`,
-        `${(Number(item.totalPrice) || 0).toLocaleString()} AFN`
+        `${(Number(item.totalPrice) || 0).toLocaleString()} AFN`,
+        ...customColumns.map(cc => (item as any)[cc.key] || '')
       ]);
 
-      const headers = [['#', 'Description', 'Qty', 'Unit', 'Price', 'Total']];
+      const headers = [['#', 'Description', 'Qty', 'Unit', 'Price', 'Total', ...customColumns.map(c => c.header)]];
 
       autoTable(doc, {
         head: headers,
         body: tableData,
         startY: 65,
         theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2 },
+        styles: { fontSize: 7, cellPadding: 1 },
         headStyles: { fillColor: [15, 143, 127], textColor: [255, 255, 255] }
       });
 
@@ -226,16 +220,16 @@ export const PurchaseOrderForm = () => {
   const grandTotal = (formData.items || []).reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0);
 
   const columns = React.useMemo(() => [
-    { header: 'No', key: 'id', width: '40px', align: 'center' as const, render: (_: any, i: number) => i + 1 },
+    { header: t('number') || 'No', key: 'id', width: '40px', align: 'center' as const, render: (_: any, i: number) => i + 1 },
     { 
-      header: 'Description', 
+      header: t('description'), 
       key: 'description', 
       render: (row: Item, i: number) => (
-        <input value={row.description} onChange={(e) => updateItem(i, 'description', e.target.value)} className="w-full bg-transparent border-0 font-black focus:ring-0" />
+        <input value={row.description || ''} onChange={(e) => updateItem(i, 'description', e.target.value)} className="w-full bg-transparent border-0 font-black focus:ring-0" />
       )
     },
     { 
-      header: 'Qty', 
+      header: t('quantity'), 
       key: 'quantity', 
       width: '60px', 
       align: 'center' as const,
@@ -244,16 +238,16 @@ export const PurchaseOrderForm = () => {
       )
     },
     { 
-      header: 'Unit', 
+      header: t('unit'), 
       key: 'unit', 
       width: '60px', 
       align: 'center' as const,
       render: (row: Item, i: number) => (
-        <input value={row.unit} onChange={(e) => updateItem(i, 'unit', e.target.value)} className="w-full bg-transparent border-0 font-black text-center focus:ring-0" />
+        <input value={row.unit || ''} onChange={(e) => updateItem(i, 'unit', e.target.value)} className="w-full bg-transparent border-0 font-black text-center focus:ring-0" />
       )
     },
     { 
-      header: 'Unit Price', 
+      header: t('unit_price'), 
       key: 'unitPrice', 
       width: '100px', 
       align: 'center' as const,
@@ -262,7 +256,7 @@ export const PurchaseOrderForm = () => {
       )
     },
     { 
-      header: 'Total', 
+      header: t('total_price'), 
       key: 'totalPrice', 
       width: '120px', 
       align: 'center' as const,
@@ -307,9 +301,6 @@ export const PurchaseOrderForm = () => {
                <button onClick={handlePrint} className="p-2 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-black/10">
                  <Printer size={16} /> Print
                </button>
-               <button onClick={handleDownloadPDF} className="p-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-rose-600/10">
-                 <Download size={16} /> Export PDF
-               </button>
              </div>
              <div className="flex items-center gap-2">
                 <button onClick={addColumn} className="p-2 bg-slate-100 text-slate-900 rounded-xl hover:bg-slate-200 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4">
@@ -338,19 +329,19 @@ export const PurchaseOrderForm = () => {
                <tbody>
                   <tr className="border-b border-slate-100">
                     <td className="p-3 text-slate-400 font-black uppercase text-[10px] text-start border-l border-slate-100"><EditableField value={docMeta.orderNoLabel} onSave={(v) => setDocMeta({...docMeta, orderNoLabel: v})} /></td>
-                    <td className="p-3 w-[200px] border-l border-slate-100"><input value={formData.poNumber} onChange={(e) => setFormData({...formData, poNumber: e.target.value})} className="w-full bg-transparent border-b border-slate-900 outline-none font-black text-center" /></td>
+                    <td className="p-3 w-[200px] border-l border-slate-100"><input value={formData.poNumber || ''} onChange={(e) => setFormData({...formData, poNumber: e.target.value})} className="w-full bg-transparent border-b border-slate-900 outline-none font-black text-center" /></td>
                     <td className="p-3 text-slate-400 font-black uppercase text-[10px] flex items-center justify-start gap-2 pr-4 min-w-[120px] text-start border-l border-slate-100">
-                      <EditableField value={docMeta.equivalentLabel} onSave={(v) => setDocMeta({...docMeta, equivalentLabel: v})} />:
+                      <EditableField value={docMeta.equivalentLabel || ''} onSave={(v) => setDocMeta({...docMeta, equivalentLabel: v})} />:
                     </td>
-                    <td className="p-3 w-[200px]"><input value={formData.equivalent} onChange={(e) => setFormData({...formData, equivalent: e.target.value})} className="w-full bg-transparent border-b border-slate-900 outline-none font-black text-center" /></td>
+                    <td className="p-3 w-[200px]"><input value={formData.equivalent || ''} onChange={(e) => setFormData({...formData, equivalent: e.target.value})} className="w-full bg-transparent border-b border-slate-900 outline-none font-black text-center" /></td>
                   </tr>
                   <tr className="border-b border-slate-100">
                     <td className="p-3 text-slate-400 font-black uppercase text-[10px] text-start border-l border-slate-100"><EditableField value={docMeta.orderDateLabel} onSave={(v) => setDocMeta({...docMeta, orderDateLabel: v})} /></td>
-                    <td className="p-3 w-[200px] border-l border-slate-100"><input value={formData.poDate} onChange={(e) => setFormData({...formData, poDate: e.target.value})} className="w-full bg-transparent border-b border-slate-100 outline-none font-black text-center" /></td>
+                    <td className="p-3 w-[200px] border-l border-slate-100"><input value={formData.poDate || ''} onChange={(e) => setFormData({...formData, poDate: e.target.value})} className="w-full bg-transparent border-b border-slate-100 outline-none font-black text-center" /></td>
                     <td className="p-3 text-slate-400 font-black uppercase text-[10px] flex items-center justify-start gap-2 pr-4 min-w-[120px] text-start border-l border-slate-100">
-                       <EditableField value={docMeta.descLabel} onSave={(v) => setDocMeta({...docMeta, descLabel: v})} />:
+                       <EditableField value={docMeta.descLabel || ''} onSave={(v) => setDocMeta({...docMeta, descLabel: v})} />:
                     </td>
-                    <td className="p-3 w-[200px]"><input value={formData.procurementDescription} onChange={(e) => setFormData({...formData, procurementDescription: e.target.value})} className="w-full bg-transparent border-b border-slate-100 outline-none font-black text-center" /></td>
+                    <td className="p-3 w-[200px]"><input value={formData.procurementDescription || ''} onChange={(e) => setFormData({...formData, procurementDescription: e.target.value})} className="w-full bg-transparent border-b border-slate-100 outline-none font-black text-center" /></td>
                   </tr>
                </tbody>
              </table>
@@ -362,19 +353,19 @@ export const PurchaseOrderForm = () => {
                   <EditableField value={docMeta.entityInfoTitle} onSave={(v) => setDocMeta({...docMeta, entityInfoTitle: v})} className="font-black uppercase tracking-widest" />
                 </h4>
                 <div className="space-y-3 font-black text-start">
-                  <div className="flex justify-between items-center"><span>اداري نوم:</span> <input value={formData.entityInfo?.name} onChange={(e) => setFormData({...formData, entityInfo: {...formData.entityInfo!, name: e.target.value}})} className="bg-transparent border-b border-slate-200 flex-1 ml-4 text-left px-2" /></div>
-                  <div className="flex justify-between items-center"><span>ادرس:</span> <input value={formData.entityInfo?.address} onChange={(e) => setFormData({...formData, entityInfo: {...formData.entityInfo!, address: e.target.value}})} className="bg-transparent border-b border-slate-200 flex-1 ml-4 text-left px-2" /></div>
-                  <div dir="ltr" className="flex justify-between items-center"><span>Email:</span> <input value={formData.entityInfo?.email} onChange={(e) => setFormData({...formData, entityInfo: {...formData.entityInfo!, email: e.target.value}})} className="bg-transparent border-b border-slate-200 flex-1 ml-4 text-right px-2" /></div>
+                  <div className="flex justify-between items-center"><span>{t('admin_name')}:</span> <input value={formData.entityInfo?.name || ''} onChange={(e) => setFormData({...formData, entityInfo: {...formData.entityInfo!, name: e.target.value}})} className="bg-transparent border-b border-slate-200 flex-1 ml-4 text-left px-2" /></div>
+                  <div className="flex justify-between items-center"><span>{t('address')}:</span> <input value={formData.entityInfo?.address || ''} onChange={(e) => setFormData({...formData, entityInfo: {...formData.entityInfo!, address: e.target.value}})} className="bg-transparent border-b border-slate-200 flex-1 ml-4 text-left px-2" /></div>
+                  <div dir="ltr" className="flex justify-between items-center"><span>Email:</span> <input value={formData.entityInfo?.email || ''} onChange={(e) => setFormData({...formData, entityInfo: {...formData.entityInfo!, email: e.target.value}})} className="bg-transparent border-b border-slate-200 flex-1 ml-4 text-right px-2" /></div>
                 </div>
              </div>
              <div className="border-2 border-slate-900 p-6 rounded-2xl space-y-4 bg-white shadow-md">
                 <h4 className="border-b-2 border-slate-900 pb-3 mb-4 font-black text-center bg-white text-black uppercase tracking-widest">
-                  <EditableField value={docMeta.contractorInfoTitle} onSave={(v) => setDocMeta({...docMeta, contractorInfoTitle: v})} className="font-black" />
+                  <EditableField value={docMeta.contractorInfoTitle || ''} onSave={(v) => setDocMeta({...docMeta, contractorInfoTitle: v})} className="font-black" />
                 </h4>
                 <div className="space-y-3 font-black text-start">
-                  <div className="flex justify-between items-center"><span>اجرا کوونکی:</span> <input value={formData.handlerInfo?.name} onChange={(e) => setFormData({...formData, handlerInfo: {...formData.handlerInfo!, name: e.target.value}})} className="bg-transparent border-b border-slate-200 flex-1 ml-4 text-left px-2" /></div>
-                  <div className="flex justify-between items-center"><span>وظیفه:</span> <input value={formData.handlerInfo?.position} onChange={(e) => setFormData({...formData, handlerInfo: {...formData.handlerInfo!, position: e.target.value}})} className="bg-transparent border-b border-slate-200 flex-1 ml-4 text-left px-2" /></div>
-                  <div className="flex justify-between items-center"><span>شمېره:</span> <input value={formData.handlerInfo?.phone} onChange={(e) => setFormData({...formData, handlerInfo: {...formData.handlerInfo!, phone: e.target.value}})} className="bg-transparent border-b border-slate-200 flex-1 ml-4 text-left px-2" /></div>
+                  <div className="flex justify-between items-center"><span>{t('bidder_winner')}:</span> <input value={formData.handlerInfo?.name || ''} onChange={(e) => setFormData({...formData, handlerInfo: {...formData.handlerInfo!, name: e.target.value}})} className="bg-transparent border-b border-slate-200 flex-1 ml-4 text-left px-2" /></div>
+                  <div className="flex justify-between items-center"><span>{t('job_title')}:</span> <input value={formData.handlerInfo?.position || ''} onChange={(e) => setFormData({...formData, handlerInfo: {...formData.handlerInfo!, position: e.target.value}})} className="bg-transparent border-b border-slate-200 flex-1 ml-4 text-left px-2" /></div>
+                  <div className="flex justify-between items-center"><span>{t('phone')}:</span> <input value={formData.handlerInfo?.phone || ''} onChange={(e) => setFormData({...formData, handlerInfo: {...formData.handlerInfo!, phone: e.target.value}})} className="bg-transparent border-b border-slate-200 flex-1 ml-4 text-left px-2" /></div>
                 </div>
              </div>
           </div>
@@ -389,19 +380,19 @@ export const PurchaseOrderForm = () => {
           </div>
 
           <div className="text-[12px] mb-12 italic border-r-8 border-[#0F8F7F] pr-8 py-6 bg-white border-2 border-slate-900 rounded-2xl font-black text-right leading-relaxed shadow-sm">
-             <textarea value={formData.terms} onChange={(e) => setFormData({...formData, terms: e.target.value})} className="w-full bg-transparent border-0 focus:ring-0 h-24 resize-none" />
+             <textarea value={formData.terms || ''} onChange={(e) => setFormData({...formData, terms: e.target.value})} className="w-full bg-transparent border-0 focus:ring-0 h-24 resize-none" />
           </div>
 
           <div className="grid grid-cols-2 gap-x-20 gap-y-16 text-[14px] font-black mt-20">
               <div className="space-y-12 text-start">
-                <div className="flex items-center gap-2">نرخ ورکوونکی: <input value={formData.handlerInfo?.name} readOnly className="border-b-2 border-slate-900 bg-transparent flex-1 px-2" /></div>
+                <div className="flex items-center gap-2">{t('bidder_winner')}: <input value={formData.handlerInfo?.name || ''} readOnly className="border-b-2 border-slate-900 bg-transparent flex-1 px-2" /></div>
                 <div className="h-0.5 border-b-2 border-dashed border-slate-300"></div>
-                <div className="flex items-center gap-2">تاریخ: <input value={formData.poDate} readOnly className="border-b-2 border-slate-900 bg-transparent flex-1 px-2" /></div>
+                <div className="flex items-center gap-2">{t('date')}: <input value={formData.poDate || ''} readOnly className="border-b-2 border-slate-900 bg-transparent flex-1 px-2" /></div>
               </div>
               <div className="space-y-12 text-start">
-                <div className="flex items-center gap-2">تدارکاتو عمومي مدیر: <input value="تدارکاتو مدیر" readOnly className="border-b-2 border-slate-900 bg-transparent flex-1 px-2" /></div>
+                <div className="flex items-center gap-2">{t('manager_title')}: <input value={t('manager_title')} readOnly className="border-b-2 border-slate-900 bg-transparent flex-1 px-2" /></div>
                 <div className="h-0.5 border-b-2 border-dashed border-slate-300"></div>
-                <div className="flex items-center gap-2">تاریخ: <input value={formData.poDate} readOnly className="border-b-2 border-slate-900 bg-transparent flex-1 px-2" /></div>
+                <div className="flex items-center gap-2">{t('date')}: <input value={formData.poDate || ''} readOnly className="border-b-2 border-slate-900 bg-transparent flex-1 px-2" /></div>
               </div>
           </div>
 
