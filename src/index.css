@@ -51,12 +51,19 @@
 
 @layer utilities {
   .a4-page {
-    width: 210mm;
+    width: 100%;
+    max-width: 210mm;
     min-height: 297mm;
-    padding: 15mm;
+    padding: 10mm;
     margin: 0 auto;
     background: white;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  }
+
+  @media (min-width: 768px) {
+    .a4-page {
+      padding: 15mm;
+    }
   }
 
   @media print {
@@ -190,6 +197,10 @@
 
 /* RTL Support - ensures layout stays stable when toggling Pashto/Dari */
 [dir="rtl"] .ltr-only {
+  display: none;
+}
+
+[dir="ltr"] .rtl-only {
   display: none;
 }
 

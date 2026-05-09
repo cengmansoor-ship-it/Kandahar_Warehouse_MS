@@ -36,7 +36,7 @@ export const AIAssistant = ({ isFullPage = false, forceOpen = false }: { isFullP
   const [messages, setMessages] = useState<Message[]>([
     { 
       id: '1', 
-      text: isPashto ? "سلام! زه ستاسو هوښیار مرستندوی ییم. زه څنګه کولی شم تاسو سره د ګودام مدیریت کې مرسته وکړم؟" : "Hello! I'm your Intelligent Warehouse Assistant. How can I help you manage inventory today?", 
+      text: t('ai_welcome_message'), 
       sender: 'bot', 
       timestamp: new Date() 
     }
@@ -104,10 +104,10 @@ export const AIAssistant = ({ isFullPage = false, forceOpen = false }: { isFullP
       }
     } catch (e: any) {
       console.error("Gemini Frontend Error:", e);
-      let errorText = "Assistant connection lost";
+      let errorText = t('assistant_connection_lost');
       
       if (e.message?.includes("API_KEY_INVALID") || e.message?.includes("API key not valid")) {
-        errorText = "I'm currently in 'Offline Mode' because the GEMINI_API_KEY hasn't been configured or is invalid. Please ensure the key is correctly set in system settings.";
+        errorText = t('ai_offline_mode_desc');
       }
 
       const botErrorMsg: Message = {
@@ -117,7 +117,7 @@ export const AIAssistant = ({ isFullPage = false, forceOpen = false }: { isFullP
         timestamp: new Date()
       };
       setMessages(prev => [...prev, botErrorMsg]);
-      toast.error("Assistant connection issues detected");
+      toast.error(t('assistant_connection_issues'));
     } finally {
       setIsTyping(false);
     }
@@ -142,7 +142,7 @@ export const AIAssistant = ({ isFullPage = false, forceOpen = false }: { isFullP
     recognition.maxAlternatives = 1;
     
     recognition.onstart = () => {
-      toast.info(isPashto ? "غوږ نیسم..." : "Assistant is listening...");
+      toast.info(t('assistant_listening'));
     };
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;

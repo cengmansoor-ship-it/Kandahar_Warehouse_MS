@@ -28,6 +28,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "axios": "^1.15.2",
     "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.9.0",
     "body-parser": "^2.2.2",
     "clsx": "^2.1.1",
     "cors": "^2.8.6",
@@ -35,6 +36,7 @@
     "dotenv": "^17.2.3",
     "express": "^4.22.1",
     "firebase": "^12.12.1",
+    "html5-qrcode": "^2.3.8",
     "i18next": "^26.0.6",
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.2.1",
@@ -43,6 +45,7 @@
     "motion": "^12.23.24",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.7",
+    "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.73.1",
@@ -58,6 +61,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^4.17.25",
     "@types/multer": "^2.1.0",
     "@types/node": "^22.19.17",

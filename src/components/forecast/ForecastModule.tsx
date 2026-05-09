@@ -86,8 +86,8 @@ export const ForecastModule = () => {
     XLSX.writeFile(wb, `KDRU_Inventory_Forecast_${selectedYear}.xlsx`);
   };
 
-  const filteredItems = allForecasts.filter(f => 
-    f.itemName.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredItems = (allForecasts || []).filter(f => 
+    (f.itemName || '').toLowerCase().includes((searchTerm || '').toLowerCase())
   );
 
   return (

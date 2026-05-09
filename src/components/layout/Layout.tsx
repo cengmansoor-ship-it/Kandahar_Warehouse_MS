@@ -128,16 +128,17 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
   };
 
   return (
-    <div className={`flex h-screen bg-[#F8F9FA] font-sans`} dir={i18n.dir()}>
+    <div className={`flex h-screen bg-[#F8F9FA] font-sans no-print-bg`} dir={i18n.dir()}>
       <Sidebar 
         collapsed={collapsed} 
         setCollapsed={setCollapsed} 
         onLogout={onLogout}
         user={user}
+        className="no-print"
       />
       
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-24 bg-white/80 backdrop-blur-xl border-b border-white flex items-center justify-between px-4 lg:px-10 z-40">
+        <header className="h-24 bg-white/80 backdrop-blur-xl border-b border-white flex items-center justify-between px-4 lg:px-10 z-40 no-print">
           <div className="flex items-center gap-4 lg:gap-0">
             <button 
               onClick={() => setCollapsed(false)}
@@ -146,7 +147,9 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
               <Menu size={20} />
             </button>
             <div className="flex items-center gap-3">
-              <div className="text-xl lg:text-2xl font-black text-[#0F8F7F] tracking-tighter">{t('app_name')}</div>
+              <div className="text-xl lg:text-2xl font-black text-[#0F8F7F] tracking-tighter">
+                {t('app_name')} {isOnline ? t('online_status_text') : t('offline_status_text')}
+              </div>
               <div className={cn(
                 "flex items-center gap-1.5 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all duration-500 shadow-sm",
                 isOnline 
@@ -164,21 +167,21 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
                 <button 
                   onClick={() => setTheme('light')}
                   className={cn("p-2 rounded-xl transition-all", theme === 'light' ? "bg-white text-amber-500 shadow-sm" : "text-slate-400 hover:text-slate-600")}
-                  title="Light Mode"
+                  title={t('light_mode')}
                 >
                   <Sun size={18} />
                 </button>
                 <button 
                   onClick={() => setTheme('dark')}
                   className={cn("p-2 rounded-xl transition-all", theme === 'dark' ? "bg-slate-900 text-slate-100 shadow-sm" : "text-slate-400 hover:text-slate-600")}
-                  title="Dark Mode"
+                  title={t('dark_mode')}
                 >
                   <Moon size={18} />
                 </button>
                 <button 
                   onClick={() => setTheme('comfort')}
                   className={cn("p-2 rounded-xl transition-all", theme === 'comfort' ? "bg-[#efe7d5] text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-600")}
-                  title="Eye Comfort Shield"
+                  title={t('eye_comfort_shield')}
                 >
                   <Eye size={18} />
                 </button>
@@ -222,7 +225,7 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
                              onClick={() => setActiveNotificationTab('system')}
                              className={cn("flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all", activeNotificationTab === 'system' ? "bg-white text-primary-teal shadow-sm" : "text-slate-400")}
                            >
-                             System
+                             {t('system_tab')}
                            </button>
                            <button 
                              onClick={() => {
@@ -231,7 +234,7 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
                              }}
                              className={cn("flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all", activeNotificationTab === 'email' ? "bg-white text-primary-teal shadow-sm" : "text-slate-400")}
                            >
-                             Emails Sent
+                             {t('emails_sent_tab')}
                            </button>
                         </div>
                       </div>
@@ -255,7 +258,7 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
                         ) : (
                           <div className="space-y-4">
                             {sentEmails.length === 0 ? (
-                              <div className="text-center py-10 text-[10px] font-black text-slate-300 uppercase tracking-widest italic">No emails sent yet</div>
+                              <div className="text-center py-10 text-[10px] font-black text-slate-300 uppercase tracking-widest italic">{t('no_emails_yet')}</div>
                             ) : (
                               sentEmails.map((email) => (
                                 <div key={email.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
@@ -275,7 +278,7 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
                                         }}
                                         className="flex-1 flex items-center justify-center gap-2 py-1.5 bg-white border border-slate-200 rounded-lg text-[8px] font-black uppercase text-slate-400 hover:text-primary-teal hover:border-primary-teal transition-all"
                                       >
-                                        <Edit2 size={10} /> Edit
+                                        <Edit2 size={10} /> {t('edit')}
                                       </button>
                                       <button 
                                         onClick={async () => {
@@ -307,7 +310,7 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
                                         }}
                                         className="flex-1 flex items-center justify-center gap-2 py-1.5 bg-slate-900 text-white rounded-lg text-[8px] font-black uppercase hover:bg-primary-teal transition-all"
                                       >
-                                        <RotateCcw size={10} /> Send Again
+                                        <RotateCcw size={10} /> {t('send_again')}
                                       </button>
                                    </div>
                                 </div>
@@ -325,7 +328,7 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
                  <div className="bg-white w-full max-w-lg rounded-[44px] shadow-2xl p-10 space-y-6">
                     <div className="flex items-center justify-between">
-                       <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic">Refine Message</h3>
+                       <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic">{t('refine_message')}</h3>
                        <button onClick={() => setEditingEmail(null)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:text-red-500"><X size={20} /></button>
                     </div>
                     <div className="space-y-4 text-start">
@@ -351,16 +354,16 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
                           onClick={async () => {
                             try {
                               await emailService.updateEmail(editingEmail.id, editingEmail);
-                              toast.success("Draft updated successfully");
+                              toast.success(t('draft_updated'));
                               setEditingEmail(null);
                               fetchLogs();
                             } catch (e) {
-                              toast.error("Failed to save changes");
+                              toast.error(t('save_failed'));
                             }
                           }}
                           className="flex-1 bg-white border-2 border-slate-900 text-slate-900 py-5 rounded-[28px] text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
                        >
-                         Save Draft
+                         {t('save_draft')}
                        </button>
                        <button 
                           onClick={async () => {
@@ -383,7 +386,7 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
                           }}
                           className="flex-2 bg-slate-900 text-white py-5 rounded-[28px] text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all shadow-xl shadow-black/10"
                        >
-                         Send Refined Now
+                         {t('send_refined_now')}
                        </button>
                     </div>
                  </div>
@@ -422,7 +425,9 @@ export const Layout = ({ children, onLogout, user }: LayoutProps) => {
           </div>
         </main>
 
-        <AIAssistant />
+        <div className="no-print">
+          <AIAssistant />
+        </div>
       </div>
     </div>
   );

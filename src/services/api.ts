@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({
-  baseURL: '/api',
+  baseURL: (typeof window !== 'undefined' ? window.location.origin : '') + '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -17,7 +17,7 @@ api.interceptors.request.use((config) => {
 
 export const authService = {
   login: (credentials: any) => api.post('/auth/login', credentials),
-  forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
+  forgotPassword: (email: string, password?: string) => api.post('/auth/forgot-password', { email, password }),
 };
 
 export const inventoryService = {

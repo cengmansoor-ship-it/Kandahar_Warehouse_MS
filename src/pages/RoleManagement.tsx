@@ -32,7 +32,7 @@ export const RoleManagement = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [newUser, setNewUser] = useState({ name: '', email: '', role: UserRole.DEPARTMENT_USER });
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: UserRole.DEPARTMENT_USER });
 
   useEffect(() => {
     fetchUsers();
@@ -44,7 +44,7 @@ export const RoleManagement = () => {
       const res = await userService.getUsers();
       setUsers(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
-      toast.error("Failed to load users");
+      toast.error(t('load_failed'));
     } finally {
       setLoading(false);
     }
@@ -52,8 +52,8 @@ export const RoleManagement = () => {
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUser.name || !newUser.email) {
-      toast.error("Please fill in all fields");
+    if (!newUser.name || !newUser.email || (!isEditing && !newUser.password)) {
+      toast.error(t('missing_fields'));
       return;
     }
     
@@ -61,44 +61,44 @@ export const RoleManagement = () => {
       if (isEditing && selectedUser) {
         const res = await userService.updateUser(selectedUser.id, newUser);
         setUsers(users.map(u => u.id === selectedUser.id ? res.data : u));
-        toast.success("User updated successfully");
+        toast.success(t('user_updated'));
       } else {
         const res = await userService.addUser(newUser);
         setUsers([...users, res.data]);
-        toast.success("User added successfully");
+        toast.success(t('user_added'));
       }
       setShowAddModal(false);
       resetAddForm();
     } catch (error) {
-      toast.error("Operation failed");
+      toast.error(t('operation_failed'));
     }
   };
 
   const resetAddForm = () => {
     setIsEditing(false);
     setSelectedUser(null);
-    setNewUser({ name: '', email: '', role: UserRole.DEPARTMENT_USER });
+    setNewUser({ name: '', email: '', password: '', role: UserRole.DEPARTMENT_USER });
   };
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     try {
       const res = await userService.updateUser(userId, { role: newRole });
       setUsers(users.map(u => u.id === userId ? res.data : u));
-      toast.success(`Role updated to ${newRole}`);
+      toast.success(`${t('role_updated')}: ${newRole}`);
       setShowRoleModal(false);
     } catch (error) {
-      toast.error("Role update failed");
+      toast.error(t('operation_failed'));
     }
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this user?")) return;
+    if (!confirm(t('confirm_delete_user'))) return;
     try {
       await userService.deleteUser(id);
       setUsers(users.filter(u => u.id !== id));
-      toast.success("User deleted");
+      toast.success(t('user_deleted'));
     } catch (error) {
-      toast.error("Deletion failed");
+      toast.error(t('operation_failed'));
     }
   };
 
@@ -111,19 +111,19 @@ export const RoleManagement = () => {
       [UserRole.AUDITOR]: { color: 'bg-amber-50 border-amber-100 text-amber-600', icon: AlertCircle },
       [UserRole.DEPARTMENT_USER]: { color: 'bg-slate-50 border-slate-100 text-slate-600', icon: UserIcon },
     };
-    const config = configs[role];
+    const config = configs[role] || configs[UserRole.DEPARTMENT_USER];
     const Icon = config.icon;
     return (
       <div className={cn("px-4 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest flex items-center gap-2", config.color)}>
         <Icon size={12} />
-        {role.replace('_', ' ')}
+        {t(`role_${(role || 'department_user').toLowerCase().replace(/\s+/g, '_')}`)}
       </div>
     );
   };
 
-  const filteredUsers = users.filter(u => 
-    u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredUsers = (Array.isArray(users) ? users : []).filter(u => 
+    (u.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+    (u.email && u.email.toLowerCase().includes((searchTerm || '').toLowerCase()))
   );
 
   return (
@@ -131,13 +131,13 @@ export const RoleManagement = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="flex flex-col gap-2">
           <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-4 uppercase italic leading-none">
-            {t('role_management') || 'Role Management'}
-            <span className="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-lg not-italic font-black uppercase tracking-[0.4em]">SECURITY</span>
+            {t('role_management')}
+            <span className="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-lg not-italic font-black uppercase tracking-[0.4em]">{t('security')}</span>
           </h2>
           <div className="flex items-center gap-3">
             <div className="h-0.5 w-8 bg-slate-900/30 rounded-full" />
             <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest leading-none text-start">
-              Configure system-wide user permissions & access tiers
+              {t('role_management_desc')}
             </p>
           </div>
         </div>
@@ -146,7 +146,7 @@ export const RoleManagement = () => {
           className="flex items-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20"
         >
           <UserPlus size={18} />
-          {t('add_new_user') || 'Add New User'}
+          {t('add_new_user')}
         </button>
       </div>
 
@@ -155,7 +155,7 @@ export const RoleManagement = () => {
           <Search className="absolute top-1/2 left-5 -translate-y-1/2 text-slate-300" size={18} />
           <input 
             type="text" 
-            placeholder="Search users by name or email..."
+            placeholder={t('search_users_placeholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-slate-50 border-none rounded-2xl py-4.5 pl-14 pr-6 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-slate-900/5 transition-all text-slate-700 shadow-inner"
@@ -167,8 +167,12 @@ export const RoleManagement = () => {
         {filteredUsers.map((user) => (
           <div key={user.id} className="fintech-card p-8 bg-white border border-slate-100 group hover:border-slate-300 transition-all">
             <div className="flex items-center justify-between mb-8">
-              <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
-                <UserIcon size={24} />
+              <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 overflow-hidden border border-slate-100">
+                {user.image ? (
+                  <img src={user.image} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <UserIcon size={24} />
+                )}
               </div>
               <div className="flex gap-1">
                 <button 
@@ -179,21 +183,21 @@ export const RoleManagement = () => {
                     setShowAddModal(true);
                   }}
                   className="p-2 hover:bg-blue-50 rounded-lg text-slate-400 hover:text-blue-600 transition-all"
-                  title="Edit Profile"
+                  title={t('edit_profile')}
                 >
                   <Edit2 size={18} />
                 </button>
                 <button 
                   onClick={() => { setSelectedUser(user); setShowRoleModal(true); }}
                   className="p-2 hover:bg-amber-50 rounded-lg text-slate-400 hover:text-amber-600 transition-all"
-                  title="Manage Roles"
+                  title={t('manage_roles')}
                 >
                   <Shield size={18} />
                 </button>
                 <button 
                   onClick={() => handleDeleteUser(user.id)}
                   className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-all"
-                  title="Delete User"
+                  title={t('delete_user')}
                 >
                   <Trash2 size={18} />
                 </button>
@@ -205,7 +209,7 @@ export const RoleManagement = () => {
 
             <div className="pt-6 border-t border-slate-50">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-300 italic">Current Access</span>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-300 italic">{t('current_access')}</span>
                 {getRoleBadge(user.role)}
               </div>
             </div>
@@ -222,8 +226,8 @@ export const RoleManagement = () => {
           >
             <div className="flex items-center justify-between mb-10 text-start">
               <div>
-                <h3 className="text-3xl font-black text-slate-900 tracking-tight italic">Modify Access Tier</h3>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Update role for {selectedUser.name}</p>
+                <h3 className="text-3xl font-black text-slate-900 tracking-tight italic">{t('modify_access_tier')}</h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">{t('update_role_for')} {selectedUser.name}</p>
               </div>
               <button onClick={() => setShowRoleModal(false)} className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
                 <X size={20} />
@@ -244,9 +248,9 @@ export const RoleManagement = () => {
                 >
                   <div>
                     <div className={cn("text-[11px] font-black uppercase tracking-widest mb-1", selectedUser.role === role ? "text-white/70" : "text-slate-400 group-hover:text-slate-600")}>
-                      {role.replace('_', ' ')}
+                      {t(`role_${role.toLowerCase()}`)}
                     </div>
-                    <div className="text-[9px] font-bold opacity-50 uppercase tracking-tighter">Level {Object.values(UserRole).indexOf(role) + 1} System Privileges</div>
+                    <div className="text-[9px] font-bold opacity-50 uppercase tracking-tighter">{t('system_privileges_level')} {Object.values(UserRole).indexOf(role) + 1}</div>
                   </div>
                   {selectedUser.role === role && <CheckCircle2 size={24} className="text-emerald-400" />}
                 </button>
@@ -266,10 +270,10 @@ export const RoleManagement = () => {
             <div className="flex items-center justify-between mb-10 text-start">
               <div>
                 <h3 className="text-3xl font-black text-slate-900 tracking-tight italic">
-                  {isEditing ? 'Update User' : 'Register User'}
+                  {isEditing ? t('update_user') : t('register_user')}
                 </h3>
                 <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">
-                  {isEditing ? `Modifying profile for ${selectedUser?.name}` : 'Create new system access profile'}
+                  {isEditing ? `${t('modifying_profile')} ${selectedUser?.name}` : t('create_profile_desc')}
                 </p>
               </div>
               <button 
@@ -287,7 +291,7 @@ export const RoleManagement = () => {
 
             <form onSubmit={handleAddUser} className="space-y-6">
               <div className="space-y-2 text-start">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Full Name</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">{t('full_name')}</label>
                 <input 
                   type="text" 
                   value={newUser.name}
@@ -298,7 +302,7 @@ export const RoleManagement = () => {
               </div>
 
               <div className="space-y-2 text-start">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Email Address</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">{t('email_address')}</label>
                 <input 
                   type="email" 
                   value={newUser.email}
@@ -308,15 +312,29 @@ export const RoleManagement = () => {
                 />
               </div>
 
+              {!isEditing && (
+                <div className="space-y-2 text-start">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">{t('password')}</label>
+                  <input 
+                    type="password" 
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-slate-900/5 transition-all shadow-inner"
+                    placeholder="••••••••"
+                    required={!isEditing}
+                  />
+                </div>
+              )}
+
               <div className="space-y-2 text-start">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Assign Initial Role</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">{t('assign_initial_role')}</label>
                 <select 
                   value={newUser.role}
                   onChange={(e) => setNewUser({...newUser, role: e.target.value as UserRole})}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-slate-900/5 transition-all shadow-inner appearance-none"
                 >
                   {Object.values(UserRole).map(role => (
-                    <option key={role} value={role}>{role.replace('_', ' ')}</option>
+                    <option key={role} value={role}>{t(`role_${role.toLowerCase()}`)}</option>
                   ))}
                 </select>
               </div>
@@ -325,7 +343,7 @@ export const RoleManagement = () => {
                 type="submit"
                 className="w-full bg-slate-100 text-slate-900 py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-slate-900 hover:text-white transition-all shadow-xl shadow-slate-900/5 mt-4 active:scale-95"
               >
-                {isEditing ? 'Sync Changes' : 'Sync to System'}
+                {isEditing ? t('sync_changes') : t('sync_to_system')}
               </button>
             </form>
           </motion.div>

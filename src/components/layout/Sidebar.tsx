@@ -6,6 +6,7 @@ import {
   LayoutDashboard, 
   Package, 
   Truck, 
+  QrCode,
   FileText, 
   ShoppingCart, 
   BarChart3, 
@@ -30,6 +31,7 @@ interface SidebarProps {
   setCollapsed: (val: boolean) => void;
   onLogout: () => void;
   user: User;
+  className?: string;
 }
 
 const container = {
@@ -47,7 +49,7 @@ const itemAnim = {
   show: { opacity: 1, x: 0 }
 };
 
-export const Sidebar = ({ collapsed, setCollapsed, onLogout, user }: SidebarProps) => {
+export const Sidebar = ({ collapsed, setCollapsed, onLogout, user, className }: SidebarProps) => {
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const [logo, setLogo] = React.useState<string>(localStorage.getItem('system_logo') || "https://upload.wikimedia.org/wikipedia/en/2/23/Kandahar_University_Logo.png");
@@ -93,18 +95,24 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout, user }: SidebarProp
     { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard, path: '/dashboard', permission: 'view_dashboard' },
     { id: 'inventory', label: t('inventory'), icon: Package, path: '/inventory', permission: 'manage_inventory' },
     { id: 'receiving', label: t('receiving'), icon: Truck, path: '/receiving', permission: 'manage_receiving' },
+    { id: 'scanner', label: t('qr_scanner') || 'QR Scanner', icon: QrCode, path: '/scanner', permission: 'all' },
     { id: 'requests', label: t('requests'), icon: FileText, path: '/requests', permission: 'manage_requests' },
     { id: 'procurement', label: t('procurement'), icon: ShoppingCart, path: '/procurement', permission: 'manage_procurement' },
     { id: 'reports', label: t('reports'), icon: BarChart3, path: '/reports', permission: 'view_reports' },
     { id: 'trash', label: t('trash_bin'), icon: Trash2, path: '/trash', permission: 'manage_inventory' },
     { id: 'settings', label: t('settings'), icon: Settings, path: '/settings', permission: 'manage_settings' },
     { id: 'about', label: t('about_us'), icon: Info, path: '/about', permission: 'public' },
-    { id: 'roles', label: 'Role Management', icon: Shield, path: '/roles', permission: 'all' },
   ];
 
   const filteredItems = menuItems.filter(item => {
     if (item.permission === 'public') return true;
-    const permissions = RolePermissions[user.role];
+    
+    // Support both 'Super Admin' and 'SuperAdmin' formats for legacy support
+    const userRole: any = user.role;
+    const permissions = RolePermissions[userRole as UserRole] || 
+                      (userRole === 'SuperAdmin' ? RolePermissions[UserRole.SUPER_ADMIN] : null);
+                      
+    if (!permissions) return false;
     if (permissions.includes('all')) return true;
     return permissions.includes(item.permission);
   });
@@ -119,7 +127,8 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout, user }: SidebarProp
       dir={isRtl ? 'rtl' : 'ltr'}
       className={cn(
         "bg-primary-teal h-screen flex flex-col transition-all duration-500 overflow-hidden z-[100] fixed lg:relative sidebar shadow-2xl lg:shadow-none",
-        collapsed && "lg:w-[90px]"
+        collapsed && "lg:w-[90px]",
+        className
       )}
     >
       {/* Overlay for mobile when sidebar is open */}
@@ -137,7 +146,7 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout, user }: SidebarProp
             exit={{ opacity: 0, x: isRtl ? 10 : -10 }}
             className="flex items-center gap-4"
           >
-            <label className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-2xl transition-all border border-slate-100 overflow-hidden cursor-pointer hover:ring-4 hover:ring-white/20 group relative">
+            <label className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-2xl transition-all border border-slate-100 overflow-hidden cursor-pointer hover:ring-4 hover:ring-white/20 group relative">
               <img 
                 src={logo} 
                 alt="System Logo" 
@@ -177,6 +186,7 @@ export const Sidebar = ({ collapsed, setCollapsed, onLogout, user }: SidebarProp
         className="flex-1 px-5 space-y-2 overflow-y-auto custom-scrollbar"
       >
         {filteredItems.map((item) => {
+          if (!item || !item.icon) return null;
           const isActive = location.pathname === item.path;
           return (
             <motion.div variants={itemAnim} key={item.id}>

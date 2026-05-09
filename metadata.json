@@ -1,6 +1,6 @@
 {
-  "name": "Enterprise Nexus - Advanced Management System",
-  "description": "An advanced, production-ready enterprise management system with modern UI/UX, secure authentication, role-based access control, optimized database design, professional error handling, reporting, and scalable code organization.",
+  "name": "KDRU Warehouse Management System",
+  "description": "A comprehensive Warehouse Management System for KDRU, featuring inventory control, procurement forms, traceability, and offline support.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

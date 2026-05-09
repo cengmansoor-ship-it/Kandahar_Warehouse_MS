@@ -5,6 +5,9 @@ import path from "path";
 const DB_FILE = path.join(process.cwd(), "db.json");
 
 function getDb() {
+  if (!fs.existsSync(DB_FILE)) {
+    return { items: [], stock_transactions: [], receivings: [], requests: [] };
+  }
   const data = fs.readFileSync(DB_FILE, "utf-8");
   return JSON.parse(data || '{"items":[], "stock_transactions":[], "receivings":[], "requests":[]}');
 }

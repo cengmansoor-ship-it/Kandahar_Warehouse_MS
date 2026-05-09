@@ -18,6 +18,7 @@ import { SystemActivities } from './components/activities/SystemActivities';
 import { ExitClearanceManager } from './components/inventory/ExitClearanceManager';
 import { ForecastModule } from './components/forecast/ForecastModule';
 import { LoginManager } from './components/auth/LoginManager';
+import { QRScanner } from './components/inventory/QRScanner';
 import AboutUs from './pages/AboutUs';
 import Dashboard from './pages/Dashboard';
 import { Package, TrendingUp, AlertTriangle, FileCheck, ArrowRight } from 'lucide-react';
@@ -36,6 +37,7 @@ function MainRoutes({ user, handleLogout }: { user: User, handleLogout: () => vo
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/inventory" element={<InventoryManager />} />
         <Route path="/receiving" element={<ReceivingManager />} />
+        <Route path="/scanner" element={<QRScanner />} />
         <Route path="/requests" element={<RequestManager />} />
         <Route path="/forecast" element={<ForecastModule />} />
         <Route path="/activities" element={<SystemActivities />} />

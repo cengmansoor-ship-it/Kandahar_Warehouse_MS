@@ -11,7 +11,9 @@ import {
   Package,
   Trash2,
   Edit,
-  X
+  X,
+  Printer,
+  QrCode
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { toast } from 'sonner';
@@ -20,8 +22,10 @@ import { ConfirmModal } from '../ui/ConfirmModal';
 import api from '@/src/services/api';
 import { useLocation } from 'react-router-dom';
 
+import { openPrintWindow } from '@/src/lib/print-utils';
+
 export const InventoryManager = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const [view, setView] = useState<'list' | 'grid'>('grid');
   const [items, setItems] = useState<any[]>([]);
@@ -48,13 +52,13 @@ export const InventoryManager = () => {
   }, [location.state]);
 
   const filteredItems = (Array.isArray(items) ? items : []).filter(item => {
-    const searchStr = searchTerm.toLowerCase();
+    const searchStr = (searchTerm || '').toLowerCase();
     const matchesSearch = (
-      item.name?.toLowerCase().includes(searchStr) ||
-      item.item_code?.toLowerCase().includes(searchStr) ||
-      item.category?.toLowerCase().includes(searchStr) ||
-      item.department?.toLowerCase().includes(searchStr) ||
-      item.location?.toLowerCase().includes(searchStr)
+      (item.name || '').toLowerCase().includes(searchStr) ||
+      (item.item_code || '').toLowerCase().includes(searchStr) ||
+      (item.category || '').toLowerCase().includes(searchStr) ||
+      (item.department || '').toLowerCase().includes(searchStr) ||
+      (item.location || '').toLowerCase().includes(searchStr)
     );
 
     if (activeFilter === 'low_stock') {
@@ -224,10 +228,48 @@ export const InventoryManager = () => {
           </button>
           <button 
             onClick={handleExport}
-            className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white text-slate-400 px-8 py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-primary-teal transition-all border border-slate-100 shadow-sm"
+            className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white text-slate-400 px-8 py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-primary-teal transition-all border border-slate-100 shadow-sm no-print"
           >
             <ArrowUpRight size={18} />
             {t('export')}
+          </button>
+          <button 
+            onClick={() => {
+              const title = t('inventory_ledger');
+              const isRtl = i18n.language === 'ps';
+              const content = `
+                <div style="direction: ${isRtl ? 'rtl' : 'ltr'}; padding: 20px;">
+                  <h1 style="text-align: center; margin-bottom: 30px;">${t('inventory_ledger')}</h1>
+                  <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                      <tr style="background: #f1f5f9;">
+                        <th style="border: 1px solid #ccc; padding: 10px; text-align: start;">${t('item_name')}</th>
+                        <th style="border: 1px solid #ccc; padding: 10px; text-align: start;">${t('item_code')}</th>
+                        <th style="border: 1px solid #ccc; padding: 10px; text-align: start;">${t('category')}</th>
+                        <th style="border: 1px solid #ccc; padding: 10px; text-align: center;">${t('quantity')}</th>
+                        <th style="border: 1px solid #ccc; padding: 10px; text-align: start;">${t('status')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${items.map(item => `
+                        <tr>
+                          <td style="border: 1px solid #ccc; padding: 10px;">${item.name}</td>
+                          <td style="border: 1px solid #ccc; padding: 10px;">${item.item_code}</td>
+                          <td style="border: 1px solid #ccc; padding: 10px;">${item.category}</td>
+                          <td style="border: 1px solid #ccc; padding: 10px; text-align: center;">${item.quantity} ${item.unit}</td>
+                          <td style="border: 1px solid #ccc; padding: 10px;">${item.status}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              `;
+              openPrintWindow(title, content);
+            }}
+            className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white text-slate-400 px-8 py-4.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-primary-teal transition-all border border-slate-100 shadow-sm no-print"
+          >
+            <Printer size={18} />
+            {t('print')}
           </button>
         </div>
       </div>
@@ -352,7 +394,7 @@ export const InventoryManager = () => {
 };
 
 const InventoryCard: React.FC<{ item: any, horizontal?: boolean, onDelete: () => void, onEdit: () => void }> = ({ item, horizontal, onDelete, onEdit }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const statusStyles: Record<string, string> = {
     'In Stock': 'bg-emerald-50 text-emerald-600 border-emerald-100',
     'Low Stock': 'bg-amber-50 text-amber-600 border-amber-100',
@@ -366,106 +408,119 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean, onDelete: () =>
   };
 
   const handlePrintLedger = (item: any) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    const title = `${t('inventory_ledger')} - ${item.name}`;
+    const content = `
+      <div class="header">
+        <div class="university-name">${t('app_name')}</div>
+        <div class="document-type">${t('official_ledger')}</div>
+      </div>
 
-    const html = `
-      <html>
-        <head>
-          <title>${t('inventory_ledger')} - ${item.name}</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-            body { font-family: 'Inter', sans-serif; padding: 40px; color: #1a1d1f; direction: ${t('lang_direction') === 'rtl' ? 'rtl' : 'ltr'}; }
-            .header { border-bottom: 3px solid #0F8F7F; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
-            .university-name { font-weight: 900; text-transform: uppercase; letter-spacing: 2px; font-size: 24px; color: #0F8F7F; }
-            .document-type { font-weight: 700; border: 1px solid #e2e8f0; padding: 5px 15px; border-radius: 8px; font-size: 12px; }
-            .item-info { margin-bottom: 40px; background: #f8fafc; padding: 25px; border-radius: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-            .info-label { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
-            .info-value { font-size: 16px; font-weight: 900; margin-top: 5px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th { text-align: ${t('lang_direction') === 'rtl' ? 'right' : 'left'}; padding: 15px; background: #f1f5f9; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
-            td { padding: 15px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
-            .footer { margin-top: 60px; display: flex; justify-content: space-between; }
-            .signature-box { border-top: 1px solid #64748b; width: 200px; padding-top: 10px; text-align: center; font-size: 10px; font-weight: 800; text-transform: uppercase; }
-            @media print {
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="university-name">${t('app_name')}</div>
-            <div class="document-type">${t('official_ledger')}</div>
-          </div>
+      <div class="item-info">
+        <div>
+          <div class="info-label">${t('item_nomenclature')}</div>
+          <div class="info-value">${item.name}</div>
+        </div>
+        <div>
+          <div class="info-label">${t('standard_id_bab')}</div>
+          <div class="info-value">${item.item_code} / ${item.bab_code || '---'}</div>
+        </div>
+        <div>
+          <div class="info-label">${t('physical_stock')}</div>
+          <div class="info-value">${item.quantity} ${item.unit || t('unit_pcs')}</div>
+        </div>
+        <div>
+          <div class="info-label">${t('registry_date')}</div>
+          <div class="info-value">${new Date().toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'fa-AF')}</div>
+        </div>
+      </div>
 
-          <div class="item-info">
-            <div>
-              <div class="info-label">${t('item_nomenclature')}</div>
-              <div class="info-value">${item.name}</div>
-            </div>
-            <div>
-              <div class="info-label">${t('standard_id_bab')}</div>
-              <div class="info-value">${item.item_code} / ${item.bab_code}</div>
-            </div>
-            <div>
-              <div class="info-label">${t('physical_stock')}</div>
-              <div class="info-value">${item.quantity} ${item.unit || t('unit_pcs')}</div>
-            </div>
-            <div>
-              <div class="info-label">${t('registry_date')}</div>
-              <div class="info-value">${new Date().toLocaleDateString()}</div>
-            </div>
-          </div>
+      <h3>${t('transaction_history')}</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>${t('date')}</th>
+            <th>${t('reference')}</th>
+            <th>${t('operation')}</th>
+            <th>${t('entity')}</th>
+            <th>${t('change')}</th>
+            <th>${t('balance')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${new Date().toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'fa-AF')}</td>
+            <td>REG-001</td>
+            <td>${t('initial_load')}</td>
+            <td>${t('system')}</td>
+            <td>+${item.quantity}</td>
+            <td>${item.quantity}</td>
+          </tr>
+          <tr>
+            <td>-</td>
+            <td>-</td>
+            <td>${t('no_prior_history')}</td>
+            <td>-</td>
+            <td>-</td>
+            <td>-</td>
+          </tr>
+        </tbody>
+      </table>
 
-          <h3>${t('transaction_history')}</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>${t('date')}</th>
-                <th>${t('reference')}</th>
-                <th>${t('operation')}</th>
-                <th>${t('entity')}</th>
-                <th>${t('change')}</th>
-                <th>${t('balance')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${new Date().toLocaleDateString()}</td>
-                <td>REG-001</td>
-                <td>${t('initial_load')}</td>
-                <td>${t('system')}</td>
-                <td>+${item.quantity}</td>
-                <td>${item.quantity}</td>
-              </tr>
-              <tr>
-                <td>-</td>
-                <td>-</td>
-                <td>${t('no_prior_history')}</td>
-                <td>-</td>
-                <td>-</td>
-                <td>-</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="footer">
-            <div class="signature-box">${t('warehouse_rep')}</div>
-            <div class="signature-box">${t('chancellor_office')}</div>
-          </div>
-
-          <script>
-            window.onload = () => { 
-              window.print();
-              setTimeout(() => { window.close(); }, 500);
-            };
-          </script>
-        </body>
-      </html>
+      <div class="footer">
+        <div class="signature-box">${t('warehouse_rep')}</div>
+        <div class="signature-box">${t('chancellor_office')}</div>
+      </div>
     `;
 
-    printWindow.document.write(html);
-    printWindow.document.close();
+    const styles = `
+      .header { border-bottom: 3px solid var(--primary-teal); padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+      .university-name { font-weight: 900; text-transform: uppercase; letter-spacing: 2px; font-size: 24px; color: var(--primary-teal); }
+      .document-type { font-weight: 700; border: 1px solid #e2e8f0; padding: 5px 15px; border-radius: 8px; font-size: 12px; }
+      .item-info { margin-bottom: 40px; background: #f8fafc; padding: 25px; border-radius: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+      .info-label { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+      .info-value { font-size: 16px; font-weight: 900; margin-top: 5px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+      th { text-align: inherit; padding: 15px; background: #f1f5f9; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
+      td { padding: 15px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
+      .footer { margin-top: 60px; display: flex; justify-content: space-between; }
+      .signature-box { border-top: 1px solid #64748b; width: 220px; padding-top: 10px; text-align: center; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+    `;
+
+    openPrintWindow(title, content, styles);
+  };
+
+  const handlePrintQR = (item: any) => {
+    const qrId = item.qrCodeId || item.qrCodeValue || item.item_code;
+    const title = `QR Label - ${item.name}`;
+    const content = `
+      <div class="label">
+        <div class="title">${item.name}</div>
+        <div class="meta">${item.item_code} | ${item.category || t('inventory')}</div>
+        <div id="qrcode"></div>
+        <div class="id-box">${qrId}</div>
+        <div class="status">${t('university_logistics_center')}</div>
+      </div>
+      <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+      <script>
+        var qr = qrcode(0, 'M');
+        qr.addData('${qrId}');
+        qr.make();
+        document.getElementById('qrcode').innerHTML = qr.createImgTag(8);
+      </script>
+    `;
+
+    const styles = `
+      body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+      .label { border: 2px solid #000; padding: 25px; border-radius: 12px; display: inline-block; min-width: 260px; background: white; }
+      .title { font-weight: 900; font-size: 20px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: -0.5px; }
+      .meta { font-size: 11px; color: #666; margin-bottom: 15px; font-weight: bold; border-top: 1px solid #eee; padding-top: 5px; }
+      #qrcode { margin: 10px 0; }
+      #qrcode img { display: block; margin: 0 auto; }
+      .id-box { margin-top: 10px; font-family: 'Courier New', monospace; font-weight: 900; font-size: 14px; letter-spacing: 2px; background: #000; color: #fff; padding: 4px 10px; border-radius: 4px; display: inline-block; }
+      .status { font-size: 8px; color: #999; margin-top: 8px; text-transform: uppercase; font-weight: bold; }
+    `;
+
+    openPrintWindow(title, content, styles);
   };
 
   return (
@@ -515,6 +570,13 @@ const InventoryCard: React.FC<{ item: any, horizontal?: boolean, onDelete: () =>
           className="w-14 h-14 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center hover:bg-slate-100 hover:text-primary-teal transition-all border border-slate-100 shadow-sm shrink-0"
         >
           <Edit size={24} />
+        </button>
+        <button 
+          onClick={() => handlePrintQR(item)}
+          className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center hover:bg-emerald-100 transition-all border border-emerald-100 shadow-sm shrink-0"
+          title="Print QR Label"
+        >
+          <QrCode size={24} />
         </button>
         <button 
           onClick={() => handlePrintLedger(item)}

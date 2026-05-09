@@ -24,9 +24,11 @@ import {
   Tag,
   Hash,
   MapPin,
-  CheckCircle2
+  CheckCircle2,
+  Printer
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
+import { openPrintWindow } from '@/src/lib/print-utils';
 import api, { receivingService, inventoryService } from '@/src/services/api';
 import { emailService } from '@/src/services/emailService';
 import { toast } from 'sonner';
@@ -38,6 +40,8 @@ import {
 } from "@/src/components/ui/dropdown-menu";
 
 import * as XLSX from 'xlsx';
+import { QRCodeCanvas } from 'qrcode.react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 
   const ConditionBadge = ({ condition }: { condition: string }) => {
     const { t } = useTranslation();
@@ -63,7 +67,7 @@ import * as XLSX from 'xlsx';
   };
 
 export const ReceivingManager = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const [receivings, setReceivings] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
@@ -78,6 +82,13 @@ export const ReceivingManager = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrData, setQRData] = useState<any>(null);
+  const [multipleQRs, setMultipleQRs] = useState<any[]>([]);
+  const [showScanner, setShowScanner] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [scanResult, setScanResult] = useState<any>(null);
+  const scannerRef = useRef<any>(null);
 
   const [formData, setFormData] = useState({
     item_code: '',
@@ -88,7 +99,8 @@ export const ReceivingManager = () => {
     invoice_number: '',
     warehouse_location: '',
     condition: 'New',
-    notes: ''
+    notes: '',
+    qr_code: ''
   });
 
   useEffect(() => {
@@ -109,16 +121,70 @@ export const ReceivingManager = () => {
     }
   }, [location.state]);
 
-  const [searchTerm, setSearchTerm] = useState('');
+  const handleGenerateQR = () => {
+    // Generate unique ID representing item's unique identity
+    const uniqueId = `QR-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`.toUpperCase();
+    
+    // Preparation for printing
+    const qrDataForPrint = {
+      item_code: formData.item_code || 'UNSYNCED',
+      item_name: formData.item_name || 'New Item Detail',
+      date: formData.date || new Date().toISOString().split('T')[0],
+      qr_code: uniqueId
+    };
+
+    // Update form state with the new QR code
+    setFormData(prev => ({ 
+      ...prev, 
+      qr_code: uniqueId,
+      qrCodeId: uniqueId,
+      qrCodeValue: uniqueId,
+      syncStatus: 'pending',
+      localTempId: `TEMP-${Date.now()}`
+    }));
+
+    setQRData(qrDataForPrint);
+    toast.success("QR Code Generated: Preparing to Print...");
+    
+    const content = `
+      <div class="label">
+        <div class="title">${qrDataForPrint.item_name}</div>
+        <div class="meta">${qrDataForPrint.item_code} | ${qrDataForPrint.date}</div>
+        <div id="qrcode"></div>
+        <div class="id-box">${qrDataForPrint.qr_code}</div>
+        <div class="status">${t('university_logistics_center')}</div>
+      </div>
+      <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+      <script>
+        var qr = qrcode(0, 'M');
+        qr.addData('${qrDataForPrint.qr_code}');
+        qr.make();
+        document.getElementById('qrcode').innerHTML = qr.createImgTag(8);
+      </script>
+    `;
+
+    const styles = `
+      body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+      .label { border: 2px solid #000; padding: 25px; border-radius: 12px; display: inline-block; min-width: 260px; background: white; }
+      .title { font-weight: 900; font-size: 20px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: -0.5px; }
+      .meta { font-size: 11px; color: #666; margin-bottom: 15px; font-weight: bold; border-top: 1px solid #eee; padding-top: 5px; }
+      #qrcode { margin: 10px 0; }
+      #qrcode img { display: block; margin: 0 auto; }
+      .id-box { margin-top: 10px; font-family: 'Courier New', monospace; font-weight: 900; font-size: 14px; letter-spacing: 2px; background: #000; color: #fff; padding: 4px 10px; border-radius: 4px; display: inline-block; }
+      .status { font-size: 8px; color: #999; margin-top: 8px; text-transform: uppercase; font-weight: bold; }
+    `;
+
+    openPrintWindow(`QR Label - ${qrDataForPrint.item_name}`, content, styles);
+  };
 
   const filteredReceivings = (Array.isArray(receivings) ? receivings : []).filter(rec => {
-    const searchStr = searchTerm.toLowerCase();
+    const searchStr = (searchTerm || '').toLowerCase();
     return (
-      rec.item_name?.toLowerCase().includes(searchStr) ||
-      rec.item_code?.toLowerCase().includes(searchStr) ||
-      rec.supplier?.toLowerCase().includes(searchStr) ||
-      rec.invoice_number?.toLowerCase().includes(searchStr) ||
-      rec.warehouse_location?.toLowerCase().includes(searchStr)
+      (rec.item_name || '').toLowerCase().includes(searchStr) ||
+      (rec.item_code || '').toLowerCase().includes(searchStr) ||
+      (rec.supplier || '').toLowerCase().includes(searchStr) ||
+      (rec.invoice_number || '').toLowerCase().includes(searchStr) ||
+      (rec.warehouse_location || '').toLowerCase().includes(searchStr)
     );
   });
 
@@ -153,6 +219,14 @@ export const ReceivingManager = () => {
         setReceivings(prev => [newRec, ...prev]);
         toast.success(t('reception_logged_success'));
 
+        // Set QR data for the new item
+        setQRData({
+          item_code: formData.item_code,
+          item_name: formData.item_name,
+          date: formData.date
+        });
+        setShowQRModal(true);
+
         // TRIGGER EMAIL NOTIFICATION (ONLY EMAIL!)
         // Simulate finding the person who requested this item
         const demoRequester = { name: "Dr. Ahmad Shah", email: "ahmad@kandahar.edu.af" };
@@ -170,6 +244,7 @@ export const ReceivingManager = () => {
   const resetForm = () => {
     setFormData({
       item_code: '',
+      item_name: '',
       quantity: '',
       unit: '',
       supplier: '',
@@ -177,10 +252,13 @@ export const ReceivingManager = () => {
       invoice_number: '',
       warehouse_location: '',
       condition: 'New',
-      notes: ''
+      notes: '',
+      qr_code: ''
     });
     setEditMode(false);
     setEditingId(null);
+    setMultipleQRs([]);
+    setQRData(null);
   };
 
   const handleEdit = (rec: any) => {
@@ -327,6 +405,63 @@ export const ReceivingManager = () => {
     } catch (error) {
       toast.error(t('export_failed'));
     }
+  };
+
+  const startScanner = () => {
+    setShowScanner(true);
+    setTimeout(() => {
+      const scanner = new Html5QrcodeScanner(
+        "qr-reader",
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        /* verbose= */ false
+      );
+      
+      scanner.render((decodedText) => {
+        try {
+          const data = JSON.parse(decodedText);
+              if (data.item_code || data.qr_code) {
+                // Search for the item record
+                const rec = receivings.find(r => r.qr_code === data.qr_code || r.item_code === data.item_code);
+                if (rec) {
+                  setScanResult(rec);
+                } else {
+                  setScanResult({
+                    not_found: true,
+                    decodedText,
+                    data
+                  });
+                }
+                toast.success("Scan successful");
+                // Stop scanner
+                scanner.clear();
+              }
+        } catch (e) {
+          // Fallback if not JSON
+          if (decodedText.length > 3) {
+            const selectedItem = items.find(i => i.item_code === decodedText);
+            setFormData(prev => ({
+              ...prev,
+              item_code: decodedText,
+              item_name: selectedItem?.name || ''
+            }));
+            toast.success("Item Code scanned");
+            scanner.clear();
+            setShowScanner(false);
+            setShowModal(true);
+          }
+        }
+      }, (error) => {
+        // Handle error
+      });
+      scannerRef.current = scanner;
+    }, 100);
+  };
+
+  const stopScanner = () => {
+    if (scannerRef.current) {
+      scannerRef.current.clear();
+    }
+    setShowScanner(false);
   };
 
   return (
@@ -499,6 +634,28 @@ export const ReceivingManager = () => {
                       </td>
                       <td className={cn("px-8 py-6", t('lang_direction') === 'rtl' ? "text-left" : "text-right")}>
                         <div className={cn("flex items-center gap-1", t('lang_direction') === 'rtl' ? "justify-start" : "justify-end")}>
+                          <button 
+                            onClick={() => {
+                              setFormData({
+                                item_code: rec.item_code,
+                                item_name: rec.item_name,
+                                quantity: rec.quantity,
+                                unit: rec.unit,
+                                date: rec.date,
+                                invoice_number: rec.invoice_number,
+                                warehouse_location: rec.warehouse_location,
+                                condition: rec.condition,
+                                supplier: rec.supplier,
+                                notes: rec.notes || '',
+                                qr_code: rec.qr_code
+                              });
+                              handleGenerateQR();
+                            }}
+                            title="Regenerate & Print QR"
+                            className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-emerald-500 transition-all"
+                          >
+                            <Printer size={16} />
+                          </button>
                           <button onClick={() => handleEdit(rec)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-primary-teal transition-all">
                             <Edit size={16} />
                           </button>
@@ -576,6 +733,28 @@ export const ReceivingManager = () => {
                       {rec.date}
                    </div>
                     <div className="flex items-center gap-1">
+                      <button 
+                         onClick={() => {
+                           setFormData({
+                             item_code: rec.item_code,
+                             item_name: rec.item_name,
+                             quantity: rec.quantity,
+                             unit: rec.unit,
+                             date: rec.date,
+                             invoice_number: rec.invoice_number,
+                             warehouse_location: rec.warehouse_location,
+                             condition: rec.condition,
+                             supplier: rec.supplier,
+                             notes: rec.notes || '',
+                             qr_code: rec.qr_code
+                           });
+                           handleGenerateQR();
+                         }}
+                         title="Regenerate & Print QR"
+                         className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-emerald-500 transition-all"
+                       >
+                         <Printer size={16} />
+                       </button>
                       <button onClick={() => handleEdit(rec)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-primary-teal transition-all">
                         <Edit size={16} />
                       </button>
@@ -780,6 +959,56 @@ export const ReceivingManager = () => {
                     />
                  </div>
 
+                 {/* QR Code Batch Generation Section */}
+                 <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 space-y-4">
+                    <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+                             <Tag size={18} />
+                          </div>
+                          <div className="text-start">
+                             <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-900">{t('qr_code_generation')}</h4>
+                             <p className="text-[8px] font-bold text-slate-400 uppercase">{t('automatic_batch_label')}</p>
+                          </div>
+                       </div>
+                        <button 
+                          type="button"
+                          onClick={handleGenerateQR}
+                          className="bg-primary-teal text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all flex items-center gap-2 shadow-xl shadow-primary-teal/20"
+                        >
+                           <Printer size={14} />
+                           {formData.qr_code ? 'Regenerate + Print' : 'Generate + Print'}
+                        </button>
+                    </div>
+                    
+                    {(formData.qr_code || multipleQRs.length > 0) && (
+                      <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 animate-in fade-in slide-in-from-top-2">
+                        {formData.qr_code && (
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="w-12 h-12 bg-slate-50 p-1 rounded-lg">
+                               <QRCodeCanvas value={formData.qr_code} size={40} />
+                            </div>
+                            <div className="text-start">
+                               <p className="text-[10px] font-black text-slate-900 font-mono tracking-tighter">{formData.qr_code}</p>
+                               <span className="text-[8px] font-bold text-emerald-500 uppercase">{t('single_code_ready')}</span>
+                            </div>
+                          </div>
+                        )}
+                        {multipleQRs.length > 0 && (
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center font-black text-[12px]">
+                               {multipleQRs.length}
+                            </div>
+                            <div className="text-start">
+                               <p className="text-[10px] font-black text-slate-900 uppercase">{t('batch_generated')}</p>
+                               <span className="text-[8px] font-bold text-emerald-500 uppercase">{multipleQRs.length} {t('codes_queued')}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                 </div>
+
                  <div className="pt-6">
                     <button 
                       type="submit"
@@ -794,6 +1023,123 @@ export const ReceivingManager = () => {
           </div>
         </div>
       )}
+
+      {showQRModal && qrData && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[40px] p-10 max-w-sm w-full text-center space-y-6 animate-in zoom-in duration-300 shadow-2xl">
+            <h3 className="text-2xl font-black text-slate-900 italic uppercase">{t('generate_qr')}</h3>
+            <div className="bg-slate-50 p-6 rounded-3xl inline-block border-4 border-slate-900 shadow-inner">
+              <QRCodeCanvas 
+                value={JSON.stringify(qrData)}
+                size={200}
+                level="H"
+                includeMargin={true}
+              />
+            </div>
+            <div className="text-start space-y-1">
+              <p className="text-[10px] font-black text-slate-900 uppercase">{qrData.item_name}</p>
+              <p className="text-[9px] font-bold text-slate-400 font-mono tracking-widest">{qrData.item_code}</p>
+              <p className="text-[9px] font-bold text-slate-400">{qrData.date}</p>
+            </div>
+            <button 
+              onClick={() => { setShowQRModal(false); setQRData(null); }}
+              className="w-full bg-slate-900 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all shadow-xl"
+            >
+              {t('close') || 'Close'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {multipleQRs.length > 0 && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[40px] p-10 max-w-4xl w-full max-h-[80vh] overflow-y-auto space-y-8 animate-in zoom-in duration-300 shadow-2xl custom-scrollbar">
+            <div className="flex items-center justify-between no-print">
+              <h3 className="text-2xl font-black text-slate-900 uppercase italic">Generated Batch QRs</h3>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => {
+                    const title = `Batch QRs - ${multipleQRs.length}`;
+                    const isRtl = i18n.language === 'ps';
+                    const content = `
+                      <div style="direction: ${isRtl ? 'rtl' : 'ltr'}; padding: 20px;">
+                        <h1 style="text-align: center; margin-bottom: 40px; font-size: 24px; font-weight: 900;">${t('batch_generated')}</h1>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px;">
+                          ${multipleQRs.map((qr, i) => {
+                            // We construct a simple image/text block for each QR
+                            // Note: For real printing we might need a library but for simple layout HTML works
+                            return `
+                              <div style="text-align: center; border: 1px solid #eee; padding: 15px; border-radius: 10px;">
+                                <div style="margin-bottom: 10px;">(QR: ${qr.id})</div>
+                                <div style="font-size: 12px; font-weight: 900; font-family: monospace;">${qr.id}</div>
+                                <div style="font-size: 10px; color: #666; margin-top: 5px;">${t('number')}: ${qr.index}</div>
+                              </div>
+                            `;
+                          }).join('')}
+                        </div>
+                        <p style="margin-top: 40px; font-size: 10px; color: #999; text-align: center;">${t('university_logistics_center')}</p>
+                      </div>
+                    `;
+                    openPrintWindow(title, content);
+                  }}
+                  className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all flex items-center gap-2"
+                >
+                  <Printer size={16} /> {t('print') || 'Print'}
+                </button>
+                <button 
+                  onClick={() => setMultipleQRs([])}
+                  className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 hover:text-red-500 transition-all underline text-[10px] uppercase font-black"
+                >
+                  {t('close') || 'Close'}
+                </button>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-8 p-4 bg-white">
+              {multipleQRs.map((qr, i) => (
+                <div key={i} className="flex flex-col items-center p-4 border border-slate-100 rounded-2xl bg-white shadow-sm">
+                  <QRCodeCanvas 
+                    value={JSON.stringify({ qr_code: qr.id })}
+                    size={120}
+                    level="H"
+                    includeMargin={true}
+                  />
+                  <div className="mt-2 text-center">
+                    <p className="text-[10px] font-black text-slate-900 font-mono">{qr.id}</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">Entry #{qr.index}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {showScanner && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[40px] p-8 max-w-lg w-full space-y-6 animate-in slide-in-from-bottom duration-500 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-2xl font-black text-slate-900 italic uppercase">{t('qr_scanner')}</h3>
+              <button 
+                onClick={stopScanner}
+                className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 hover:text-red-500 transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div id="qr-reader" className="w-full overflow-hidden rounded-3xl border-4 border-slate-900 shadow-2xl bg-black aspect-square"></div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center italic">
+              Position the QR code within the frame to scan automatically
+            </p>
+            <button 
+              onClick={stopScanner}
+              className="w-full bg-red-50 text-red-500 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100"
+            >
+              {t('close_scanner')}
+            </button>
+          </div>
+        </div>
+      )}
+
       <ConfirmModal 
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { X, Trophy, AlertCircle, CheckCircle2, ShoppingCart } from 'lucide-react';
 import api from '../../services/api';
 import { procurementService } from '../../services/api';
@@ -11,6 +12,7 @@ interface ComparisonMatrixProps {
 }
 
 const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, onSuccess }) => {
+  const { t } = useTranslation();
   const [quotations, setQuotations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -62,8 +64,8 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
       >
         <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="space-y-1">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Standard Comparison Table (Matrix)</h2>
-            <p className="text-xs text-slate-400 font-black uppercase tracking-[0.2em]">Kandahar University Procurement Evaluation</p>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">{t('standard_comparison_table')}</h2>
+            <p className="text-xs text-slate-400 font-black uppercase tracking-[0.2em]">{t('kandahar_procurement_evaluation')}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors shadow-sm">
             <X size={20} />
@@ -74,7 +76,7 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
            {loading ? (
              <div className="flex flex-col items-center justify-center h-full gap-4">
                 <div className="w-12 h-12 border-4 border-[#0F8F7F]/20 border-t-[#0F8F7F] rounded-full animate-spin" />
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Generating Matrix...</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('generating_matrix')}</p>
              </div>
            ) : quotations.length === 0 ? (
              <div className="flex flex-col items-center justify-center h-full gap-6 text-center">
@@ -82,9 +84,9 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
                   <AlertCircle size={40} />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-xl font-black text-slate-900">No Bids Received Yet</h3>
+                  <h3 className="text-xl font-black text-slate-900">{t('no_bids_yet')}</h3>
                   <p className="text-sm font-medium text-slate-500 max-w-sm">
-                    You must register at least three (3) quotation responses before the evaluation board can award this tender.
+                    {t('bids_requirement_desc')}
                   </p>
                 </div>
              </div>
@@ -93,7 +95,7 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
                 {quotations.length < 3 && (
                   <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-center gap-3 text-amber-700">
                      <AlertCircle size={20} />
-                     <p className="text-xs font-bold font-mono">WARNING: LEGAL REQUIREMENT - Only {quotations.length}/3 bids received. Minimum 3 required to award.</p>
+                     <p className="text-xs font-bold font-mono">{t('legal_requirement_warning', { current: quotations.length, min: 3 })}</p>
                   </div>
                 )}
 
@@ -113,7 +115,7 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
 
                          <div className="space-y-6">
                             <div className="space-y-1">
-                               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Supplier</h4>
+                               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('supplier')}</h4>
                                <h3 className="text-xl font-black text-slate-900 tracking-tight leading-tight">{q.supplierName}</h3>
                                <p className="text-xs font-medium text-slate-500">{q.supplierAddress}</p>
                             </div>
@@ -125,7 +127,7 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
                                       {item.name} <span className="text-[10px] text-slate-400 font-medium">({item.qty})</span>
                                     </div>
                                     <div className="text-xs font-black text-slate-900">
-                                      {(Number(item.unitPrice) || 0).toLocaleString()} AFN
+                                      {(Number(item.unitPrice) || 0).toLocaleString()} {t('afn')}
                                     </div>
                                  </div>
                                ))}
@@ -134,9 +136,9 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
 
                          <div className="pt-8 space-y-6">
                             <div className="flex justify-between items-end">
-                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Grand Total</span>
+                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('grand_total')}</span>
                                <span className="text-2xl font-black text-[#0F8F7F] tracking-tighter">
-                                 {getGrandTotal(q.items || []).toLocaleString()} <span className="text-sm">AFN</span>
+                                 {getGrandTotal(q.items || []).toLocaleString()} <span className="text-sm">{t('afn')}</span>
                                </span>
                             </div>
                             
@@ -150,7 +152,7 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
                                     : 'bg-slate-900 text-white hover:bg-slate-800 shadow-xl shadow-slate-900/20'
                                 }`}
                               >
-                                {quotations.length < 3 ? 'Incomplete Bidding' : 'Award Tender'}
+                                {quotations.length < 3 ? t('incomplete_bidding') : t('award_tender')}
                               </button>
                             )}
 
@@ -168,7 +170,7 @@ const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ tender, onClose, on
         </div>
 
         <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-center">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Evaluation Board: N. Qadri, M. Abdullah, G. Hashmi</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{t('evaluation_board_names')}</p>
         </div>
       </motion.div>
     </div>

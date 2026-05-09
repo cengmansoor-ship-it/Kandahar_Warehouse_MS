@@ -64,8 +64,8 @@ const RequestForm: React.FC<RequestFormProps> = ({ onClose, onSuccess }) => {
       >
         <div className="p-8 border-b border-slate-100 flex items-center justify-between">
           <div className="space-y-1">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">New Procurement Request</h2>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">General Warehouse Standard Form</p>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">{t('new_procurement_request')}</h2>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{t('warehouse_standard_form')}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-full transition-colors">
             <X size={20} />

@@ -19,45 +19,45 @@ const SystemGuide: React.FC = () => {
 
   const steps = [
     {
-      title: "1. Inventory Mapping",
+      title: t('guide_step1_title'),
       icon: Package,
-      desc: "Assign government-standard codes (BAB/Fasl) to your items. This ensures accounting compatibility.",
-      action: "Go to Inventory > Map New SKU",
+      desc: t('guide_step1_desc'),
+      action: t('guide_step1_action'),
       color: "bg-blue-50 text-blue-600"
     },
     {
-      title: "2. Receiving Stock",
+      title: t('guide_step2_title'),
       icon: Truck,
-      desc: "When items arrive, log them into the system. Use Excel bulk import for large shipments.",
-      action: "Go to Receiving > Log New Arrival",
+      desc: t('guide_step2_desc'),
+      action: t('guide_step2_action'),
       color: "bg-emerald-50 text-emerald-600"
     },
     {
-      title: "3. Requirement Requests",
+      title: t('guide_step3_title'),
       icon: FileText,
-      desc: "Departments submit official requests for needed items. These follow an approval chain.",
-      action: "Go to Requests > Create Official Request",
+      desc: t('guide_step3_desc'),
+      action: t('guide_step3_action'),
       color: "bg-amber-50 text-amber-600"
     },
     {
-      title: "4. Procurement Lifecycle",
+      title: t('guide_step4_title'),
       icon: ShoppingCart,
-      desc: "Convert approved requests into tenders, compare vendor prices, and issue Purchase Orders (PO).",
-      action: "Go to Procurement Manager",
+      desc: t('guide_step4_desc'),
+      action: t('guide_step4_action'),
       color: "bg-purple-50 text-purple-600"
     },
     {
-      title: "5. Distribution & History",
+      title: t('guide_step5_title'),
       icon: CheckCircle2,
-      desc: "Final delivery of items to the requesting department. System logs everything in the ledger.",
-      action: "Track in Dashboard / Reports",
+      desc: t('guide_step5_desc'),
+      action: t('guide_step5_action'),
       color: "bg-indigo-50 text-indigo-600"
     },
     {
-      title: "6. Audit & Analytics",
+      title: t('guide_step6_title'),
       icon: BarChart3,
-      desc: "Generate annual reports and maintain a transparent inventory ledger for government audits.",
-      action: "Go to Reports",
+      desc: t('guide_step6_desc'),
+      action: t('guide_step6_action'),
       color: "bg-red-50 text-red-600"
     }
   ];
@@ -69,16 +69,16 @@ const SystemGuide: React.FC = () => {
         <div className="relative z-10 space-y-6">
            <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-white/10 rounded-full border border-white/10">
               <HelpCircle size={14} className="text-primary-teal" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Workflow Guide</span>
+              <span className="text-[10px] font-black uppercase tracking-widest">{t('workflow_guide')}</span>
            </div>
-           <h1 className="text-4xl lg:text-6xl font-black tracking-tight">How to use the <span className="text-primary-teal">System</span></h1>
+           <h1 className="text-4xl lg:text-6xl font-black tracking-tight">{t('how_to_use')} <span className="text-primary-teal">{t('system')}</span></h1>
            <p className="text-slate-400 font-medium text-lg max-w-2xl leading-relaxed">
-             Follow this standard operating procedure to manage the Kandahar University General Warehouse assets effectively.
+             {t('how_to_use_desc')}
            </p>
         </div>
       </section>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-start">
         {steps.map((step, i) => (
           <motion.div 
             key={i}
@@ -90,7 +90,7 @@ const SystemGuide: React.FC = () => {
             <div className={`w-14 h-14 rounded-2xl ${step.color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
               <step.icon size={28} />
             </div>
-            <div className="space-y-2 text-start">
+            <div className="space-y-2">
                <h3 className="text-xl font-black text-slate-900 tracking-tight">{step.title}</h3>
                <p className="text-xs text-slate-500 font-medium leading-relaxed">{step.desc}</p>
             </div>
@@ -103,40 +103,40 @@ const SystemGuide: React.FC = () => {
       </div>
 
       <section className="fintech-card p-12 bg-slate-50 border-2 border-slate-900 rounded-[44px]">
-        <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-8">University Engineer: Senior Q&A</h2>
+        <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-8 text-start">{t('qa_title')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-start">
            <div className="space-y-4">
-              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">Q1: How do we track Asset Depreciation?</h4>
-              <p className="text-xs text-slate-600 leading-relaxed font-medium">Answer: The system uses BAB/Fasl coding links. You can view the distribution history in the Traceability module to see how long an asset has been in use and its current assignment status.</p>
+              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">{t('q1_title')}</h4>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">{t('q1_ans')}</p>
            </div>
            <div className="space-y-4">
-              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">Q2: How do we ensure procurement transparency?</h4>
-              <p className="text-xs text-slate-600 leading-relaxed font-medium">Answer: Every Purchase Order (PO) is linked to a Comparison Matrix, which requires at least 3 vendor quotations. This audit trail is stored in the system and can be exported as a PDF for government oversight.</p>
+              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">{t('q2_title')}</h4>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">{t('q2_ans')}</p>
            </div>
            <div className="space-y-4">
-              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">Q3: What happens when an item reaches 0 stock?</h4>
-              <p className="text-xs text-slate-600 leading-relaxed font-medium">Answer: The AI-powered Forecasting module flags the item in the "Annual Needs Analysis" report, calculation the recommended purchase quantity based on historical consumption rates.</p>
+              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">{t('q3_title')}</h4>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">{t('q3_ans')}</p>
            </div>
            <div className="space-y-4">
-              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">Q4: Can we track personnel asset liability?</h4>
-              <p className="text-xs text-slate-600 leading-relaxed font-medium">Answer: Yes. The "Traceability Ledger" provides a per-person report of all items assigned to them. When staff leave the university, the system generates an Exit Clearance report based on this ledger.</p>
+              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">{t('q4_title')}</h4>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">{t('q4_ans')}</p>
            </div>
            <div className="space-y-4">
-              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">Q5: Why are emails not being received?</h4>
-              <p className="text-xs text-slate-600 leading-relaxed font-medium">Answer: By default, the system simulates email sending. To enable real delivery, you must configure a <b>Gmail App Password</b> (Settings / System Configuration). Use your university email and the 16-character app password from Google Security settings.</p>
+              <h4 className="text-sm font-black text-primary-teal uppercase tracking-widest">{t('q5_title')}</h4>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">{t('q5_ans')}</p>
            </div>
         </div>
       </section>
 
-      <section className="fintech-card p-12 bg-white flex flex-col lg:flex-row items-center justify-between gap-10 border-2 border-primary-teal/10">
-         <div className="space-y-4 text-start">
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Need specific help?</h2>
-            <p className="text-slate-500 font-medium">Use our intelligent AI assistant in the bottom right corner for real-time guidance on any operations.</p>
+      <section className="fintech-card p-12 bg-white flex flex-col lg:flex-row items-center justify-between gap-10 border-2 border-primary-teal/10 text-start">
+         <div className="space-y-4">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">{t('need_help')}</h2>
+            <p className="text-slate-500 font-medium">{t('need_help_desc')}</p>
          </div>
          <div className="flex gap-4 w-full lg:w-auto">
             <Link to="/settings" className="flex-1 lg:flex-none py-4 px-8 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-800 transition-all">
                <Settings size={16} />
-               Configure System
+               {t('configure_system')}
             </Link>
          </div>
       </section>

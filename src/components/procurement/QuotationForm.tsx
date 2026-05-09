@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { X, Save, Building2, MapPin } from 'lucide-react';
 import api, { procurementService } from '../../services/api';
 import { toast } from 'sonner';
@@ -11,6 +12,7 @@ interface QuotationFormProps {
 }
 
 const QuotationForm: React.FC<QuotationFormProps> = ({ tender, onClose, onSuccess }) => {
+  const { t } = useTranslation();
   const [supplierName, setSupplierName] = useState('');
   const [supplierAddress, setSupplierAddress] = useState('');
   const [itemPrices, setItemPrices] = useState<any>(
@@ -26,7 +28,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({ tender, onClose, onSucces
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supplierName || !supplierAddress) return toast.error("Please fill all details");
+    if (!supplierName || !supplierAddress) return toast.error(t('all_details_required'));
     
     setLoading(true);
     try {
@@ -38,13 +40,13 @@ const QuotationForm: React.FC<QuotationFormProps> = ({ tender, onClose, onSucces
         items: itemPrices
       });
       
-      toast.success(`Bid from ${supplierName} registered successfully`);
+      toast.success(t('bid_registered_success', { name: supplierName }));
       setTimeout(() => {
         onSuccess();
       }, 1500);
     } catch (error: any) {
       console.error("Quotation Submission Error:", error);
-      const msg = error.response?.data?.error || "Network connection error. Please try again.";
+      const msg = error.response?.data?.error || t('process_failed');
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -68,9 +70,9 @@ const QuotationForm: React.FC<QuotationFormProps> = ({ tender, onClose, onSucces
       >
         <div className="p-8 border-b border-slate-100 flex items-center justify-between">
           <div className="space-y-1">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Bid Reception</h2>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">{t('bid_reception')}</h2>
             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">
-              Tender: <span className="text-[#0F8F7F]">{tender.tenderNumber}</span>
+              {t('tender')}: <span className="text-[#0F8F7F]">{tender.tenderNumber}</span>
             </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-full transition-colors">
@@ -82,41 +84,41 @@ const QuotationForm: React.FC<QuotationFormProps> = ({ tender, onClose, onSucces
            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-4">
                  <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest px-1">
-                   <Building2 size={14} /> Supplier Name
+                   <Building2 size={14} /> {t('supplier_name')}
                  </label>
                  <input 
                     required
                     value={supplierName}
                     onChange={(e) => setSupplierName(e.target.value)}
-                    placeholder="Enter official vendor name"
+                    placeholder={t('enter_official_vendor_name')}
                     className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-slate-800 focus:ring-4 focus:ring-[#0F8F7F]/10 focus:outline-none transition-all"
                  />
               </div>
               <div className="space-y-4">
                  <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest px-1">
-                   <MapPin size={14} /> Business Address
+                   <MapPin size={14} /> {t('business_address')}
                  </label>
                  <input 
                     required
                     value={supplierAddress}
                     onChange={(e) => setSupplierAddress(e.target.value)}
-                    placeholder="Physical location"
+                    placeholder={t('physical_location')}
                     className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-slate-800 focus:ring-4 focus:ring-[#0F8F7F]/10 focus:outline-none transition-all"
                  />
               </div>
            </div>
 
            <div className="space-y-6">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Financial Proposal (Unit Prices in AFN)</h3>
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">{t('financial_proposal')}</h3>
               <div className="border border-slate-100 rounded-[32px] overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Item</th>
-                      <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Spec</th>
-                      <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Qty</th>
-                      <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit Price</th>
-                      <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Total</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('item')}</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('spec')}</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('quantity')}</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('unit_price')}</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('total_price')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -142,7 +144,7 @@ const QuotationForm: React.FC<QuotationFormProps> = ({ tender, onClose, onSucces
                   </tbody>
                    <tfoot className="bg-slate-50/50">
                       <tr>
-                        <td colSpan={4} className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Grand Total</td>
+                        <td colSpan={4} className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('grand_total')}</td>
                         <td className="px-6 py-4 text-lg font-black text-slate-900">
                            {(Array.isArray(itemPrices) ? itemPrices : []).reduce((acc: number, item: any) => acc + ((Number(item.unitPrice) || 0) * (Number(item.qty) || 0)), 0).toLocaleString()} AFN
                         </td>
@@ -154,14 +156,14 @@ const QuotationForm: React.FC<QuotationFormProps> = ({ tender, onClose, onSucces
         </form>
 
         <div className="p-8 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-4">
-           <button onClick={onClose} className="px-8 py-4 text-slate-500 font-black text-xs uppercase tracking-widest">Cancel</button>
+           <button onClick={onClose} className="px-8 py-4 text-slate-500 font-black text-xs uppercase tracking-widest">{t('cancel')}</button>
            <button 
              onClick={handleSubmit}
              disabled={loading}
              className="flex items-center gap-3 px-10 py-5 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-900/20"
            >
              <Save size={16} />
-             {loading ? 'Processing...' : 'Register Bid Response'}
+             {loading ? t('processing') : t('register_bid_response')}
            </button>
         </div>
       </motion.div>

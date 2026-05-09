@@ -72,9 +72,10 @@ export default function Dashboard() {
           activeTenders: (statsData.activeTenders || 0).toString()
         });
 
-        setRecentActivities(activitiesRes.data || []);
+        setRecentActivities(Array.isArray(activitiesRes.data) ? activitiesRes.data : []);
       } catch (e) {
         console.error("Dashboard: Error fetching unified stats", e);
+        setRecentActivities([]);
       }
     };
     fetchDashboardData();
@@ -165,7 +166,7 @@ export default function Dashboard() {
                   {activity.type === 'receiving' && <Package size={20} />}
                   {activity.type === 'request' && <FileCheck size={20} />}
                   {activity.type === 'allocation' && <UserIcon size={20} />}
-                  {!['receiving', 'request', 'allocation'].includes(activity.type) && <Package size={20} />}
+                  {!['receiving', 'request', 'allocation'].includes(activity.type || '') && <Package size={20} />}
                 </div>
                 <div className="flex flex-col justify-center text-start flex-1">
                   <div className="text-xs font-black text-slate-900 uppercase tracking-tight group-hover/item:text-primary-teal transition-colors text-start">{activity.title}</div>

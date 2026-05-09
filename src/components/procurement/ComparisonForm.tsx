@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   Printer, 
   Download, 
@@ -18,6 +19,7 @@ import { DocumentHeader } from './DocumentHeader';
 import { ProcurementTable } from './ProcurementTable';
 import ComparisonMatrix from './ComparisonMatrix';
 import api from '@/src/services/api';
+import { openPrintWindow } from '@/src/lib/print-utils';
 
 interface SupplierPrice {
   supplierName: string;
@@ -44,17 +46,21 @@ interface ComparisonData {
   signatures: string[];
 }
 
+import { ConfirmModal } from '../ui/ConfirmModal';
+
 export const ComparisonForm = () => {
   const location = useLocation();
   const requestId = location.state?.requestId;
   
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ps';
+
   const [formData, setFormData] = useState<ComparisonData>({
     requestId: requestId || '',
-    comparisonDate: new Date().toLocaleDateString(),
+    comparisonDate: new Date().toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'fa-AF'),
     suppliers: [t('supplier') + ' A', t('supplier') + ' B'],
     items: [],
-    notes: t('comparison_initial_notes') || 'Based on the comparison, the following recommendation is made...',
+    notes: t('comparison_initial_notes'),
     signatures: [t('finance_manager'), t('logistics_officer'), t('director')]
   });
 
@@ -63,6 +69,19 @@ export const ComparisonForm = () => {
     subTitle: t('vendor_analysis'),
     evaluationLabel: t('best_value_procurement') 
   });
+
+  useEffect(() => {
+    setDocMeta({
+      title: t('comparison_matrix_title'),
+      subTitle: t('vendor_analysis'),
+      evaluationLabel: t('best_value_procurement')
+    });
+    setFormData(prev => ({
+      ...prev,
+      comparisonDate: new Date().toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'fa-AF'),
+      notes: prev.notes === 'We have compared...' ? t('comparison_initial_notes') : prev.notes
+    }));
+  }, [i18n.language, t]);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -115,7 +134,7 @@ export const ComparisonForm = () => {
   };
 
   const addSupplier = () => {
-    const name = `Supplier ${String.fromCharCode(65 + formData.suppliers.length)}`;
+    const name = `${t('supplier')} ${String.fromCharCode(65 + formData.suppliers.length)}`;
     const newSuppliers = [...formData.suppliers, name];
     const newItems = formData.items.map(item => ({
       ...item,
@@ -198,7 +217,41 @@ export const ComparisonForm = () => {
   };
 
   const handlePrint = () => {
-    window.print();
+    const title = `${t('comparison_matrix_title')} - ${requestId || 'Draft'}`;
+    const uniLogo = localStorage.getItem('doc_logo_university') || "https://upload.wikimedia.org/wikipedia/en/2/23/Kandahar_University_Logo.png";
+    const govLogo = localStorage.getItem('doc_logo_ministry') || "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Flag_of_the_Taliban.svg/1024px-Flag_of_the_Taliban.svg.png";
+
+    const content = `
+      <table class="header-table">
+        <tr>
+          <td width="20%"><img src="${uniLogo}" class="logo" /></td>
+          <td width="60%" class="header-text">
+            <div style="font-size: 16px;">د افغانستان اسلامي امارت</div>
+            <div style="font-size: 14px;">د لوړو زده کړو وزارت</div>
+            <div style="font-size: 14px;">کندهار پوهنتون</div>
+            <div style="font-size: 18px; margin-top: 10px; color: #0F8F7F;">${t('comparison_matrix_title').toUpperCase()}</div>
+          </td>
+          <td width="20%" style="text-align: right;"><img src="${govLogo}" class="logo" /></td>
+        </tr>
+      </table>
+      <div id="print-content">
+        ${document.querySelector('.comparison-form-content')?.innerHTML || 'No content found'}
+      </div>
+    `;
+
+    const styles = `
+      .header-table { width: 100%; border-bottom: 2px solid #000; margin-bottom: 30px; padding-bottom: 20px; }
+      .header-text { text-align: center; font-weight: 900; }
+      .logo { width: 80px; height: 80px; object-fit: contain; }
+      body { font-family: 'Inter', sans-serif; background: #fff; }
+      @media print {
+        .no-print { display: none !important; }
+        body { background: white; padding: 0 !important; margin: 15mm; }
+        .fintech-card { border: 1px solid #e2e8f0 !important; box-shadow: none !important; page-break-inside: avoid; }
+      }
+    `;
+
+    openPrintWindow(title, content, styles);
   };
 
   const handleDownloadPDF = () => {
@@ -227,13 +280,17 @@ export const ComparisonForm = () => {
         ...customColumns.map(cc => (item as any)[cc.key] || '')
       ]);
 
-      autoTable(doc, {
+        autoTable(doc, {
         head: [headers],
         body: tableData,
         startY: 50,
         theme: 'grid',
         headStyles: { fillColor: [15, 143, 127], textColor: [255, 255, 255], fontStyle: 'bold' },
         styles: { fontSize: 8 },
+        didDrawPage: () => {
+          doc.setFontSize(8);
+          doc.text(`Page ${doc.getNumberOfPages()}`, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, { align: 'center' });
+        }
       });
 
       doc.save(`Comparison-${requestId || 'Draft'}.pdf`);
@@ -353,26 +410,29 @@ export const ComparisonForm = () => {
     <div className="flex flex-col items-center gap-6 p-4">
       <div 
         ref={componentRef}
-        dir="rtl"
+        dir={isRtl ? 'rtl' : 'ltr'}
         className="relative a4-page font-sans text-slate-900 border-2 border-slate-900 bg-white shadow-2xl overflow-hidden"
       >
 
-        <div className="p-12">
+        <div className="p-12 comparison-form-content">
           <div className="flex justify-between items-center mb-8 no-print border-b border-slate-100 pb-4">
              <div className="flex items-center gap-2">
-               <button onClick={handlePrint} className="p-2 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-black/10">
-                 <Printer size={16} /> Print
+               <button 
+                 onClick={handlePrint} 
+                 className="p-2 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-black/10"
+               >
+                 <Printer size={16} /> {t('print')}
                </button>
              </div>
              <div className="flex items-center gap-2">
                 <button onClick={addItem} className="p-2 bg-slate-100 text-slate-900 rounded-xl hover:bg-slate-200 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4">
-                  <Plus size={16} /> Add Row
+                  <Plus size={16} /> {t('add_row')}
                 </button>
                 <button onClick={addSupplier} className="p-2 bg-emerald-100 text-emerald-900 rounded-xl hover:bg-emerald-200 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4">
-                  <Plus size={16} /> Add Vendor
+                  <Plus size={16} /> {t('add_vendor')}
                 </button>
                 <button onClick={handleSave} disabled={saving} className="p-2 bg-sky-600 text-white rounded-xl hover:bg-sky-700 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 shadow-lg shadow-sky-600/10 disabled:opacity-50">
-                  <Save size={16} /> {saving ? 'Saving...' : 'Save & Complete'}
+                  <Save size={16} /> {saving ? t('saving') : t('save_complete')}
                 </button>
              </div>
           </div>
@@ -410,14 +470,14 @@ export const ComparisonForm = () => {
 
           <div className="mt-8 p-8 bg-white border-2 border-slate-900 rounded-2xl shadow-lg relative overflow-hidden">
              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -z-10 opacity-50" />
-             <div className="flex items-center gap-3 mb-4 text-emerald-800 underline decoration-2 underline-offset-4">
+             <div className={`flex items-center gap-3 mb-4 text-emerald-800 underline decoration-2 underline-offset-4 ${isRtl ? 'text-right' : 'text-left'}`}>
                 <CheckCircle2 size={24} />
                 <span className="font-black text-lg">{t('evaluation_notes')}</span>
              </div>
              <textarea 
                value={formData.notes || ''} 
                onChange={(e) => setFormData({...formData, notes: e.target.value})}
-               className="w-full h-32 bg-transparent border-0 focus:ring-0 text-[13px] leading-relaxed font-bold italic text-slate-600 resize-none"
+               className={`w-full h-32 bg-transparent border-0 focus:ring-0 text-[13px] leading-relaxed font-bold italic text-slate-600 resize-none ${isRtl ? 'text-right' : 'text-left'}`}
                placeholder="Write summary of comparison and recommended winner..."
              />
           </div>
@@ -440,7 +500,7 @@ export const ComparisonForm = () => {
         </div>
 
         <div className="mt-12 p-8 pt-4 pb-4 border-t-2 border-slate-900 flex justify-between items-center text-[10px] text-slate-500 font-black italic bg-slate-50">
-          <span>Official Logistics Document • Kandahar University</span>
+          <span>{t('university_digital_hub')}</span>
           <span>Matrix Verification ID: CM-{requestId?.slice(-4) || 'DRAFT'}</span>
         </div>
       </div>

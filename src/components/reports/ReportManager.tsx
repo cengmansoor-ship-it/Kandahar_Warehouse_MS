@@ -24,6 +24,7 @@ import api, { analyticsService } from '@/src/services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LabelList } from 'recharts';
 import { ReportFilterModal } from './ReportFilterModal';
+import { openPrintWindow } from '@/src/lib/print-utils';
 import { TraceabilitySection } from './TraceabilitySection';
 import { ForecastingSection } from './ForecastingSection';
 import jsPDF from 'jspdf';
@@ -140,79 +141,60 @@ export const ReportManager = () => {
     toast.info(`Preparing professional report for ${filters.faculty}...`);
     setShowFilterModal(false);
     
-    // Generate professional printable report
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error("Pop-up blocked. Please allow pop-ups to print.");
-      return;
-    }
-
     const currentSection = filters.section !== 'All' ? filters.section : activeTab;
-    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
     const uniLogo = localStorage.getItem('doc_logo_university') || "https://upload.wikimedia.org/wikipedia/en/2/23/Kandahar_University_Logo.png";
     const govLogo = localStorage.getItem('doc_logo_ministry') || "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Flag_of_the_Taliban.svg/1024px-Flag_of_the_Taliban.svg.png";
 
-    printWindow.document.write(`
-      <html dir="${i18n.dir()}">
-        <head>
-          <title>KDRU Official Report - ${currentSection.toUpperCase()}</title>
-          ${styles}
-          <style>
-             @media print {
-              .no-print { display: none !important; }
-              body { background: white; padding: 0 !important; margin: 20mm; }
-              .fintech-card { border: 1px solid #e2e8f0 !important; box-shadow: none !important; page-break-inside: avoid; }
-            }
-            body { font-family: 'Inter', sans-serif; background: #fff; }
-            .header-table { width: 100%; border-bottom: 2px solid #000; margin-bottom: 30px; padding-bottom: 20px; }
-            .header-text { text-align: center; font-weight: 900; }
-            .logo { width: 80px; height: 80px; object-fit: contain; }
-            .report-meta { margin-bottom: 30px; padding: 15px; background: #f8fafc; border-radius: 12px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; }
-          </style>
-        </head>
-        <body class="p-10">
-          <table class="header-table">
-            <tr>
-              <td width="20%"><img src="${uniLogo}" class="logo" /></td>
-              <td width="60%" class="header-text">
-                <div style="font-size: 16px;">د افغانستان اسلامي امارت</div>
-                <div style="font-size: 14px;">د لوړو زده کړو وزارت</div>
-                <div style="font-size: 14px;">کندهار پوهنتون</div>
-                <div style="font-size: 18px; margin-top: 10px; color: #0F8F7F;">OFFICIAL ${currentSection.toUpperCase()} REPORT</div>
-              </td>
-              <td width="20%" style="text-align: right;"><img src="${govLogo}" class="logo" /></td>
-            </tr>
-          </table>
+    const title = `KDRU Official Report - ${currentSection.toUpperCase()}`;
+    const content = `
+      <table class="header-table">
+        <tr>
+          <td width="20%"><img src="${uniLogo}" class="logo" /></td>
+          <td width="60%" class="header-text">
+            <div style="font-size: 16px;">${t('emirate_name')}</div>
+            <div style="font-size: 14px;">${t('ministry_name')}</div>
+            <div style="font-size: 14px;">${t('univ_name')}</div>
+            <div style="font-size: 18px; margin-top: 10px; color: #0F8F7F;">${t('official_report')} - ${currentSection.toUpperCase()}</div>
+          </td>
+          <td width="20%" style="text-align: right;"><img src="${govLogo}" class="logo" /></td>
+        </tr>
+      </table>
 
-          <div class="report-meta">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-              <div>FACULTY: ${filters.faculty}</div>
-              <div>DEPARTMENT: ${filters.department || 'All'}</div>
-              <div>PERSONNEL: ${filters.person}</div>
-              <div>RANGE: ${filters.fromDate} TO ${filters.toDate}</div>
-              <div>SECTION: ${currentSection.toUpperCase()}</div>
-              <div>GENERATED: ${new Date().toLocaleString()}</div>
-            </div>
-          </div>
+      <div class="report-meta">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div>FACULTY: ${filters.faculty}</div>
+          <div>DEPARTMENT: ${filters.department || 'All'}</div>
+          <div>PERSONNEL: ${filters.person}</div>
+          <div>RANGE: ${filters.fromDate} TO ${filters.toDate}</div>
+          <div>SECTION: ${currentSection.toUpperCase()}</div>
+          <div>GENERATED: ${new Date().toLocaleString(i18n.language === 'en' ? 'en-US' : 'fa-AF')}</div>
+        </div>
+      </div>
 
-          <div id="print-content">
-            ${document.querySelector(`#tab-${currentSection}`)?.innerHTML || document.querySelector('main')?.innerHTML || 'No report content available'}
-          </div>
+      <div id="print-content">
+        ${document.querySelector(`#tab-${currentSection}`)?.innerHTML || document.querySelector('main')?.innerHTML || 'No report content available'}
+      </div>
 
-          <script>
-            window.onload = () => {
-              // Hide navigation elements
-              document.querySelectorAll('button, .no-print, nav, .sidebar').forEach(el => el.style.display = 'none');
-              setTimeout(() => {
-                window.print();
-                window.close();
-              }, 800);
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+      <script>
+        // Custom report cleanups
+        document.querySelectorAll('button, .no-print, nav, .sidebar').forEach(el => el.style.display = 'none');
+      </script>
+    `;
+
+    const styles = `
+      .header-table { width: 100%; border-bottom: 2px solid #000; margin-bottom: 30px; padding-bottom: 20px; }
+      .header-text { text-align: center; font-weight: 900; }
+      .logo { width: 80px; height: 80px; object-fit: contain; }
+      .report-meta { margin-bottom: 30px; padding: 15px; background: #f8fafc; border-radius: 12px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; }
+      body { font-family: 'Inter', sans-serif; background: #fff; }
+      @media print {
+        .no-print { display: none !important; }
+        body { background: white; padding: 0 !important; margin: 20mm; }
+        .fintech-card { border: 1px solid #e2e8f0 !important; box-shadow: none !important; page-break-inside: avoid; }
+      }
+    `;
+
+    openPrintWindow(title, content, styles);
   };
 
   const [filters, setFilters] = useState<any>({ faculty: 'All', department: 'All', fromDate: '', toDate: '' });
@@ -423,12 +405,12 @@ export const ReportManager = () => {
           </p>
         </div>
         <div className="flex items-center gap-3 no-print">
-           <button 
-             onClick={triggerPrint} 
-             className="flex items-center gap-2 text-primary-teal px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal/5 transition-all"
-           >
-             <Printer size={16} /> {t('print')}
-           </button>
+          <button 
+            onClick={triggerPrint} 
+            className="flex items-center gap-2 text-primary-teal px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal/5 transition-all"
+          >
+            <Printer size={16} /> {t('print')}
+          </button>
            <button 
              onClick={exportToExcel} 
              className="flex items-center gap-2 text-slate-900 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-900/5 transition-all"
@@ -470,7 +452,7 @@ export const ReportManager = () => {
             <div className="fintech-card p-8 bg-white border border-slate-100 shadow-xl overflow-hidden no-print">
               <div className="flex items-center gap-4 mb-8">
                 <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
-                <h3 className="font-black text-xl tracking-tight uppercase text-black">Faculties & Departments</h3>
+                <h3 className="font-black text-xl tracking-tight uppercase text-black">{t('faculties_departments')}</h3>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {filteredAllocation.length > 0 ? filteredAllocation.map((item) => (
@@ -482,11 +464,11 @@ export const ReportManager = () => {
                     <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center mb-4 group-hover:bg-primary-teal transition-all shadow-sm">
                       <Users size={20} className="text-primary-teal group-hover:text-white" />
                     </div>
-                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary-teal/60 mb-1">Explore</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary-teal/60 mb-1">{t('explore')}</div>
                     <div className="text-sm font-black tracking-tight text-slate-900">{t(`dept_${item.faculty.toLowerCase().replace(' ', '_')}`) || item.faculty}</div>
                   </button>
                 )) : (
-                   <div className="col-span-full py-10 text-center text-slate-400 font-bold uppercase tracking-widest">No matching units found</div>
+                   <div className="col-span-full py-10 text-center text-slate-400 font-bold uppercase tracking-widest">{t('no_data')}</div>
                 )}
               </div>
             </div>
@@ -526,7 +508,7 @@ export const ReportManager = () => {
               <div className="fintech-card p-8 bg-white">
                 <div className="flex items-center gap-4 mb-8 text-black">
                   <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
-                  <h3 className="font-black text-xl tracking-tight uppercase">Inventory Categories</h3>
+                  <h3 className="font-black text-xl tracking-tight uppercase">{t('inventory_categories')}</h3>
                 </div>
                 <div className="h-80 w-full flex items-center justify-center cursor-pointer" dir="ltr">
                   <ResponsiveContainer width="100%" height="100%">
@@ -560,7 +542,7 @@ export const ReportManager = () => {
                       className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100"
                     >
                       <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: COLORS[index % COLORS.length]}}></div>
-                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest truncate">{entry.name}</span>
+                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest truncate">{t(`cat_${entry.name.toLowerCase().replace(' ', '_')}`) || entry.name}</span>
                     </div>
                   ))}
                 </div>
@@ -582,12 +564,12 @@ export const ReportManager = () => {
                     </div>
                     <div className="text-start">
                         <h3 className="text-3xl font-black tracking-tighter italic text-black group-hover:text-primary-teal transition-colors uppercase">{t('annual_needs_analysis')}</h3>
-                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-2 px-2 py-1 bg-slate-50 rounded border border-slate-100">Optimization System Powered by Gemini AI</p>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-2 px-2 py-1 bg-slate-50 rounded border border-slate-100">{t('ai_optimization_powered')}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-end hidden sm:block">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-primary-teal">AI Accuracy</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-primary-teal">{t('ai_accuracy')}</div>
                       <div className="text-xl font-black text-slate-900">94.8%</div>
                     </div>
                     <div className="w-px h-10 bg-slate-200 mx-4 hidden sm:block" />
@@ -601,11 +583,11 @@ export const ReportManager = () => {
                 <table className="w-full text-start">
                   <thead>
                     <tr className="bg-slate-50/50">
-                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-start border-b border-slate-100">Item Detail</th>
-                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100">Stock</th>
-                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100">Target</th>
-                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100">Gap</th>
-                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100 no-print">Recommendation</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-start border-b border-slate-100">{t('item_detail')}</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100">{t('stock')}</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100">{t('target')}</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100">{t('gap')}</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-slate-100 no-print">{t('recommendation')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -629,18 +611,18 @@ export const ReportManager = () => {
                             "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
                             item.recommended_purchase > 0 ? "bg-red-50 text-red-500" : "bg-emerald-50 text-emerald-500"
                           )}>
-                            {item.recommended_purchase > 0 ? `-${item.recommended_purchase}` : 'Optimal'}
+                            {item.recommended_purchase > 0 ? `-${item.recommended_purchase}` : t('optimal')}
                           </span>
                         </td>
                         <td className="px-8 py-6 border-b border-slate-50 text-center no-print">
                           <button 
                             onClick={() => {
-                              toast.success("Procurement Plan Generated Successfully");
+                              toast.success(t('procurement_plan_generated'));
                               navigate('/procurement/tenders');
                             }}
                             className="text-[9px] font-black text-primary-teal hover:underline uppercase tracking-widest p-2 rounded-lg hover:bg-primary-teal/5 transition-all"
                           >
-                            Create Procurement Plan
+                            {t('create_procurement_plan')}
                           </button>
                         </td>
                       </tr>

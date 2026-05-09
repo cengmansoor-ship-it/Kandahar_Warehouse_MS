@@ -646,7 +646,13 @@ export const SettingsManager = () => {
                   {Array.isArray(users) && users.slice(0, 3).map((u, i) => (
                     <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-slate-400 text-[10px] font-black border border-slate-100">{u.name && u.name[0] ? u.name[0] : '?'}</div>
+                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-slate-400 text-[10px] font-black border border-slate-100 overflow-hidden">
+                             {u.image ? (
+                               <img src={u.image} alt={u.name} className="w-full h-full object-cover" />
+                             ) : (
+                               u.name && u.name[0] ? u.name[0] : '?'
+                             )}
+                          </div>
                           <div>
                              <div className="text-[10px] font-black text-slate-900 uppercase truncate max-w-[120px]">{u.name}</div>
                              <div className="text-[8px] text-slate-400 font-bold uppercase">{u.role ? u.role.replace('_', ' ') : 'USER'}</div>

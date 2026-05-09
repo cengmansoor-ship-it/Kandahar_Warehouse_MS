@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, ChevronRight, Check, Plus, Trash2 } from 'lucide-react';
+import { X, ChevronRight, Check, Plus, Trash2, RefreshCw } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import api from '@/src/services/api';
 import { toast } from 'sonner';
@@ -17,6 +17,7 @@ export const ItemHierarchyModal: React.FC<ItemHierarchyModalProps> = ({ onClose,
   const [selectedBab, setSelectedBab] = useState<any>(null);
   const [selectedFasl, setSelectedFasl] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [restoring, setRestoring] = useState(false);
   
   // Inline adding state
   const [isAdding, setIsAdding] = useState(false);
@@ -154,11 +155,36 @@ export const ItemHierarchyModal: React.FC<ItemHierarchyModalProps> = ({ onClose,
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
       <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div className="text-start">
-            <h3 className="text-xl font-bold text-slate-900">{t('official_item_selection')}</h3>
-            <p className="text-xs text-slate-500 mt-1 uppercase font-bold tracking-widest">
-              {step === 1 ? t('select_bab') : step === 2 ? t('select_fasl') : t('select_item_code')}
-            </p>
+          <div className="text-start flex items-center gap-4">
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">{t('official_item_selection')}</h3>
+              <p className="text-xs text-slate-500 mt-1 uppercase font-bold tracking-widest">
+                {step === 1 ? t('select_bab') : step === 2 ? t('select_fasl') : t('select_item_code')}
+              </p>
+            </div>
+            {step === 1 && (
+              <button 
+                onClick={async () => {
+                  if (window.confirm("Restore official hierarchy? This will reset all manual changes to the budget tree.")) {
+                    try {
+                      setRestoring(true);
+                      await api.post('/codes/restore');
+                      toast.success("Hierarchy restored");
+                      fetchTree();
+                    } catch (e) {
+                      toast.error("Restore failed");
+                    } finally {
+                      setRestoring(false);
+                    }
+                  }
+                }}
+                disabled={restoring}
+                className="ml-4 p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-primary-teal hover:border-primary-teal transition-all shadow-sm"
+                title="Restore Default Hierarchy"
+              >
+                <RefreshCw size={16} className={cn(restoring && "animate-spin")} />
+              </button>
+            )}
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
             <X size={20} className="text-slate-400" />

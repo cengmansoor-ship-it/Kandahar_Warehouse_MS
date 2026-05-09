@@ -12,6 +12,7 @@ import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/src/lib/utils';
+import { openPrintWindow } from '@/src/lib/print-utils';
 import api, { traceabilityService, inventoryService } from '@/src/services/api';
 
 type Level = 'ROOT' | 'FACULTIES_L1' | 'FACULTY_L2' | 'ADMIN_L1' | 'ADMIN_L2' | 'PERSONNEL_L3' | 'PERSONNEL_DETAILS';
@@ -21,7 +22,7 @@ interface TraceabilitySectionProps {
 }
 
 export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefresh }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [level, setLevel] = useState<Level>('ROOT');
   const [loading, setLoading] = useState(false);
@@ -76,7 +77,7 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
       setPersonnel(Array.isArray(perRes.data) ? perRes.data : []);
       setItems(Array.isArray(itemRes.data) ? itemRes.data : []);
     } catch (err) {
-      toast.error("Failed to fetch traceability data");
+      toast.error(t('load_failed_traceability'));
     } finally {
       setLoading(false);
     }
@@ -127,18 +128,18 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
   };
 
   const handleGovernanceClick = () => {
-    toast.info("Navigating to Logistics Governance Board...");
+    toast.info(t('navigating_governance'));
     navigate('/procurement', { state: { tab: 'po' } });
   };
 
   const handleAuditTrailClick = () => {
-    toast.info("Accessing comprehensive audit logs...");
+    toast.info(t('accessing_audit_logs'));
     navigate('/reports', { state: { tab: 'needs' } });
   };
 
   const handleExport = (type: 'pdf' | 'excel') => {
     let exportData: any[] = [];
-    let title = "Traceability Report";
+    let title = t('traceability_report');
     let filename = `traceability_${new Date().toISOString().split('T')[0]}`;
 
     // Filter logic based on level
@@ -149,7 +150,7 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
         Department: p.department || 'N/A',
         Items: p.itemsCount || 0
       }));
-      title = "University Wide Traceability Summary";
+      title = t('university_traceability_summary');
     } else if (selectedFaculty) {
       const filtered = personnel.filter(p => p.facultyId === selectedFaculty.id);
       exportData = filtered.map(p => ({
@@ -172,7 +173,7 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
     }
 
     if (exportData.length === 0) {
-      toast.error("No data available for export in this view.");
+      toast.error(t('no_data_export'));
       return;
     }
 
@@ -203,24 +204,126 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
   };
 
   const handlePrint = () => {
-    window.print();
+    let title = t('traceability_report');
+    let content = '';
+    const isRtl = i18n.language === 'ps';
+
+    if (level === 'PERSONNEL_DETAILS' && selectedPerson) {
+      title = `${t('personnel_portrait')} - ${selectedPerson.name}`;
+      content = `
+        <div style="direction: ${isRtl ? 'rtl' : 'ltr'}; padding: 40px; border: 4px solid black; border-radius: 40px;">
+          <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 4px solid black; padding-bottom: 20px; margin-bottom: 40px;">
+            <div style="text-align: start;">
+              <h1 style="font-size: 32px; font-weight: 900; margin-bottom: 5px;">${selectedPerson.name}</h1>
+              <p style="font-size: 14px; font-weight: 900; color: #0f8f7f; text-transform: uppercase;">${selectedPerson.jobTitle}</p>
+              <p style="font-size: 12px; margin-top: 10px;"><strong>ID:</strong> ${selectedPerson.idNumber || '---'}</p>
+              <p style="font-size: 12px;"><strong>Email:</strong> ${selectedPerson.email || '---'}</p>
+            </div>
+            <div style="text-align: center; background: #000; color: #fff; padding: 20px; border-radius: 20px; min-width: 150px;">
+              <div style="font-size: 10px; font-weight: 900; letter-spacing: 2px; opacity: 0.7; margin-bottom: 5px;">TOTAL ASSETS</div>
+              <div style="font-size: 40px; font-weight: 900;">${selectedPerson.itemsCount || 0}</div>
+            </div>
+          </div>
+
+          <h3 style="font-size: 20px; font-weight: 900; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; text-align: start;">${t('asset_allocation_history') || 'Asset Allocation History'}</h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #f8fafc;">
+                <th style="border: 1px solid #ddd; padding: 12px; text-align: start; font-size: 11px;">${t('date')}</th>
+                <th style="border: 1px solid #ddd; padding: 12px; text-align: start; font-size: 11px;">${t('item_name')}</th>
+                <th style="border: 1px solid #ddd; padding: 12px; text-align: center; font-size: 11px;">${t('quantity')}</th>
+                <th style="border: 1px solid #ddd; padding: 12px; text-align: start; font-size: 11px;">${t('reference')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${personHistory.length > 0 ? personHistory.map(h => `
+                <tr>
+                  <td style="border: 1px solid #ddd; padding: 12px; font-size: 11px;">${new Date(h.timestamp).toLocaleDateString()}</td>
+                  <td style="border: 1px solid #ddd; padding: 12px; font-size: 11px; font-weight: 900;">${h.itemName}</td>
+                  <td style="border: 1px solid #ddd; padding: 12px; font-size: 11px; text-align: center;">${h.quantity}</td>
+                  <td style="border: 1px solid #ddd; padding: 12px; font-size: 11px;">${h.notes || 'Official Allocation'}</td>
+                </tr>
+              `).join('') : `<tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">${t('no_data')}</td></tr>`}
+            </tbody>
+          </table>
+
+          <div style="margin-top: 100px; display: grid; grid-template-columns: 1fr 1fr; gap: 80px; text-align: start;">
+            <div>
+              <div style="border-bottom: 2px solid #000; padding-bottom: 10px; font-weight: 900; font-size: 12px;">${t('employee_signature') || 'Employee Signature'}</div>
+            </div>
+            <div>
+              <div style="border-bottom: 2px solid #000; padding-bottom: 10px; font-weight: 900; font-size: 12px;">${t('director_logistics') || 'Director Logistics'}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      // General traceability list print (not fully implemented in HTML but following same pattern)
+      content = `
+        <div style="direction: ${isRtl ? 'rtl' : 'ltr'}; padding: 20px;">
+          <h1 style="text-align: center;">${title}</h1>
+          <p style="text-align: center;">${new Date().toLocaleString()}</p>
+          <hr />
+          <p style="text-align: center; color: #666;">Full audit trail report generated from KDRU Digital Hub.</p>
+        </div>
+      `;
+    }
+
+    openPrintWindow(title, content);
   };
 
   const renderRoot = () => (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-white border-2 border-slate-100 rounded-[32px] p-8 shadow-xl">
-        <div className="flex items-center gap-4 mb-8">
-           <div className="w-1.5 h-6 bg-primary-teal rounded-full" />
-           <h3 className="font-black text-xl text-slate-900 tracking-tight uppercase italic">{t('personnel_traceability_ledger')}</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div 
+        onClick={() => setLevel('FACULTIES_L1')}
+        className="fintech-card p-10 bg-white group cursor-pointer hover:border-primary-teal transition-all relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary-teal/5 rounded-bl-[100px] -mr-10 -mt-10 group-hover:scale-125 transition-transform" />
+        <div className="w-16 h-16 bg-primary-teal rounded-3xl flex items-center justify-center text-white mb-8 shadow-xl shadow-primary-teal/20">
+          <Target size={32} />
         </div>
-        <PersonnelTable 
-          data={personnel} 
-          onSelect={(p) => { 
-            setSelectedPerson(p); 
-            setLevel('PERSONNEL_DETAILS'); 
-            getPersonHistory(p); 
-          }} 
-        />
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{t('university_faculties')}</h3>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+              {t('manage_faculties_desc', { count: totals.faculties })}
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 no-print">
+            <button 
+              onClick={(e) => { e.stopPropagation(); handleGovernanceClick(); }}
+              className="text-[8px] font-black uppercase tracking-widest text-primary-teal hover:underline"
+            >
+              {t('logistics_governance')}
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); handleAuditTrailClick(); }}
+              className="text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900"
+            >
+              {t('view_audit_trail')}
+            </button>
+          </div>
+        </div>
+        <div className="mt-8 flex items-center gap-2 text-primary-teal font-black text-[10px] uppercase tracking-widest">
+          Enter Gateway <ChevronRight size={14} />
+        </div>
+      </div>
+
+      <div 
+        onClick={() => setLevel('ADMIN_L1')}
+        className="fintech-card p-10 bg-white group cursor-pointer hover:border-slate-900 transition-all relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 w-32 h-32 bg-slate-900/5 rounded-bl-[100px] -mr-10 -mt-10 group-hover:scale-125 transition-transform" />
+        <div className="w-16 h-16 bg-slate-900 rounded-3xl flex items-center justify-center text-white mb-8 shadow-xl shadow-slate-900/20">
+          <ShieldCheck size={32} />
+        </div>
+        <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{t('administrative_section')}</h3>
+        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+          {t('manage_admin_units_desc', { count: totals.adminUnits })}
+        </p>
+        <div className="mt-8 flex items-center gap-2 text-slate-900 font-black text-[10px] uppercase tracking-widest">
+          Enter Gateway <ChevronRight size={14} />
+        </div>
       </div>
     </div>
   );
@@ -270,7 +373,7 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
           <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-200 flex items-center justify-center group-hover:border-primary-teal transition-all">
             <Plus size={24} />
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest">Add New Faculty</span>
+          <span className="text-[10px] font-black uppercase tracking-widest">{t('add_new_faculty')}</span>
         </button>
       </div>
     </div>
@@ -320,7 +423,7 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
           <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-200 flex items-center justify-center group-hover:border-slate-900 transition-all">
             <Plus size={24} />
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest">Add Admin Unit</span>
+          <span className="text-[10px] font-black uppercase tracking-widest">{t('add_admin_unit')}</span>
         </button>
       </div>
     </div>
@@ -369,7 +472,7 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
             className="fintech-card border-2 border-dashed border-slate-200 p-6 flex flex-col items-center justify-center gap-4 text-slate-400 hover:border-primary-teal hover:text-primary-teal transition-all group"
           >
             <Plus size={24} />
-            <span className="text-[10px] font-black uppercase tracking-widest">Add {parentType === 'FACULTY' ? 'Department' : 'Section'}</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">{t('add_type_unit', { type: parentType === 'FACULTY' ? t('department') : t('section') })}</span>
           </button>
         </div>
       </div>
@@ -393,7 +496,7 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
               </div>
               <div className="flex-1 text-start">
                 <h4 className="font-black text-slate-900 uppercase tracking-tight">{p.name}</h4>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{p.jobTitle || 'Staff Member'}</p>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{p.jobTitle || t('staff_member')}</p>
                 <div className="mt-4 flex gap-2">
                   <div className="bg-slate-50 p-2 rounded-xl flex-1 text-center">
                     <div className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">ID No</div>
@@ -426,7 +529,7 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
              className="fintech-card border-2 border-dashed border-slate-200 p-6 flex flex-col items-center justify-center gap-4 text-slate-400 hover:border-primary-teal hover:text-primary-teal transition-all group min-h-[140px]"
           >
             <Plus size={24} />
-            <span className="text-[10px] font-black uppercase tracking-widest">Register Personnel</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">{t('register_personnel')}</span>
           </button>
         </div>
       </div>
@@ -456,10 +559,10 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
                       try {
                         await traceabilityService.updatePersonnel(selectedPerson.id, { image: base64 });
                         setSelectedPerson({ ...selectedPerson, image: base64 });
-                        toast.success("Profile picture updated");
+                        toast.success(t('profile_pic_updated'));
                         fetchBaseData();
                       } catch (err) {
-                        toast.error("Failed to update picture");
+                        toast.error(t('profile_pic_failed'));
                       }
                     };
                     reader.readAsDataURL(file);
@@ -476,7 +579,7 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
             className="w-full mt-6 bg-slate-900 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all flex items-center justify-center gap-2 group no-print"
           >
             <Plus size={16} className="group-hover:rotate-90 transition-transform" />
-            Assign Item
+            {t('assign_item')}
           </button>
 
           <div className="mt-10 grid grid-cols-1 gap-4 text-start">
@@ -501,7 +604,7 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
               </div>
               <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-full border border-slate-100">
                 <Clock size={14} className="text-slate-400" />
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Full Ledger Access</span>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('full_ledger_access')}</span>
               </div>
            </div>
            
@@ -525,7 +628,7 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
               )) : (
                 <div className="p-12 text-center text-slate-400">
                    <Package size={48} className="mx-auto mb-4 opacity-20" />
-                   <p className="text-[10px] font-black uppercase tracking-widest">No allocations recorded for this person</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest">{t('no_allocations_recorded')}</p>
                 </div>
               )}
            </div>
@@ -535,13 +638,13 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
         <div className="hidden print:grid grid-cols-2 gap-20 mt-20 pt-10 border-t border-slate-100">
           <div className="text-start">
             <div className="w-48 h-px bg-slate-900 mb-2" />
-            <div className="text-[10px] font-black uppercase tracking-widest text-slate-900 leading-none">Employee Signature</div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-900 leading-none">{t('employee_signature')}</div>
             <div className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-[0.2em]">{selectedPerson.name}</div>
           </div>
           <div className="text-end flex flex-col items-end">
             <div className="w-48 h-px bg-slate-900 mb-2" />
-            <div className="text-[10px] font-black uppercase tracking-widest text-slate-900 leading-none">Director of Logistics</div>
-            <div className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-[0.2em]">Authorized Verification</div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-900 leading-none">{t('director_logistics')}</div>
+            <div className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-[0.2em]">{t('authorized_verification')}</div>
           </div>
         </div>
       </div>
@@ -550,19 +653,7 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
 
    return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Print-only University Header */}
-      <div className="hidden print:block mb-10 pb-6 border-b-2 border-slate-900 text-start">
-        <div className="flex justify-between items-end">
-          <div className="text-start">
-            <h1 className="text-3xl font-black uppercase tracking-tighter">Kandahar University</h1>
-            <p className="text-[12px] font-bold uppercase tracking-widest text-slate-500">Logistics & Asset Management Directorate</p>
-          </div>
-          <div className="text-end">
-            <div className="text-xl font-black uppercase italic">Personnel Liability Ledger</div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Date Generated: {new Date().toLocaleDateString()}</div>
-          </div>
-        </div>
-      </div>
+      {/* Print-only University Header removed to avoid redundancy with ReportManager header */}
 
       {/* Print-only Data for PERSONNEL_DETAILS */}
       {level === 'PERSONNEL_DETAILS' && selectedPerson && (
@@ -584,12 +675,12 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
               <div className="bg-slate-900 text-white p-6 rounded-3xl text-center min-w-[200px]">
                  <div className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Total Assets Held</div>
                  <div className="text-5xl font-black">{selectedPerson.itemsCount || 0}</div>
-                 <div className="text-[8px] font-black uppercase tracking-[0.3em] mt-2 italic text-emerald-400">Verified Personnel Liability</div>
+                 <div className="text-[8px] font-black uppercase tracking-[0.3em] mt-2 italic text-emerald-400">{t('verified_liability')}</div>
               </div>
            </div>
 
            <div className="space-y-6">
-              <h3 className="text-xl font-black uppercase italic border-b-2 border-slate-900 pb-2">Complete Asset Allocation History</h3>
+              <h3 className="text-xl font-black uppercase italic border-b-2 border-slate-900 pb-2">{t('asset_allocation_history')}</h3>
               <table className="w-full border-collapse border-4 border-slate-900">
                 <thead>
                   <tr className="bg-slate-900 text-white">
@@ -648,33 +739,33 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
             )}
           </div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic flex items-center gap-4">
-             {level === 'ROOT' && 'System Drill-Down'}
-             {level === 'FACULTIES_L1' && 'University Faculties'}
-             {level === 'ADMIN_L1' && 'Administrative Section'}
+             {level === 'ROOT' && t('system_drill_down')}
+             {level === 'FACULTIES_L1' && t('university_faculties')}
+             {level === 'ADMIN_L1' && t('administrative_section')}
              {(level === 'FACULTY_L2' || level === 'ADMIN_L2') && (selectedFaculty?.name || selectedAdminUnit?.name)}
              {level === 'PERSONNEL_L3' && selectedDepartment?.name}
-             {level === 'PERSONNEL_DETAILS' && 'Personnel Portrait'}
+             {level === 'PERSONNEL_DETAILS' && t('personnel_portrait')}
           </h2>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 no-print">
-          {/* Print button removed as requested */}
+          {/* Print button removed to avoid redundancy with the global print button in ReportManager */}
 
           <div className="relative group">
             <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-[#0F8F7F] transition-colors" />
             <input 
               type="text" 
-              placeholder="Search Intelligence..."
+              placeholder={t('search_intelligence')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-white border-2 border-slate-100 rounded-3xl py-4 pl-14 pr-6 text-[11px] font-black uppercase tracking-widest outline-none focus:border-[#0F8F7F] focus:ring-4 focus:ring-[#0F8F7F]/5 transition-all shadow-xl shadow-slate-900/5 lg:w-80"
             />
             {searchTerm && (
               <div className="absolute top-full mt-3 left-0 right-0 bg-white border border-slate-100 rounded-3xl shadow-2xl z-[100] max-h-[300px] overflow-y-auto custom-scrollbar p-4 space-y-2">
-                <div className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-2 border-b border-slate-50 pb-2 text-start">Matched entities found</div>
-                {personnel.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map((p, idx) => (
+                <div className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-2 border-b border-slate-50 pb-2 text-start">{t('matched_entities')}</div>
+                {personnel.filter(p => (p.name || '').toLowerCase().includes((searchTerm || '').toLowerCase())).map((p, idx) => (
                   <div key={`s-p-${idx}`} onClick={() => { setSelectedPerson(p); setLevel('PERSONNEL_DETAILS'); getPersonHistory(p); setSearchTerm(''); }} className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-2xl cursor-pointer transition-all">
-                    <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-[#0F8F7F] font-black text-[10px] border border-slate-100 uppercase">{p.name[0]}</div>
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-[#0F8F7F] font-black text-[10px] border border-slate-100 uppercase">{(p.name || '?')[0]}</div>
                     <div className="flex flex-col text-start">
                       <span className="text-[10px] font-black text-slate-900 uppercase">{p.name}</span>
                       <span className="text-[8px] font-bold text-slate-400 uppercase">{p.jobTitle || 'Personnel'}</span>
@@ -697,44 +788,44 @@ export const TraceabilitySection: React.FC<TraceabilitySectionProps> = ({ onRefr
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 no-print">
-         <StatWidget 
-           key="stat-units" 
-           label="Units Total" 
-           value={(totals.faculties + totals.adminUnits).toString()} 
-           icon={<Target size={18}/>} 
-           color="primary" 
-           onClick={() => setLevel('ROOT')}
-         />
-         <StatWidget 
-           key="stat-depts" 
-           label="Departments" 
-           value={departments.length.toString()} 
-           icon={<LayoutGrid size={18}/>} 
-           color="amber" 
-           onClick={() => setLevel('FACULTIES_L1')}
-         />
-         <StatWidget 
-           key="stat-personnel" 
-           label="System Personnel" 
-           value={personnel.length.toString()} 
-           icon={<Users size={18}/>} 
-           color="slate" 
-           onClick={() => {
-             const input = document.querySelector('input[placeholder="Search Intelligence..."]') as HTMLInputElement;
-             if (input) {
-               input.focus();
-               toast.info("Filter personnel by name using the search intelligence bar");
-             }
-           }}
-         />
-         <StatWidget 
-           key="stat-assets" 
-           label="Allocated Assets" 
-           value={totals.items.toString()} 
-           icon={<Package size={18}/>} 
-           color="teal" 
-           onClick={() => navigate('/reports', { state: { tab: 'analytics' } })}
-         />
+          <StatWidget 
+            key="stat-units" 
+            label={t('units_total')} 
+            value={(totals.faculties + totals.adminUnits).toString()} 
+            icon={<Target size={18}/>} 
+            color="primary" 
+            onClick={() => setLevel('ROOT')}
+          />
+          <StatWidget 
+            key="stat-depts" 
+            label={t('departments')} 
+            value={departments.length.toString()} 
+            icon={<LayoutGrid size={18}/>} 
+            color="amber" 
+            onClick={() => setLevel('FACULTIES_L1')}
+          />
+          <StatWidget 
+            key="stat-personnel" 
+            label={t('system_personnel')} 
+            value={personnel.length.toString()} 
+            icon={<Users size={18}/>} 
+            color="slate" 
+            onClick={() => {
+              const input = document.querySelector('input') as HTMLInputElement;
+              if (input) {
+                input.focus();
+                toast.info(t('filter_personnel_hint'));
+              }
+            }}
+          />
+          <StatWidget 
+            key="stat-assets" 
+            label={t('allocated_assets')} 
+            value={totals.items.toString()} 
+            icon={<Package size={18}/>} 
+            color="teal" 
+            onClick={() => navigate('/reports', { state: { tab: 'analytics' } })}
+          />
       </div>
 
       <main className="mt-8">
@@ -888,6 +979,63 @@ const ManualAllocationModal = ({ person, items, onClose, onSuccess }: any) => {
           </form>
         </div>
       </div>
+    </div>
+  );
+};
+
+const PersonnelTable = ({ data, onSelect }: { data: any[], onSelect: (p: any) => void }) => {
+  const { t } = useTranslation();
+  return (
+    <div className="overflow-x-auto custom-scrollbar">
+      <table className="w-full text-start">
+        <thead>
+          <tr className="border-b border-slate-100">
+            <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-start">{t('name')}</th>
+            <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-start">{t('job_title')}</th>
+            <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-start">{t('faculty')}</th>
+            <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{t('items')}</th>
+            <th className="pb-4 text-center"></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50">
+          {data.length > 0 ? data.map((p, idx) => (
+            <tr key={p.id || idx} className="group hover:bg-slate-50/50 transition-colors">
+              <td className="py-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden shadow-sm flex-shrink-0">
+                    <img src={p.image || `https://i.pravatar.cc/150?u=${p.id}`} className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-black text-slate-900 uppercase tracking-tight">{p.name}</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase">{p.idNumber || 'L-992-1'}</div>
+                  </div>
+                </div>
+              </td>
+              <td className="py-4 text-[10px] font-black text-slate-600 uppercase tracking-widest">{p.jobTitle || 'Staff'}</td>
+              <td className="py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{p.faculty || 'Unassigned'}</td>
+              <td className="py-4 text-center">
+                <span className="px-3 py-1 bg-primary-teal/5 text-primary-teal rounded-full text-[10px] font-black">
+                  {p.itemsCount || 0}
+                </span>
+              </td>
+              <td className="py-4 text-center">
+                <button 
+                  onClick={() => onSelect(p)}
+                  className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[8px] font-black uppercase tracking-widest hover:bg-primary-teal transition-all opacity-0 group-hover:opacity-100 shadow-lg shadow-slate-900/10"
+                >
+                  {t('view_details')}
+                </button>
+              </td>
+            </tr>
+          )) : (
+            <tr>
+              <td colSpan={5} className="py-20 text-center text-slate-300 font-black uppercase text-xs tracking-widest">
+                {t('no_data')}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 };

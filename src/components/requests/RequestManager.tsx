@@ -23,10 +23,11 @@ import { cn } from '@/src/lib/utils';
 import { toast } from 'sonner';
 import { ItemHierarchyModal } from '../inventory/ItemHierarchyModal';
 import { ConfirmModal } from '../ui/ConfirmModal';
+import { openPrintWindow } from '@/src/lib/print-utils';
 import api from '@/src/services/api';
 
 export const RequestManager = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -155,8 +156,48 @@ export const RequestManager = () => {
   const [showPrintOptions, setShowPrintOptions] = useState(false);
   const [printFilters, setPrintFilters] = useState({ from: '', to: '' });
 
+  const translatedStatus: Record<string, string> = {
+    'Pending': t('status_pending'),
+    'Approved': t('status_approved'),
+    'Delivered': t('status_delivered'),
+    'COMPLETED': t('status_completed') || 'Completed',
+    'REJECTED': t('status_rejected'),
+    'Procurement': t('status_procurement'),
+    'Rejected': t('status_rejected'),
+    'TENDER_CREATED': 'Tender Open',
+    'WINNER_SELECTED': 'Winner Selected',
+  };
+
   const handlePrintAll = () => {
-    window.print();
+    const title = t('requests_report');
+    const content = `
+      <div style="direction: ${i18n.language === 'ps' ? 'rtl' : 'ltr'};">
+        <h1 style="text-align: center; margin-bottom: 30px;">${t('requests_report') || 'Requests Report'}</h1>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: #f1f5f9;">
+              <th style="border: 1px solid #ccc; padding: 10px; text-align: start;">${t('reference')}</th>
+              <th style="border: 1px solid #ccc; padding: 10px; text-align: start;">${t('title')}</th>
+              <th style="border: 1px solid #ccc; padding: 10px; text-align: start;">${t('requester')}</th>
+              <th style="border: 1px solid #ccc; padding: 10px; text-align: start;">${t('status')}</th>
+              <th style="border: 1px solid #ccc; padding: 10px; text-align: start;">${t('date')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${requests.map(req => `
+              <tr>
+                <td style="border: 1px solid #ccc; padding: 10px;">${req.trackingId}</td>
+                <td style="border: 1px solid #ccc; padding: 10px;">${req.title}</td>
+                <td style="border: 1px solid #ccc; padding: 10px;">${req.requester}</td>
+                <td style="border: 1px solid #ccc; padding: 10px;">${translatedStatus[req.status] || req.status}</td>
+                <td style="border: 1px solid #ccc; padding: 10px;">${new Date(req.createdAt).toLocaleDateString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+    openPrintWindow(title, content);
   };
 
   const handlePrintRange = () => {
@@ -175,34 +216,20 @@ export const RequestManager = () => {
       return;
     }
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    
-    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
-    
     const content = filtered.map(req => `
-      <div style="page-break-after: always; padding: 40px; border: 4px solid black; border-radius: 40px; margin-bottom: 40px;">
-        <h1 style="font-size: 24px; font-weight: 900; margin-bottom: 20px;">Request ID: ${req.trackingId}</h1>
-        <p><strong>Requester:</strong> ${req.requester}</p>
-        <p><strong>Status:</strong> ${req.status}</p>
-        <p><strong>Date:</strong> ${new Date(req.createdAt).toLocaleDateString()}</p>
-        <h3>Items:</h3>
+      <div style="page-break-after: always; padding: 40px; border: 4px solid black; border-radius: 40px; margin-bottom: 40px; direction: ${i18n.language === 'ps' ? 'rtl' : 'ltr'};">
+        <h1 style="font-size: 24px; font-weight: 900; margin-bottom: 20px;">${t('reference')}: ${req.trackingId}</h1>
+        <p><strong>${t('requester')}:</strong> ${req.requester}</p>
+        <p><strong>${t('status')}:</strong> ${translatedStatus[req.status] || req.status}</p>
+        <p><strong>${t('date')}:</strong> ${new Date(req.createdAt).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'fa-AF')}</p>
+        <h3>${t('items_requested')}:</h3>
         <ul>
           ${(req.items || []).map((i: any) => `<li>${i.name} (${i.quantity || 1})</li>`).join('')}
         </ul>
       </div>
     `).join('');
 
-    printWindow.document.write(`
-      <html dir="${t('lang_direction')}">
-        <head><title>Batch Print</title>${styles}</head>
-        <body style="background: white !important;">
-          <div style="max-w-4xl mx-auto">${content}</div>
-          <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); };</script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    openPrintWindow(t('batch_print'), content);
     setShowPrintOptions(false);
   };
 
@@ -223,8 +250,8 @@ export const RequestManager = () => {
           <div className="bg-white rounded-[40px] p-8 lg:p-10 max-w-2xl w-full shadow-2xl space-y-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between text-start">
               <div>
-                <h3 className="text-3xl font-black text-slate-900 italic">Finalize Request</h3>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Configure requester details & approval chain</p>
+                <h3 className="text-3xl font-black text-slate-900 italic">{t('finalize_request')}</h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">{t('configure_requester_details')}</p>
               </div>
               <button 
                 onClick={() => setSelectedItemForRequest(null)} 
@@ -236,10 +263,10 @@ export const RequestManager = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-start">
                <div className="space-y-4">
-                  <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] mb-4">Requester Information</h4>
+                  <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] mb-4">{t('requester_info')}</h4>
                   <div className="space-y-3">
                      <div className="space-y-1 text-start">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Name</label>
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">{t('name')}</label>
                         <input 
                           placeholder="e.g. Ahmad Shah"
                           value={requesterInfo.name}
@@ -250,7 +277,7 @@ export const RequestManager = () => {
                             // Dynamic alert logic
                             if (val.length > 3) {
                               const existing = requests.filter(r => 
-                                r.requester.toLowerCase().includes(val.toLowerCase()) && 
+                                (r.requester || '').toLowerCase().includes((val || '').toLowerCase()) && 
                                 (r.status === 'Approved' || r.status === 'Delivered')
                               );
                               if (existing.length > 0) {
@@ -267,11 +294,11 @@ export const RequestManager = () => {
                         {requesterInfo.name.length > 3 && (
                           <div className="bg-primary-teal/5 border border-primary-teal/10 rounded-2xl p-4 mt-2">
                              <div className="flex items-center justify-between mb-2">
-                               <span className="text-[9px] font-black uppercase text-primary-teal tracking-widest">Requester History</span>
+                               <span className="text-[9px] font-black uppercase text-primary-teal tracking-widest">{t('requester_history') || 'Requester History'}</span>
                              </div>
                              <div className="space-y-1.5 max-h-[80px] overflow-y-auto custom-scrollbar">
                                {requests.filter(r => 
-                                 r.requester.toLowerCase().includes(requesterInfo.name.toLowerCase()) && 
+                                 (r.requester || '').toLowerCase().includes((requesterInfo.name || '').toLowerCase()) && 
                                  (r.status === 'Approved' || r.status === 'Delivered')
                                ).map((r, idx) => (
                                  <div key={idx} className="flex items-center justify-between bg-white/50 p-2 rounded-lg">
@@ -283,7 +310,7 @@ export const RequestManager = () => {
                         )}
                      </div>
                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Official Email</label>
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">{t('official_email')}</label>
                         <input 
                           placeholder="ahmad@kdru.edu.af"
                           value={requesterInfo.email}
@@ -293,7 +320,7 @@ export const RequestManager = () => {
                      </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1 text-start">
-                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Faculty *</label>
+                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">{t('faculty')} *</label>
                            <select 
                              value={requesterInfo.faculty}
                              onChange={(e) => {
@@ -308,14 +335,14 @@ export const RequestManager = () => {
                              className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-[#0F8F7F]/20 appearance-none"
                              required
                            >
-                             <option value="">Select Faculty</option>
+                             <option value="">{t('select_faculty') || 'Select Faculty'}</option>
                              {faculties.map(f => (
                                <option key={f.id} value={f.id}>{f.name}</option>
                              ))}
                            </select>
                         </div>
                         <div className="space-y-1 text-start">
-                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Department *</label>
+                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">{t('department')} *</label>
                            <select 
                              value={requesterInfo.department}
                              onChange={(e) => setRequesterInfo({...requesterInfo, department: e.target.value})}
@@ -323,7 +350,7 @@ export const RequestManager = () => {
                              className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-[10px] font-bold outline-none focus:ring-2 focus:ring-[#0F8F7F]/20 appearance-none disabled:opacity-50"
                              required
                            >
-                             <option value="">Select Dept</option>
+                             <option value="">{t('select_department') || 'Select Dept'}</option>
                              {filteredDepartments.map(d => (
                                <option key={d.id} value={d.id}>{d.name}</option>
                              ))}
@@ -332,7 +359,7 @@ export const RequestManager = () => {
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1 text-start">
-                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Position / Role</label>
+                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">{t('position_role')}</label>
                            <input 
                              placeholder="Lecturer"
                              value={requesterInfo.role}
@@ -341,7 +368,7 @@ export const RequestManager = () => {
                            />
                         </div>
                         <div className="space-y-1 text-start">
-                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Cell Number</label>
+                           <label className="text-[9px] font-black text-slate-400 uppercase ml-2">{t('cell_number')}</label>
                            <input 
                              placeholder="070XXXXXXX"
                              value={requesterInfo.cellNumber}
@@ -352,10 +379,10 @@ export const RequestManager = () => {
                       </div>
                   </div>
                </div>
-
+    
                <div className="space-y-4">
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Approval Chain</h4>
+                    <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">{t('approval_chain')}</h4>
                     <button 
                       type="button"
                       onClick={addApproverSlot}
@@ -389,10 +416,10 @@ export const RequestManager = () => {
                               onChange={(e) => updateApprover(idx, 'role', e.target.value)}
                               className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-[9px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-primary-teal/20 transition-all appearance-none"
                             >
-                              <option>Supervisor</option>
-                              <option>Finance</option>
-                              <option>Director</option>
-                              <option>Member</option>
+                              <option value="Supervisor">{t('supervisor') || 'Supervisor'}</option>
+                              <option value="Finance">{t('finance') || 'Finance'}</option>
+                              <option value="Director">{t('director') || 'Director'}</option>
+                              <option value="Member">{t('member') || 'Member'}</option>
                             </select>
                           </div>
                         </div>
@@ -401,7 +428,7 @@ export const RequestManager = () => {
                   </div>
                </div>
             </div>
-
+    
             <button 
               onClick={() => {
                 handleRequestItem(selectedItemForRequest);
@@ -410,7 +437,7 @@ export const RequestManager = () => {
               disabled={loading}
               className="w-full bg-slate-900 text-white py-6 rounded-3xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-primary-teal transition-all shadow-xl shadow-slate-900/10 flex items-center justify-center gap-3 active:scale-95"
             >
-              {loading ? 'Processing...' : 'Confirm Submission'}
+              {loading ? t('processing') : t('confirm_submission')}
             </button>
           </div>
         </div>
@@ -429,11 +456,11 @@ export const RequestManager = () => {
               className="w-full sm:w-auto flex items-center justify-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10"
             >
               <Printer size={18} />
-              Print Options
+              {t('print_options')}
             </button>
             {showPrintOptions && (
               <div className="absolute top-full mt-2 left-0 z-50 bg-white border-2 border-slate-900 rounded-2xl p-4 shadow-2xl min-w-[300px] animate-in zoom-in-95 duration-200">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Print Date Range</h4>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">{t('print_date_range')}</h4>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-2">
                     <input 
@@ -453,13 +480,13 @@ export const RequestManager = () => {
                     onClick={handlePrintRange}
                     className="w-full py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-all"
                   >
-                    Print Range
+                    {t('print_range')}
                   </button>
                   <button 
                     onClick={handlePrintAll}
                     className="w-full py-3 bg-slate-100 text-slate-900 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all"
                   >
-                    Print All (Screen)
+                    {t('print_all_screen')}
                   </button>
                 </div>
               </div>
@@ -503,7 +530,7 @@ export const RequestManager = () => {
           ))
         ) : (
           Array.isArray(requests) && requests.map((req) => (
-            <RequestListItem key={req.id} request={req} onUpdate={fetchRequests} />
+            <RequestListItem key={req.id} request={req} onUpdate={fetchRequests} translatedStatus={translatedStatus} />
           ))
         )}
       </div>
@@ -513,8 +540,8 @@ export const RequestManager = () => {
 
 import { smsService } from '@/src/services/smsService';
 
-const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ request, onUpdate }) => {
-  const { t } = useTranslation();
+const RequestListItem: React.FC<{ request: any, onUpdate: () => void, translatedStatus: Record<string, string> }> = ({ request, onUpdate, translatedStatus }) => {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   
@@ -530,20 +557,12 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
     'Pending': { color: 'text-amber-600 bg-amber-50 border-amber-100', icon: Clock },
     'Approved': { color: 'text-emerald-600 bg-emerald-50 border-emerald-100', icon: CheckCircle2 },
     'Delivered': { color: 'text-emerald-600 bg-emerald-50 border-emerald-100', icon: CheckCircle2 },
+    'COMPLETED': { color: 'text-emerald-700 bg-emerald-50 border-emerald-200', icon: CheckCircle2 },
     'Procurement': { color: 'text-blue-600 bg-blue-50 border-blue-100', icon: FileText },
     'Rejected': { color: 'text-red-600 bg-red-50 border-red-100', icon: XCircle },
+    'REJECTED': { color: 'text-red-600 bg-red-50 border-red-100', icon: XCircle },
     'TENDER_CREATED': { color: 'text-indigo-600 bg-indigo-50 border-indigo-100', icon: Tag },
     'WINNER_SELECTED': { color: 'text-purple-600 bg-purple-50 border-purple-100', icon: Package },
-  };
-
-  const translatedStatus: Record<string, string> = {
-    'Pending': t('status_pending'),
-    'Approved': t('status_approved'),
-    'Delivered': t('status_delivered'),
-    'Procurement': t('status_procurement'),
-    'Rejected': t('status_rejected'),
-    'TENDER_CREATED': 'Tender Open',
-    'WINNER_SELECTED': 'Winner Selected',
   };
 
   const getProgressColor = (progress: number) => {
@@ -552,9 +571,13 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
     return 'bg-slate-300';
   };
 
-  const handleUpdate = async (status: string, progress: number) => {
+  const handleUpdate = async (status: string, progress: number, takenStatus?: string) => {
     try {
-      await requestService.updateStatus(request.id, { status, progress });
+      const payload: any = { status, progress };
+      if (takenStatus) payload.takenStatus = takenStatus;
+      
+      const oldStatus = request.status;
+      await requestService.updateStatus(request.id, payload);
       
       // Automatic stock reduction when items are distributed (Approved/Issued)
       if (status === 'Approved' || status === 'Delivered') {
@@ -587,6 +610,24 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
         }
       }
 
+      // Handle stock reversal for NOT_TAKEN
+      if (takenStatus === 'NOT_TAKEN') {
+        const item = request.items?.[0];
+        // Only return stock if it was likely already deducted (status was Approved or Delivered)
+        if (item && item.id && (oldStatus === 'Approved' || oldStatus === 'Delivered' || oldStatus === 'COMPLETED')) {
+           try {
+             await api.post('/return-stock', {
+               itemId: item.id,
+               quantity: item.quantity || 1,
+               reason: "Request not taken"
+             });
+             toast.success(`Stock returned: ${item.name} quantity restored.`);
+           } catch (returnError) {
+             console.error("Return stock failed:", returnError);
+           }
+        }
+      }
+
       toast.success(`Request ${status} successfully`);
       
       // Send SMS
@@ -615,105 +656,88 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
   };
 
   const handlePrintRequest = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    
-    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('\n');
-    
-    printWindow.document.write(`
-      <html dir="${t('lang_direction')}">
-        <head>
-          <title>Request - ${request.trackingId}</title>
-          ${styles}
-          <style>
-            @page { size: A4; margin: 20mm; }
-            body { padding: 40px; font-family: sans-serif; background: white !important; }
-            .no-print { display: none !important; }
-          </style>
-        </head>
-        <body class="bg-white">
-          <div class="max-w-4xl mx-auto p-10 border-4 border-slate-900 rounded-[40px] bg-white">
-            <div class="flex justify-between items-start mb-10 border-b-4 border-slate-900 pb-8">
-              <div class="text-start">
-                <h1 class="text-4xl font-black italic uppercase text-slate-900">Official Request</h1>
-                <p class="text-xs font-black uppercase tracking-widest text-slate-400 mt-2">Kandahar University Logistics System</p>
+    const title = `${t('official_request')} - ${request.trackingId}`;
+    const content = `
+      <div class="max-w-4xl mx-auto p-10 border-4 border-slate-900 rounded-[40px] bg-white">
+        <div class="flex justify-between items-start mb-10 border-b-4 border-slate-900 pb-8">
+          <div class="text-start">
+            <h1 class="text-4xl font-black italic uppercase text-slate-900">${t('official_request')}</h1>
+            <p class="text-xs font-black uppercase tracking-widest text-slate-400 mt-2">${t('university_logistics_center')}</p>
+          </div>
+          <div class="text-end">
+            <div class="bg-black text-white px-4 py-1 rounded-lg font-mono text-sm font-black tracking-widest mb-2">${request.trackingId}</div>
+            <div class="text-[10px] font-black uppercase text-slate-400">${t('date')}: ${new Date(request.createdAt).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'fa-AF')}</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-12 mb-12">
+           <div class="space-y-4">
+              <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-primary-teal border-b border-primary-teal/20 pb-2 text-start">${t('requester_details')}</h3>
+              <div class="space-y-2 text-start">
+                <div class="text-xl font-black text-slate-900 text-start">${request.requester}</div>
+                <div class="text-xs font-bold text-slate-500 text-start">${request.requesterEmail}</div>
+                <div class="text-[10px] font-black uppercase text-slate-400 mt-2 text-start">${request.requesterFaculty} / ${request.requesterDepartment || 'N/A'}</div>
+                <div class="text-[10px] font-black uppercase text-slate-400 text-start">${request.requesterRole}</div>
               </div>
-              <div class="text-end">
-                <div class="bg-black text-white px-4 py-1 rounded-lg font-mono text-sm font-black tracking-widest mb-2">${request.trackingId}</div>
-                <div class="text-[10px] font-black uppercase text-slate-400">Date: ${new Date(request.createdAt).toLocaleDateString()}</div>
+           </div>
+           <div class="space-y-4">
+              <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-primary-teal border-b border-primary-teal/20 pb-2 text-start">${t('request_status')}</h3>
+              <div class="space-y-2 text-start">
+                <div class="text-2xl font-black text-slate-900 text-start">${translatedStatus[request.status] || request.status}</div>
+                <div class="text-xs font-bold text-slate-500 text-start">${t('progress') || 'Progress'}: ${request.progress}%</div>
               </div>
-            </div>
+           </div>
+        </div>
 
-            <div class="grid grid-cols-2 gap-12 mb-12">
-               <div class="space-y-4">
-                  <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-primary-teal border-b border-primary-teal/20 pb-2">Requester Details</h3>
-                  <div class="space-y-2">
-                    <div class="text-xl font-black text-slate-900">${request.requester}</div>
-                    <div class="text-xs font-bold text-slate-500">${request.requesterEmail}</div>
-                    <div class="text-[10px] font-black uppercase text-slate-400 mt-2">${request.requesterFaculty} / ${request.requesterDepartment || 'N/A'}</div>
-                    <div class="text-[10px] font-black uppercase text-slate-400">${request.requesterRole}</div>
+        <div class="mb-12">
+           <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900 mb-4 bg-slate-50 p-3 rounded-xl text-start">${t('items_requested')}</h3>
+           <table class="w-full text-start border-collapse">
+             <thead>
+               <tr class="border-b-2 border-slate-900">
+                 <th class="py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-start">${t('description')}</th>
+                 <th class="py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">${t('quantity')}</th>
+                 <th class="py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">${t('item_code')}</th>
+               </tr>
+             </thead>
+             <tbody>
+               ${(request.items || []).map((item: any) => `
+                 <tr class="border-b border-slate-100">
+                   <td class="py-4 font-black text-slate-900 text-sm text-start">${item.name}</td>
+                   <td class="py-4 font-black text-slate-900 text-sm text-center">${item.quantity || 1}</td>
+                   <td class="py-4 font-mono text-[10px] text-slate-400 text-center">${item.item_code || '---'}</td>
+                 </tr>
+               `).join('')}
+             </tbody>
+           </table>
+        </div>
+
+        ${request.approvalChain && request.approvalChain.length > 0 ? `
+          <div class="mt-12 pt-8 border-t-2 border-slate-100">
+            <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900 mb-8 text-start">${t('approval_chain_verification')}</h3>
+            <div class="grid grid-cols-3 gap-8">
+              ${request.approvalChain.map((a: any) => `
+                <div class="flex flex-col items-center">
+                  <div class="w-full h-24 border-2 border-slate-100 rounded-2xl mb-3 flex items-center justify-center">
+                    ${a.approved ? `<span class="text-[8px] font-black uppercase text-emerald-500 border border-emerald-500 px-2 py-1 rounded">${t('electronically_signed')}</span>` : `<span class="text-[8px] font-black uppercase text-slate-300">${t('pending_signature')}</span>`}
                   </div>
-               </div>
-               <div class="space-y-4">
-                  <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-primary-teal border-b border-primary-teal/20 pb-2">Request Status</h3>
-                  <div class="space-y-2">
-                    <div class="text-2xl font-black text-slate-900">${request.status}</div>
-                    <div class="text-xs font-bold text-slate-500">Progress: ${request.progress}%</div>
-                  </div>
-               </div>
-            </div>
-
-            <div class="mb-12">
-               <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900 mb-4 bg-slate-50 p-3 rounded-xl">Requested Items</h3>
-               <table class="w-full text-start border-collapse">
-                 <thead>
-                   <tr class="border-b-2 border-slate-900">
-                     <th class="py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Description</th>
-                     <th class="py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Qty</th>
-                     <th class="py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Code</th>
-                   </tr>
-                 </thead>
-                 <tbody>
-                   ${(request.items || []).map((item: any) => `
-                     <tr class="border-b border-slate-100">
-                       <td class="py-4 font-black text-slate-900 text-sm">${item.name}</td>
-                       <td class="py-4 font-black text-slate-900 text-sm text-center">${item.quantity || 1}</td>
-                       <td class="py-4 font-mono text-[10px] text-slate-400 text-center">${item.item_code || '---'}</td>
-                     </tr>
-                   `).join('')}
-                 </tbody>
-               </table>
-            </div>
-
-            ${request.approvalChain && request.approvalChain.length > 0 ? `
-              <div class="mt-12 pt-8 border-t-2 border-slate-100">
-                <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900 mb-8">Approval Chain Verification</h3>
-                <div class="grid grid-cols-3 gap-8">
-                  ${request.approvalChain.map((a: any) => `
-                    <div class="flex flex-col items-center">
-                      <div class="w-full h-24 border-2 border-slate-100 rounded-2xl mb-3 flex items-center justify-center">
-                        ${a.approved ? '<span class="text-[8px] font-black uppercase text-emerald-500 border border-emerald-500 px-2 py-1 rounded">Electronically Signed</span>' : '<span class="text-[8px] font-black uppercase text-slate-300">Pending Signature</span>'}
-                      </div>
-                      <div class="text-[10px] font-black text-slate-900 uppercase">${a.name}</div>
-                      <div class="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">${a.role}</div>
-                    </div>
-                  `).join('')}
+                  <div class="text-[10px] font-black text-slate-900 uppercase">${a.name}</div>
+                  <div class="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">${a.role}</div>
                 </div>
-              </div>
-            ` : ''}
-
-            <div class="mt-20 pt-8 border-t border-slate-100 text-center">
-              <p class="text-[8px] font-black uppercase tracking-[0.4em] text-slate-300 italic">Kandahar University Logistics Hub • Digital Verification System</p>
+              `).join('')}
             </div>
           </div>
-          <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); };</script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+        ` : ''}
+
+        <div class="mt-20 pt-8 border-t border-slate-100 text-center">
+          <p class="text-[8px] font-black uppercase tracking-[0.4em] text-slate-300 italic">${t('university_logistics_center')} • Digital Verification System</p>
+        </div>
+      </div>
+    `;
+
+    openPrintWindow(title, content, '');
   };
 
-  const config = statusConfig[request.status] || statusConfig['Pending'];
+  const config = statusConfig[request.status] || statusConfig['Pending'] || { color: 'text-slate-400 bg-slate-50', icon: Clock };
   const currentProgress = Number(request.progress) || 0;
 
   return (
@@ -721,7 +745,7 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
       <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-10">
         <div className="flex items-start gap-6 flex-1">
           <div className={cn("w-16 h-16 rounded-2xl border flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-110", config.color)}>
-            <config.icon size={28} />
+            {config.icon && <config.icon size={28} />}
           </div>
           <div>
             <div className="flex items-center gap-3">
@@ -866,10 +890,27 @@ const RequestListItem: React.FC<{ request: any, onUpdate: () => void }> = ({ req
                  </button>
                </>
              )}
+
+             {currentProgress === 100 && request.status !== 'COMPLETED' && request.status !== 'REJECTED' && (
+               <>
+                 <button 
+                   onClick={() => handleUpdate('COMPLETED', 100, 'TAKEN')}
+                   className="px-6 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 whitespace-nowrap"
+                 >
+                   {t('taken') || 'Taken'}
+                 </button>
+                 <button 
+                   onClick={() => handleUpdate('REJECTED', 100, 'NOT_TAKEN')}
+                   className="px-6 py-3 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20 whitespace-nowrap"
+                 >
+                   {t('not_taken') || 'Not Taken'}
+                 </button>
+               </>
+             )}
              <button 
                onClick={handlePrintRequest}
                className="w-14 h-14 bg-white text-slate-900 rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm flex items-center justify-center border border-slate-900"
-               title="Print Report"
+               title={t('print')}
              >
                <Printer size={20} />
              </button>
